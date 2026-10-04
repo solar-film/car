@@ -446,6 +446,36 @@
             border-radius: 4px;
             flex-shrink: 0;
         }
+        .booking-heading-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            width: 100%;
+        }
+        .booking-add-lead {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-shrink: 0;
+            min-height: 44px;
+            margin-left: auto;
+            padding: 10px 18px;
+            border-radius: 12px;
+            background: #2563eb;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 24px;
+            white-space: nowrap;
+        }
+        .booking-add-lead:hover { background: #1d4ed8; }
+        .booking-add-lead:focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: 3px;
+        }
     </style>
     <link rel="stylesheet" href="apple-style.css?v=20260520-4">
     <script src="crm-auth.js?v=20261002-1" defer></script>
@@ -605,13 +635,19 @@
     <div class="booking-page w-full px-4 py-8 sm:px-6 lg:ml-72 lg:w-[calc(100%-18rem)] lg:px-8">
         <div class="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
             <div class="booking-toolbar px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:justify-between sm:items-center bg-slate-50 gap-4">
-                <div class="car-page-heading car-page-heading-clear-menu">
-    <div class="car-page-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="images/page-heading-icons.svg#calendar"/></svg></div>
-    <div class="car-page-heading-copy">
-        <h1 class="car-page-heading-title">ตารางนัดหมายติดตั้งฟิล์ม</h1>
-        <p class="car-page-heading-subtitle">ระบบ CRM & รายการคิวจอง</p>
-    </div>
-</div>
+                <div class="booking-heading-row">
+                    <div class="car-page-heading car-page-heading-clear-menu">
+                        <div class="car-page-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="images/page-heading-icons.svg#calendar"/></svg></div>
+                        <div class="car-page-heading-copy">
+                            <h1 class="car-page-heading-title">ตารางนัดหมายติดตั้งฟิล์ม</h1>
+                            <p class="car-page-heading-subtitle">ระบบ CRM & รายการคิวจอง</p>
+                        </div>
+                    </div>
+                    <a class="booking-add-lead" href="lead-data.html?newLead=1#leads">
+                        <i class="fas fa-plus" aria-hidden="true"></i>
+                        เพิ่มข้อมูลลีด
+                    </a>
+                </div>
                 <!-- ตัวกรองวันที่ และ ช่องค้นหาข้อมูล -->
                 <div class="booking-controls flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
                     <div class="relative flex items-center flex-wrap gap-2">
