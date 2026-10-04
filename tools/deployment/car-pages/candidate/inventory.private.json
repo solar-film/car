@@ -1,0 +1,539 @@
+{
+  "generatedAt": "2026-10-03T15:06:59.041Z",
+  "status": "PRIVATE_OFFLINE_CANDIDATE_PUBLICATION_BLOCKED",
+  "intendedPagesRoot": "https://solar-film.github.io/crm-car/",
+  "fileCount": 63,
+  "htmlEntryCount": 20,
+  "assetReferenceCount": 203,
+  "changedFiles": 20,
+  "unchangedFiles": 43,
+  "blockers": [
+    {
+      "code": "SAME_ORIGIN_AUTH_SERVER_REQUIRED",
+      "files": [
+        "crm-auth.js",
+        "crm-login.html"
+      ],
+      "action": "CRM HTML requires the Node CAR_CRM server with private credential hashes and server sessions on the same origin. A standalone GitHub Pages upload cannot authenticate or protect these pages."
+    },
+    {
+      "code": "CAR_BACKEND_URL_UNCONFIGURED",
+      "files": [
+        "lead-data-app.js:56"
+      ],
+      "action": "Provision the separate authenticated CAR HTTPS service and configure carLeadServiceUrl through the existing connection form. GitHub Pages cannot execute /api/lead-data."
+    },
+    {
+      "code": "PUBLICATION_NOT_AUTHORIZED",
+      "action": "No upload, push, deployment, removal of existing online files, or Meta submission is part of this build."
+    }
+  ],
+  "verificationScope": "Exact allowlist, static asset references, PWA subpath resolution, and source/payload hashes. This is not a secret-free certification or browser/API/production verification.",
+  "files": [
+    {
+      "path": "accounting.html",
+      "bytes": 61816,
+      "sourceSha256": "6c28f468259d35f6820180029104efce68ea9e35a169e1519a0adac495e7c221",
+      "payloadSha256": "dc84c37d969b6e920bc74f8b9f82dde623bd7bc9d3e505bb436151cdc7136ce2",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "app.webmanifest",
+      "bytes": 673,
+      "sourceSha256": "d1c4ae455475fd6404136e57660ad8fef09268c0f13cd19551aab70892992fbc",
+      "payloadSha256": "3e42ff5e9992e118a352a92523d538f66caf00d55728764dbe48f2e8a396941b",
+      "transformations": [
+        "manifest-id:./",
+        "manifest-start_url:./",
+        "manifest-scope:./",
+        "relative-manifest-icon:images/car-crm-app-192.png",
+        "relative-manifest-icon:images/car-crm-app-512.png"
+      ]
+    },
+    {
+      "path": "apple-style.css",
+      "bytes": 7253,
+      "sourceSha256": "aaa377e8466e6b1e812dd67774261898d737907b5b85dd72b38a5f3e969d81af",
+      "payloadSha256": "aaa377e8466e6b1e812dd67774261898d737907b5b85dd72b38a5f3e969d81af",
+      "transformations": []
+    },
+    {
+      "path": "booking-form-layout.css",
+      "bytes": 13047,
+      "sourceSha256": "69ff51ec9c3f5c30617391f9cb71cbb275f53f5ee05d036f8a8d529de5f8733b",
+      "payloadSha256": "69ff51ec9c3f5c30617391f9cb71cbb275f53f5ee05d036f8a8d529de5f8733b",
+      "transformations": []
+    },
+    {
+      "path": "booking-form-layout.js",
+      "bytes": 9442,
+      "sourceSha256": "074258fee1b16e5f029e69784a36c43e99dc0168b05c1050e1f864f50cb04619",
+      "payloadSha256": "074258fee1b16e5f029e69784a36c43e99dc0168b05c1050e1f864f50cb04619",
+      "transformations": []
+    },
+    {
+      "path": "booking-read-model.js",
+      "bytes": 20122,
+      "sourceSha256": "9190ba5cb6a7aed98b7491d716f6b47a329095d19ef12310f5c698862943ed22",
+      "payloadSha256": "9190ba5cb6a7aed98b7491d716f6b47a329095d19ef12310f5c698862943ed22",
+      "transformations": []
+    },
+    {
+      "path": "calendar.html",
+      "bytes": 105746,
+      "sourceSha256": "258a0e707d58ff2c0ebfaf80ef468ec7e354b117724571ced2bd110836e2f69f",
+      "payloadSha256": "72f70a21751106ed99b18b4ca12a33bd2afbf98c03d07170232b7668c1227c0e",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "commission-auth.js",
+      "bytes": 14194,
+      "sourceSha256": "33e41105dba09dd190c3f1845181ad4f052deafb1485662e941030e550a62208",
+      "payloadSha256": "33e41105dba09dd190c3f1845181ad4f052deafb1485662e941030e550a62208",
+      "transformations": []
+    },
+    {
+      "path": "contact-stats.html",
+      "bytes": 117675,
+      "sourceSha256": "139fac32fd939a486479db14a943e800722aca94dbfe0d0f6164bd2d35f62ccb",
+      "payloadSha256": "36d82a6a4452e39f8a8313f49d43e0c7806589d323fbc476b1763e9d3c4c8fd3",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "crm-auth.js",
+      "bytes": 3166,
+      "sourceSha256": "29c432bde28bf810f1b4e7a756565c37b9da36bf05625708542e9fd84e131e37",
+      "payloadSha256": "29c432bde28bf810f1b4e7a756565c37b9da36bf05625708542e9fd84e131e37",
+      "transformations": []
+    },
+    {
+      "path": "crm-login.html",
+      "bytes": 995,
+      "sourceSha256": "039b62c46e39a35c0f7f23686de10ff2c1967de9684c76d6a44ae14eed737d8e",
+      "payloadSha256": "039b62c46e39a35c0f7f23686de10ff2c1967de9684c76d6a44ae14eed737d8e",
+      "transformations": []
+    },
+    {
+      "path": "crm-login.css",
+      "bytes": 719,
+      "sourceSha256": "65948a1d6515793dc3f9ce009a4d850fe28009f3ea92ed561385c473daa5a271",
+      "payloadSha256": "65948a1d6515793dc3f9ce009a4d850fe28009f3ea92ed561385c473daa5a271",
+      "transformations": []
+    },
+    {
+      "path": "crm-login.js",
+      "bytes": 2017,
+      "sourceSha256": "bb48e62b9e2a48b2a119658fc00bdd1285808c64aef92f9c9ac70fcf50355a0f",
+      "payloadSha256": "bb48e62b9e2a48b2a119658fc00bdd1285808c64aef92f9c9ac70fcf50355a0f",
+      "transformations": []
+    },
+    {
+      "path": "customer-data.html",
+      "bytes": 173035,
+      "sourceSha256": "00b600e9f81f22a73d8e78c49add2b5da63bc32317cef27f50cf112c41acfd53",
+      "payloadSha256": "9f195758f7cfca9f114ae829fca53507b265b3069c855b3071ea50d02ecd8636",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "damage-calculator.js",
+      "bytes": 37228,
+      "sourceSha256": "238af0c158bc25ce88ab40b9067979f43ffd8a51f027c3ccac9aad8e6515e7a4",
+      "payloadSha256": "238af0c158bc25ce88ab40b9067979f43ffd8a51f027c3ccac9aad8e6515e7a4",
+      "transformations": []
+    },
+    {
+      "path": "damage.html",
+      "bytes": 105920,
+      "sourceSha256": "53a6d3a4cea34132bc9074655fc5a31a184a36497cec07bc2861ad2669f4dae5",
+      "payloadSha256": "3cf2c41ef7339155c2fbef6ed5fec0100891cf8e5eb023b22be9488c867ce98d",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "feedback-car.html",
+      "bytes": 27101,
+      "sourceSha256": "c24b845c940615d0a061f48a7f631f8b4fb2f4e9faa18a9fda8b6085e571c0a2",
+      "payloadSha256": "589c65edb02a4db5fea6bec0dfa84a83b759dbe5173ab1463182ed068f1b7037",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "film-brands.js",
+      "bytes": 3235,
+      "sourceSha256": "82712220538546f2798b297825379218529ee4892044636891a4163de9ac73e0",
+      "payloadSha256": "82712220538546f2798b297825379218529ee4892044636891a4163de9ac73e0",
+      "transformations": []
+    },
+    {
+      "path": "index.html",
+      "bytes": 435538,
+      "sourceSha256": "e41ee4a116e3da96f847a4c54aadef8e8ceef7a2a28b5b83a098ca43855527b5",
+      "payloadSha256": "a81a2a5733e181f222dca2303266e056ea870987e73dab61546d835d3ac494c0",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "install-print.html",
+      "bytes": 152075,
+      "sourceSha256": "5267a45c0d88fc5e365c36716e2fc79213a90f046b80d6ef91ea12f0f76d488d",
+      "payloadSha256": "e335e19638b2acf6a02dd37af11b13c85762af1c3b9192d91ce81c62490db346",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "install-summary.html",
+      "bytes": 45551,
+      "sourceSha256": "0a1d8b48d43d0327a020a9cd55e4da200225bf9d59de3917f494c19123d38790",
+      "payloadSha256": "b678d034562c11ec970cd735a0140f6d3fc172a7cbf9b774a1d75d1ee19fcc9a",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "lead-data-app.js",
+      "bytes": 89864,
+      "sourceSha256": "d2add59b67e7a305d8dcfb5735bb3c1c1cc87d1aa7dfe04b49b272553f662647",
+      "payloadSha256": "d2add59b67e7a305d8dcfb5735bb3c1c1cc87d1aa7dfe04b49b272553f662647",
+      "transformations": []
+    },
+    {
+      "path": "lead-data-core.js",
+      "bytes": 11318,
+      "sourceSha256": "3a7d6966c12310b5f809011d8a8e3915c4f8e8e059dade8102eebb3865027c6f",
+      "payloadSha256": "3a7d6966c12310b5f809011d8a8e3915c4f8e8e059dade8102eebb3865027c6f",
+      "transformations": []
+    },
+    {
+      "path": "lead-data.css",
+      "bytes": 43029,
+      "sourceSha256": "80e760bcf84f60422f8a735a72a4fa12b2a9c8ae90d59527da5203b3a690848c",
+      "payloadSha256": "80e760bcf84f60422f8a735a72a4fa12b2a9c8ae90d59527da5203b3a690848c",
+      "transformations": []
+    },
+    {
+      "path": "lead-data.html",
+      "bytes": 12325,
+      "sourceSha256": "ee3b4a3c348672473fa22af989a520b8b1e9dd7f519df018241cd2bad286229c",
+      "payloadSha256": "ccd0742facf6995d827c4fdcccdbdbf8db04d8e39e7cec1f7e937456f5becda5",
+      "transformations": [
+        "relative-pwa-reference:images/car-crm-app.png",
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "lead-sheet.js",
+      "bytes": 5114,
+      "sourceSha256": "d65dcbaf822355fcbe8ae7f320e5018dbf32b80e7972ccf61654e63036b6d3cc",
+      "payloadSha256": "d65dcbaf822355fcbe8ae7f320e5018dbf32b80e7972ccf61654e63036b6d3cc",
+      "transformations": []
+    },
+    {
+      "path": "other-damage.html",
+      "bytes": 73591,
+      "sourceSha256": "dc1d458ac50b5ee5d9d7077155dcab476366f36b39485a2179f1ddd3df4528c2",
+      "payloadSha256": "c5836a1e929074e923dc5c667ad7f03b02198c6df1571d6f574b982c864e64b3",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "overview-memo-manager.js",
+      "bytes": 18343,
+      "sourceSha256": "54adbd3d0b32a5d31e12041889af7117a686d3084c224cd65842682e0bbbba9a",
+      "payloadSha256": "54adbd3d0b32a5d31e12041889af7117a686d3084c224cd65842682e0bbbba9a",
+      "transformations": []
+    },
+    {
+      "path": "overview-presentation.js",
+      "bytes": 11327,
+      "sourceSha256": "ccf09966bf35cc3de32f771777f702c240659d1ab1434ab73af334e5346515a5",
+      "payloadSha256": "ccf09966bf35cc3de32f771777f702c240659d1ab1434ab73af334e5346515a5",
+      "transformations": []
+    },
+    {
+      "path": "overview-ui.css",
+      "bytes": 38552,
+      "sourceSha256": "e81fbf1054d91372e089a72185170b54a5c219f885148830f4d48e501756b4f6",
+      "payloadSha256": "e81fbf1054d91372e089a72185170b54a5c219f885148830f4d48e501756b4f6",
+      "transformations": []
+    },
+    {
+      "path": "overview.html",
+      "bytes": 92317,
+      "sourceSha256": "5d9a5e572fe83f8e3461679306fcd691f378eaf04ee78e876441348adca5ad29",
+      "payloadSha256": "d54e551911c18f2e76657d5f3ac993743392cb08fe78eed1ca07e92818136d84",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "page-heading.css",
+      "bytes": 1775,
+      "sourceSha256": "6915721d5e6ad9151219ba2c4eb0bea023b61621655e50ab3f069831faa9d49f",
+      "payloadSha256": "6915721d5e6ad9151219ba2c4eb0bea023b61621655e50ab3f069831faa9d49f",
+      "transformations": []
+    },
+    {
+      "path": "price-audit.html",
+      "bytes": 40979,
+      "sourceSha256": "c5f7c157df2294d08e95ddcab4b174653e9afa107e579762720f5d66ce7c030c",
+      "payloadSha256": "e8e0462b003759959f742adb3972798224015f1d410d4c5ece6cfa9e8090b2f9",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "sales-dashboard.html",
+      "bytes": 73760,
+      "sourceSha256": "f25d361bc7c6adaddb9672fac6ab5cc7a3e3ea6b82b9dffdce9752d433ef6880",
+      "payloadSha256": "e1c23cd172d2454a6adab7676a8e6f71014c78cece85a42b240b16aeb673725b",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "sales-summary.html",
+      "bytes": 86684,
+      "sourceSha256": "4ac56c683e80f9e2f16b2b184a5001f23bf00b402eb43c4d430579a983254523",
+      "payloadSha256": "aa028ebddba984ab01ff70c67762902bf842b4c1521e2eaf70886f975913de3d",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "sidebar.js",
+      "bytes": 22395,
+      "sourceSha256": "10b85c5ab40a516196f757f33fd7c7fd3c93c7357585ca361f96130c72a11800",
+      "payloadSha256": "10b85c5ab40a516196f757f33fd7c7fd3c93c7357585ca361f96130c72a11800",
+      "transformations": []
+    },
+    {
+      "path": "sunroof.html",
+      "bytes": 29808,
+      "sourceSha256": "45d8dc463215d7537fcdbe006911da2c013ffc5bc3243dc3b50f91eb4e88d520",
+      "payloadSha256": "e9203293116263a31a2e827d077ea867b6f76a6c626aa8375c1654ba3dc1fba9",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "technician-commission.html",
+      "bytes": 68348,
+      "sourceSha256": "092255dbfa1c7dc77c4917759c2ea097cf39da4bedbd9155c419a765b5ff27c8",
+      "payloadSha256": "eb0e3a8f5bd20d621dfe2e2aa9702f616805486cec5ac5ec9bd352d5eebba775",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "technician-queue.html",
+      "bytes": 66167,
+      "sourceSha256": "63514d11dd5e522dbf302e160e3c5288e2e50878c51d87c3c1451ce0e782116a",
+      "payloadSha256": "2350754ae7f390a8331cbc457167380aad510bf0e2be6eac3f744e83398ce202",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "technician.html",
+      "bytes": 86264,
+      "sourceSha256": "cd6729c6c788d382dbdd991a14f624a8b67100f70db1516c09279f7f6a118ee0",
+      "payloadSha256": "83c5a62e2dc40b5755d148f9ce00b6d001c156f6fc6a8b5c6fbda4fb23172f47",
+      "transformations": [
+        "relative-pwa-reference:app.webmanifest",
+        "relative-pwa-reference:images/car-crm-app-192.png"
+      ]
+    },
+    {
+      "path": "images/car-crm-app-192.png",
+      "bytes": 17796,
+      "sourceSha256": "7b838c0e849f960dad4279aa1250c8790718baa1de01a931a3d6d52527f757ea",
+      "payloadSha256": "7b838c0e849f960dad4279aa1250c8790718baa1de01a931a3d6d52527f757ea",
+      "transformations": []
+    },
+    {
+      "path": "images/car-crm-app-512.png",
+      "bytes": 50205,
+      "sourceSha256": "fa8ebc4f168e344748eed4bce506003025b41a96ba81f0ca38a735d0085fda67",
+      "payloadSha256": "fa8ebc4f168e344748eed4bce506003025b41a96ba81f0ca38a735d0085fda67",
+      "transformations": []
+    },
+    {
+      "path": "images/car-crm-app.png",
+      "bytes": 22957,
+      "sourceSha256": "91f083d99d394f6bf69f8e9fcf14240ea95c9f43137cd7856916e71b85b0d2ab",
+      "payloadSha256": "91f083d99d394f6bf69f8e9fcf14240ea95c9f43137cd7856916e71b85b0d2ab",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-accounting.svg",
+      "bytes": 491,
+      "sourceSha256": "d022065815858f0bdf4882753aac57b77db484f10d9912c82b1a16aff0e4cf05",
+      "payloadSha256": "d022065815858f0bdf4882753aac57b77db484f10d9912c82b1a16aff0e4cf05",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-bookings.svg",
+      "bytes": 627,
+      "sourceSha256": "0dfc90616551265ed66c8b706a23a078f93d4ccbe695a2e39fd6891cf0d4d760",
+      "payloadSha256": "0dfc90616551265ed66c8b706a23a078f93d4ccbe695a2e39fd6891cf0d4d760",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-calendar.svg",
+      "bytes": 521,
+      "sourceSha256": "45935bbd35419ddd9b67b54bbe79a94080fceaecc04ffe6cb559aa33bc02c368",
+      "payloadSha256": "45935bbd35419ddd9b67b54bbe79a94080fceaecc04ffe6cb559aa33bc02c368",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-contacts.svg",
+      "bytes": 525,
+      "sourceSha256": "2fa4ba2c0b3a166f1dcf1607bec5b854a80a798bcced5344b993f02ec1a640a3",
+      "payloadSha256": "2fa4ba2c0b3a166f1dcf1607bec5b854a80a798bcced5344b993f02ec1a640a3",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-customers.svg",
+      "bytes": 453,
+      "sourceSha256": "c76eb733aee0ef047acc7c4bae01dbb54141a4eb03335c9777f5bac6c7eb399a",
+      "payloadSha256": "c76eb733aee0ef047acc7c4bae01dbb54141a4eb03335c9777f5bac6c7eb399a",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-damage-film.svg",
+      "bytes": 499,
+      "sourceSha256": "88b43da3e0505e770370cfa795c154847ec350014c993bac9b3ba6704c4d970f",
+      "payloadSha256": "88b43da3e0505e770370cfa795c154847ec350014c993bac9b3ba6704c4d970f",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-feedback.svg",
+      "bytes": 375,
+      "sourceSha256": "308c3544829d2a34476ecdd80b141d21e2e8558c3abade5315703b42a26d613c",
+      "payloadSha256": "308c3544829d2a34476ecdd80b141d21e2e8558c3abade5315703b42a26d613c",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-install-print.svg",
+      "bytes": 464,
+      "sourceSha256": "371c9e60b3ad5c6b99f6002bc4530f4dd1fb56203b1b0c3f8a907289783e7d7a",
+      "payloadSha256": "371c9e60b3ad5c6b99f6002bc4530f4dd1fb56203b1b0c3f8a907289783e7d7a",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-install-summary.svg",
+      "bytes": 485,
+      "sourceSha256": "f6fd36783149de34524f0894729b43086169702903dfb44b7c2467b066a0d0d8",
+      "payloadSha256": "f6fd36783149de34524f0894729b43086169702903dfb44b7c2467b066a0d0d8",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-other-damage.svg",
+      "bytes": 389,
+      "sourceSha256": "8f8adca5a21b015938d9ea40e70416a916a2a4801f061518218a086d6376186a",
+      "payloadSha256": "8f8adca5a21b015938d9ea40e70416a916a2a4801f061518218a086d6376186a",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-overview.svg",
+      "bytes": 575,
+      "sourceSha256": "44db937586f59d15d4de19446f6e99dc037e5522123ad5f4dc081330ca33aebb",
+      "payloadSha256": "44db937586f59d15d4de19446f6e99dc037e5522123ad5f4dc081330ca33aebb",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-price-audit.svg",
+      "bytes": 496,
+      "sourceSha256": "9154ae99bdc62003fdd2cc871655328da2468ea707ecf71df36db54c87dbcc5b",
+      "payloadSha256": "9154ae99bdc62003fdd2cc871655328da2468ea707ecf71df36db54c87dbcc5b",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-sales-summary.svg",
+      "bytes": 550,
+      "sourceSha256": "e6ba7faaa1a2e4ceea704a2eb305ee12090e2e73d9925f8397dea6a084c21f33",
+      "payloadSha256": "e6ba7faaa1a2e4ceea704a2eb305ee12090e2e73d9925f8397dea6a084c21f33",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-sales.svg",
+      "bytes": 985,
+      "sourceSha256": "e989989fa0c0554147771aca56eb37b94a0145a5046a53c2f79a31112964be30",
+      "payloadSha256": "e989989fa0c0554147771aca56eb37b94a0145a5046a53c2f79a31112964be30",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-sunroof.svg",
+      "bytes": 456,
+      "sourceSha256": "a1efc9ba4208706158f2403f3e13f4d5297b5ae00a8c92688dc1080ad01a4adf",
+      "payloadSha256": "a1efc9ba4208706158f2403f3e13f4d5297b5ae00a8c92688dc1080ad01a4adf",
+      "transformations": []
+    },
+    {
+      "path": "images/favicon-technician.svg",
+      "bytes": 437,
+      "sourceSha256": "23b401e1559d3dffc2ddd4a292e5aea869ef0d0cec802e09b4e7698ec2104a85",
+      "payloadSha256": "23b401e1559d3dffc2ddd4a292e5aea869ef0d0cec802e09b4e7698ec2104a85",
+      "transformations": []
+    },
+    {
+      "path": "images/overview-city-sedan.webp",
+      "bytes": 172670,
+      "sourceSha256": "633a991a78ed3e0771f49108254a11fdd6034f8ba3e1ddd78469dba57084bd0b",
+      "payloadSha256": "633a991a78ed3e0771f49108254a11fdd6034f8ba3e1ddd78469dba57084bd0b",
+      "transformations": []
+    },
+    {
+      "path": "images/overview-premium-suv.webp",
+      "bytes": 142540,
+      "sourceSha256": "9ec8fa25c48ac67273a6bced6a7ff3205dd83810d4ab7d23568850f549367e4d",
+      "payloadSha256": "9ec8fa25c48ac67273a6bced6a7ff3205dd83810d4ab7d23568850f549367e4d",
+      "transformations": []
+    },
+    {
+      "path": "images/page-heading-icons.svg",
+      "bytes": 2036,
+      "sourceSha256": "2d1858d633a71bf8d1d62167cdf7a61d68f7601c4dc80b0b74e3d2439329a67e",
+      "payloadSha256": "2d1858d633a71bf8d1d62167cdf7a61d68f7601c4dc80b0b74e3d2439329a67e",
+      "transformations": []
+    },
+    {
+      "path": "images/qrcode_mhl.png",
+      "bytes": 1119569,
+      "sourceSha256": "8ca5e865be3feacb64d1884ff13b5b8a6d4267ac3a36a2b3c5c657c0e444a37a",
+      "payloadSha256": "8ca5e865be3feacb64d1884ff13b5b8a6d4267ac3a36a2b3c5c657c0e444a37a",
+      "transformations": []
+    }
+  ]
+}

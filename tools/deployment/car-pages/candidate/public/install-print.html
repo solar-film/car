@@ -1,0 +1,2429 @@
+﻿<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการคิวติดตั้งฟิล์มรถยนต์</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon-install-print.svg">
+    <link rel="manifest" href="app.webmanifest?v=20261002-2">
+    <link rel="apple-touch-icon" href="images/car-crm-app-192.png?v=20261002-2">
+    
+    <!-- เรียกใช้งาน Tailwind CSS สำหรับการตกแต่งให้สวยงามและรองรับมือถือ -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- นำเข้าฟอนต์ภาษาไทย (Prompt) เพื่อให้อ่านง่าย -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- นำเข้า PapaParse สำหรับอ่านไฟล์ CSV จาก Google Sheets -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    
+    <style>
+        /* กำหนดให้ทั้งหน้าเว็บใช้ฟอนต์ Prompt */
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #d9ebfd;
+        }
+
+        #loginScreen {
+            display: none;
+        }
+
+        body.auth-locked > :not(#loginScreen) {
+            display: none !important;
+        }
+
+        body.auth-locked #loginScreen {
+            display: flex;
+        }
+
+        .new-customer-card {
+            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 52%, #1d4ed8 100%) !important;
+            border-color: rgba(147, 197, 253, 0.72) !important;
+            box-shadow: 0 18px 44px rgba(37, 99, 235, 0.24) !important;
+        }
+
+        .new-customer-card:hover {
+            box-shadow: 0 22px 52px rgba(37, 99, 235, 0.30) !important;
+        }
+
+        .daily-summary-card {
+            min-height: 0;
+        }
+
+        .daily-summary-blue {
+            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 52%, #1d4ed8 100%) !important;
+            border-color: rgba(147, 197, 253, 0.72) !important;
+            box-shadow: 0 18px 44px rgba(37, 99, 235, 0.24) !important;
+        }
+
+        .daily-summary-blue:hover {
+            box-shadow: 0 22px 52px rgba(37, 99, 235, 0.30) !important;
+        }
+
+        .memo-alert-shake {
+            animation: memo-alert-shake 0.58s ease-in-out infinite;
+            transform-origin: 50% 50%;
+        }
+
+        @keyframes memo-alert-shake {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            20% { transform: rotate(-12deg) scale(1.08); }
+            40% { transform: rotate(10deg) scale(1.1); }
+            60% { transform: rotate(-8deg) scale(1.08); }
+            80% { transform: rotate(6deg) scale(1.04); }
+        }
+
+        .schedule-row-installing td {
+            background: #dbeafe !important;
+            border-top-color: #93c5fd !important;
+            border-bottom-color: #93c5fd !important;
+        }
+
+        .schedule-row-installing td:first-child {
+            box-shadow: inset 5px 0 0 #2563eb;
+        }
+
+        .schedule-row-installing:hover td {
+            background: #bfdbfe !important;
+        }
+        .schedule-row-installing .tl-cell {
+            box-shadow: none !important;
+        }
+
+        #jobModal > div {
+            display: block !important;
+            min-height: 100vh !important;
+            padding: 0 !important;
+            text-align: left !important;
+        }
+
+        #jobModal > div > span {
+            display: none !important;
+        }
+
+        #jobModal > div > div.inline-block {
+            position: fixed !important;
+            top: 0 !important;
+            right: 0 !important;
+            height: 100vh !important;
+            width: min(100vw, 46rem) !important;
+            max-width: none !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            overflow-y: auto !important;
+            box-shadow: -24px 0 60px rgba(15, 23, 42, 0.18) !important;
+        }
+
+        #jobModal .drawer-card {
+            border-radius: 1.5rem;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        #jobModal .drawer-row {
+            display: grid;
+            grid-template-columns: minmax(9rem, 34%) 1fr;
+            gap: 0.75rem;
+            padding: 0.75rem 1.25rem;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        #jobModal .drawer-row:first-child {
+            border-top: 0;
+        }
+
+        /* Timeline date/time column */
+        .tl-cell {
+            position: relative;
+            padding-left: 2.75rem !important;
+            padding-right: 1rem !important;
+        }
+        .tl-cell::before {
+            content: '';
+            position: absolute;
+            left: 1.1rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #bfdbfe;
+        }
+        .tl-cell::after {
+            content: '';
+            position: absolute;
+            left: calc(1.1rem - 5px);
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #2563eb;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #bfdbfe;
+        }
+        .tl-cell.tl-first::before { top: 50%; }
+        .tl-cell.tl-last::before  { bottom: 50%; }
+        .tl-cell.tl-only::before  { display: none; }
+        .tl-date-header td { padding-top: 0.75rem; padding-bottom: 0.25rem; }
+
+        #printArea {
+            font-family: Arial, sans-serif;
+        }
+
+        #printArea .print-table-shell {
+            border: 1.35px solid rgba(51, 65, 85, 0.72);
+            border-radius: 9px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        @media screen {
+            #printPreviewModal #printAreaWrapper {
+                padding: 2rem 1rem;
+            }
+
+            #printPreviewModal #printArea {
+                border: 1px solid rgba(148, 163, 184, 0.45);
+                border-radius: 18px;
+                box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+                overflow: hidden;
+            }
+
+            #p-cutReasonContainer {
+                border: 1px solid rgba(248, 113, 113, 0.34) !important;
+                border-radius: 12px;
+                background: rgba(254, 242, 242, 0.74);
+                padding: 6px 10px;
+            }
+
+            #printArea table,
+            #printArea table thead,
+            #printArea table tr,
+            #printArea table th,
+            #printArea table td {
+                border-color: rgba(51, 65, 85, 0.62) !important;
+            }
+
+            #printArea table tbody td {
+                border-bottom: 1px solid rgba(51, 65, 85, 0.46) !important;
+            }
+
+            #printArea table tbody tr:last-child td {
+                border-bottom: 0 !important;
+            }
+
+            #printArea table th {
+                background: rgba(241, 245, 249, 0.96) !important;
+                color: #334155 !important;
+            }
+
+        }
+
+        /* รูปแบบเฉพาะสำหรับการพิมพ์ (Print) ล็อกสัดส่วน A4 แบบปลอดภัยไม่ให้หน้าขาว 100% */
+        @media print {
+            body {
+                background-color: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                overflow: hidden !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            /* ซ่อนส่วนอื่นๆ ของเว็บไซต์ทิ้งไปเลย */
+            body > *:not(#printPreviewModal) {
+                display: none !important;
+            }
+            /* เปิดให้ Modal แสดงเป็นแบบปกติ (ไม่ลอย) เพื่อให้พริ้นเตอร์จับภาพได้ */
+            #printPreviewModal {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                display: block !important;
+                width: 100% !important;
+                background: transparent !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: visible !important;
+            }
+            /* ซ่อนปุ่มเมนูด้านบน */
+            .print-hidden {
+                display: none !important;
+            }
+            /* ปลดล็อก Wrapper ให้แนบไปกับกระดาษ */
+            #printAreaWrapper {
+                padding: 0 !important;
+                margin: 0 !important;
+                background: transparent !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: flex-start !important;
+                min-height: 297mm !important;
+                overflow: hidden !important;
+            }
+            /* ขยาย #printArea ให้เต็ม A4 (กว้าง 210mm สูง 297mm) */
+            #printArea {
+                width: 210mm !important;
+                height: 297mm !important;
+                margin: 0 auto !important;
+                min-height: 0 !important;
+                padding: 9mm 11mm !important; /* เว้นขอบตอนปริ้นต์จริง */
+                box-shadow: none !important;
+                border: none !important;
+                overflow: hidden !important;
+                font-size: 10.5px !important;
+                line-height: 1.18 !important;
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            #printArea table,
+            #printArea table thead,
+            #printArea table tr,
+            #printArea table th,
+            #printArea table td {
+                border-color: #000 !important;
+            }
+            #printArea table th,
+            #printArea table td {
+                padding-top: 2px !important;
+                padding-bottom: 2px !important;
+            }
+            #printArea table tbody td {
+                border-bottom: 1px solid #000 !important;
+            }
+            #printArea table tbody tr:last-child td {
+                border-bottom: 0 !important;
+            }
+            #printArea table th {
+                background: #f8fafc !important;
+                color: #334155 !important;
+            }
+            #printArea .print-table-shell {
+                border: 1.2px solid #000 !important;
+                border-radius: 6px !important;
+            }
+            #printArea .cutting-print-table {
+                table-layout: auto !important;
+            }
+            #printArea .cutting-print-table .cut-installer-column {
+                width: 7% !important;
+            }
+            #printArea .cutting-print-table .cut-position-column {
+                width: 12% !important;
+            }
+            #printArea .cutting-print-table .cut-film-column {
+                width: 1% !important;
+                white-space: nowrap !important;
+                padding-left: 2.2mm !important;
+                padding-right: 2.2mm !important;
+            }
+            #printArea .cutting-print-table .cut-size-column {
+                width: 9% !important;
+                min-width: 10mm;
+            }
+            #printArea .cutting-print-table .cut-note-column {
+                width: auto !important;
+                min-width: 31% !important;
+            }
+            #printArea .prompt-pay-card {
+                border-radius: 8px !important;
+                overflow: hidden !important;
+                padding: 7px !important;
+            }
+            #printArea .prompt-pay-title {
+                border-radius: 5px !important;
+                margin-bottom: 7px !important;
+            }
+            #printArea .prompt-pay-qr {
+                width: 136px !important;
+                height: 136px !important;
+                margin-bottom: 7px !important;
+                border-radius: 5px !important;
+            }
+            #printArea #p-paymentDueBox {
+                min-height: 11mm !important;
+                border: 1.4px solid #000 !important;
+                border-radius: 7px !important;
+                padding: 5px 9px !important;
+                background: #eef2f7 !important;
+                gap: 6px !important;
+            }
+            #printArea #p-paymentDueBox > span:first-child {
+                font-size: 11px !important;
+                font-weight: 700 !important;
+                line-height: 1.2 !important;
+            }
+            #printArea #p-price {
+                font-size: 18px !important;
+                line-height: 1 !important;
+                letter-spacing: 0 !important;
+            }
+            #printArea .py-1\.5 {
+                padding-top: 3px !important;
+                padding-bottom: 3px !important;
+            }
+            #printArea .py-1 {
+                padding-top: 2px !important;
+                padding-bottom: 2px !important;
+            }
+            #printArea .receipt-film-row td {
+                padding-top: 5px !important;
+                padding-bottom: 5px !important;
+            }
+            #printArea .cutting-film-row td {
+                padding-top: 5px !important;
+                padding-bottom: 5px !important;
+            }
+            #printArea .cutting-freebies {
+                margin-bottom: 2mm !important;
+                padding-left: 4mm !important;
+                padding-right: 4mm !important;
+                font-size: 9.5px !important;
+            }
+            #printArea .cutting-freebies .w-4 {
+                width: 3.4mm !important;
+                height: 3.4mm !important;
+            }
+            #printArea .cutting-signature-wrap {
+                margin-top: 1mm !important;
+            }
+            #printArea .cutting-signatures {
+                row-gap: 2.2mm !important;
+                column-gap: 8mm !important;
+                font-size: 9.5px !important;
+            }
+            #printArea .cutting-signatures .border-b {
+                height: 2.6mm !important;
+            }
+            #printArea .cutting-signatures #p2-salesName {
+                height: 5.2mm !important;
+                padding-top: 0 !important;
+                padding-bottom: 1.8mm !important;
+                line-height: 1 !important;
+                align-items: flex-start !important;
+            }
+            #printArea .mt-2 {
+                margin-top: 4px !important;
+            }
+            #printArea .mt-2\.5 {
+                margin-top: 4px !important;
+            }
+            #printArea .mt-3 {
+                margin-top: 5px !important;
+            }
+            #printArea .pt-4 {
+                padding-top: 4px !important;
+            }
+            #printArea .mt-auto {
+                margin-top: 4px !important;
+            }
+            #printArea #p-cutReasonContainer {
+                font-size: 15px !important;
+                padding: 4px 8px !important;
+                margin-top: 4px !important;
+                border: 1px solid #fecaca !important;
+                border-radius: 8px !important;
+                background: #fff7f7 !important;
+            }
+            #printArea #p-cutJobCodeWrapper {
+                font-size: 11px !important;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 0mm; 
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="apple-style.css?v=20260520-4">
+    <script src="crm-auth.js?v=20261002-1" defer></script>
+    <script src="sidebar.js" defer></script>
+    <link rel="stylesheet" href="page-heading.css?v=20261002-1">
+</head>
+<body class="text-slate-800 auth-locked">
+    <div id="loginScreen" class="fixed inset-0 z-[9999] min-h-screen items-center justify-center bg-slate-950 px-4">
+        <form id="loginForm" class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+            <div class="mb-5">
+                <h1 class="text-2xl font-extrabold text-slate-900">เข้าสู่ระบบ</h1>
+                <p class="mt-1 text-sm text-slate-500">กรุณาเข้าสู่ระบบก่อนใช้งาน</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="loginUser" class="block text-sm font-semibold text-slate-700 mb-1">User</label>
+                    <input id="loginUser" type="text" autocomplete="username" class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="loginPass" class="block text-sm font-semibold text-slate-700 mb-1">Password</label>
+                    <input id="loginPass" type="password" autocomplete="current-password" class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+            </div>
+            <p id="loginError" class="hidden mt-3 text-sm font-semibold text-red-600">User หรือ Password ไม่ถูกต้อง</p>
+            <button type="submit" class="mt-5 w-full rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800">เข้าสู่ระบบ</button>
+        </form>
+    </div>
+
+    <div data-car-crm-sidebar></div>
+
+
+    <div class="w-full px-4 py-8 sm:px-6 lg:ml-72 lg:w-[calc(100%-18rem)] lg:px-8">
+        <section class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[1.05fr_0.85fr_0.85fr_1.55fr]">
+            <article id="summaryFilteredCard" class="daily-summary-card daily-summary-blue flex flex-col justify-between rounded-[1.75rem] border p-4 text-white shadow-sm gap-3">
+                <div class="flex items-center justify-between gap-2">
+                    <p class="text-sm font-bold text-sky-50">สรุปยอดขายวันนี้</p>
+                    <div id="summaryFilteredJobs" class="shrink-0 inline-flex items-center rounded-xl bg-white/25 px-2.5 py-1 text-sm font-extrabold">0 คิว</div>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-sky-200">ยอดขาย</p>
+                    <div id="summaryFilteredSales" class="mt-0.5 text-3xl font-extrabold tracking-tight">฿0</div>
+                    <p id="summaryFilteredLabel" class="mt-1 text-xs font-medium text-sky-200">ตามตัวกรอง</p>
+                </div>
+            </article>
+
+            <article id="summaryNewCard" class="daily-summary-card flex flex-col justify-between rounded-[1.75rem] border border-emerald-100 bg-emerald-50/70 p-4 shadow-sm gap-3">
+                <div class="flex items-center gap-2">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-600 shadow-sm">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 21a6 6 0 0112 0"></path>
+                        </svg>
+                    </div>
+                    <p class="text-sm font-bold text-emerald-800">ลูกค้าใหม่ / ลูกค้าเก่า</p>
+                </div>
+                <div class="space-y-2 rounded-xl bg-white/72 p-2">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <p class="text-xs font-medium text-slate-500">ลูกค้าใหม่</p>
+                            <div id="summaryNewJobs" class="mt-0.5 text-xl font-extrabold text-emerald-700">0 คิว</div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs font-medium text-slate-500">ยอดขาย</p>
+                            <div id="summaryNewSales" class="mt-0.5 text-lg font-extrabold text-emerald-700">฿0</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 border-t border-emerald-100 pt-2">
+                        <div>
+                            <p class="text-xs font-medium text-slate-500">ลูกค้าเก่า</p>
+                            <div id="summaryOldJobs" class="mt-0.5 text-xl font-extrabold text-yellow-700">0 คิว</div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs font-medium text-slate-500">ยอดขาย</p>
+                            <div id="summaryOldSales" class="mt-0.5 text-lg font-extrabold text-yellow-700">฿0</div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <article id="summaryClaimCard" class="daily-summary-card flex flex-col justify-between rounded-[1.75rem] border border-rose-100 bg-rose-50/70 p-4 shadow-sm gap-3">
+                <div class="flex items-center gap-2">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-rose-600 shadow-sm">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86l-8.06 14A2 2 0 004 21h16a2 2 0 001.77-3.14l-8.06-14a2 2 0 00-3.42 0z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-sm font-bold text-rose-800">ลูกค้าเคลม / งานแก้</p>
+                </div>
+                <div class="space-y-2 rounded-xl bg-white/72 p-2">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <p class="text-xs font-medium text-slate-500">ลูกค้าเคลม</p>
+                            <div id="summaryClaimJobs" class="mt-0.5 text-xl font-extrabold text-rose-700">0 คิว</div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs font-medium text-slate-500">มูลค่า</p>
+                            <div id="summaryClaimSales" class="mt-0.5 text-lg font-extrabold text-rose-700">฿0</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 border-t border-rose-100 pt-2">
+                        <div>
+                            <p class="text-xs font-medium text-slate-500">งานแก้</p>
+                            <div id="summaryFixJobs" class="mt-0.5 text-xl font-extrabold text-orange-700">0 คิว</div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs font-medium text-slate-500">มูลค่า</p>
+                            <div id="summaryFixSales" class="mt-0.5 text-lg font-extrabold text-orange-700">฿0</div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <article id="memoAlertCard" class="flex flex-col justify-between rounded-2xl border-2 border-dashed border-rose-500 bg-white p-4 shadow-none ring-4 ring-rose-100/80 gap-3">
+                <div class="-mx-4 -mt-4 flex items-center gap-2 rounded-t-xl bg-rose-600 px-4 py-3 text-white">
+                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-white/25">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0"></path>
+                        </svg>
+                    </div>
+                    <p class="text-sm font-extrabold text-white">แจ้งเตือน</p>
+                </div>
+                <div class="rounded-xl bg-white p-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="text-xs font-medium text-slate-500">สถานะงาน ON</p>
+                        <div id="memoAlertCount" class="text-lg font-extrabold text-blue-700">0 รายการ</div>
+                    </div>
+                    <div id="memoAlertList" class="mt-2 space-y-1 text-xs font-normal text-slate-600">
+                        ไม่มีแจ้งเตือน
+                    </div>
+                </div>
+            </article>
+
+        </section>
+        
+        <div class="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:justify-between sm:items-center bg-slate-50 gap-4">
+                <div class="car-page-heading car-page-heading-clear-menu">
+    <div class="car-page-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="images/page-heading-icons.svg#calendar"/></svg></div>
+    <div class="car-page-heading-copy">
+        <h1 class="car-page-heading-title">ตารางนัดหมายติดตั้งฟิล์ม</h1>
+        <p class="car-page-heading-subtitle">ระบบ CRM & รายการงานติดตั้ง</p>
+    </div>
+</div>
+                <!-- ตัวกรองวันที่ และ ช่องค้นหาข้อมูล -->
+                <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
+                    <div class="relative flex items-center">
+                        <label for="dateFilter" class="text-sm font-medium text-slate-600 mr-2 whitespace-nowrap">วันที่ติดตั้ง:</label>
+                        <input type="date" id="dateFilter" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto">
+                        <button id="clearDateBtn" class="ml-2 text-xs text-red-500 hover:text-red-700 underline hidden whitespace-nowrap">ล้างวันที่</button>
+                    </div>
+                    <div class="relative sm:border-l sm:border-slate-300 sm:pl-3 flex-grow">
+                        <!-- ปรับปรุง Placeholder ให้ทราบว่าค้นหาชื่อลูกค้าได้ด้วย -->
+                        <input type="text" id="searchInput" placeholder="ค้นหาชื่อลูกค้า, ทะเบียน, เซลล์..." class="pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
+                        <svg class="w-5 h-5 text-slate-400 absolute left-3 sm:left-5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                    <button onclick="fetchGoogleSheetData()" class="flex justify-center items-center px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        รีเฟรช
+                    </button>
+                </div>
+            </div>
+            
+            <!-- สถานะกำลังโหลด หรือ Error -->
+            <div id="loadingMessage" class="px-6 py-12 text-center text-slate-500">
+                <svg class="animate-spin h-10 w-10 mx-auto mb-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="font-medium text-lg text-slate-700">กำลังซิงค์ข้อมูลจาก Google Sheet...</p>
+            </div>
+            
+            <div id="errorMessage" class="px-6 py-10 text-center text-red-500 hidden bg-red-50">
+                <svg class="h-12 w-12 mx-auto mb-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <p class="font-semibold text-lg">ไม่สามารถเข้าถึง Google Sheet ได้</p>
+                <p class="text-sm mt-2 text-slate-700">โปรดตรวจสอบว่าได้ตั้งค่าการแชร์ (Share) เป็น <b>"ทุกคนที่มีลิงก์ (Anyone with the link)"</b> แล้วหรือไม่</p>
+                <button onclick="fetchGoogleSheetData()" class="mt-4 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-700">ลองใหม่อีกครั้ง</button>
+            </div>
+
+            <!-- ตารางข้อมูลรองรับการเลื่อนแนวนอนบนมือถือ -->
+            <div class="overflow-x-auto" id="tableContainer" style="display: none;">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-100">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">เวลานัด</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">ชื่อลูกค้า</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">ประเภท</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">รุ่นรถยนต์</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">ทะเบียนรถ</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">ตำแหน่งติดตั้ง</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">เลขที่บิล/ใบเสร็จ</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">ประเภทการชำระ</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">มูลค่าสินค้า</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="bg-white divide-y divide-slate-200">
+                        <!-- แถวข้อมูลจะถูกสร้างขึ้นด้วย JavaScript ที่นี่ -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 text-sm flex justify-between items-center text-slate-500">
+                <span>🟢 เชื่อมต่อข้อมูลสดเรียบร้อย</span>
+                <span id="lastUpdated" class="text-slate-600 font-medium"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup Modal สำหรับแสดงรายละเอียดคิวงาน -->
+    <div id="jobModal" class="fixed inset-0 z-40 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-slate-900 bg-opacity-40 transition-opacity backdrop-blur-sm" aria-hidden="true" onclick="closeJobModal()"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full border border-slate-200">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                                <h3 class="text-xl leading-6 font-semibold text-slate-900" id="modal-title">รายละเอียดงานติดตั้ง</h3>
+                                <button onclick="closeJobModal()" class="text-slate-400 hover:text-slate-600 focus:outline-none">
+                                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                                
+                                <div class="col-span-1 md:col-span-2 mb-1">
+                                    <h4 class="font-semibold text-slate-700 mb-2 flex items-center">
+                                        <svg class="w-5 h-5 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                        ข้อมูลลูกค้า (Customer)
+                                    </h4>
+                                    <div id="m-customerDetails" class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 bg-green-50/50 p-3 rounded-lg border border-green-100 text-sm">
+                                    </div>
+                                </div>
+
+                                <div class="col-span-1 md:col-span-2 border-t pt-2 mt-1"></div>
+
+                                <div><span class="font-medium text-slate-500">รหัสงาน (JobID):</span> <span id="m-jobId" class="text-slate-800 font-medium"></span></div>
+                                <div><span class="font-medium text-slate-500">สถานะ:</span> <span id="m-status" class="px-2 py-1 text-xs rounded-full border"></span></div>
+                                
+                                <div><span class="font-medium text-slate-500">วันที่ติดตั้ง:</span> <span id="m-date" class="text-slate-800"></span></div>
+                                <div><span class="font-medium text-slate-500">เวลานัด:</span> <span id="m-time" class="text-slate-800"></span> น.</div>
+                                
+                                <div class="col-span-1 md:col-span-2 border-t pt-3 mt-1"></div>
+                                
+                                <div><span class="font-medium text-slate-500">รุ่นรถยนต์:</span> <span id="m-carModel" class="text-slate-800 font-medium"></span></div>
+                                <div><span class="font-medium text-slate-500">ทะเบียน/ป้าย:</span> <span id="m-plate" class="text-slate-800"></span> (<span id="m-plateType" class="text-slate-800"></span>)</div>
+                                <div id="m-plateWarning" class="hidden col-span-1 md:col-span-2 rounded-lg border-2 border-red-300 bg-red-50 px-4 py-3 text-center text-lg font-extrabold text-red-700">
+                                    กรุณากรอกทะเบียนรถให้ครบ
+                                </div>
+                                
+                                <div class="col-span-1 md:col-span-2 border-t pt-3 mt-1"></div>
+                                
+                                <div><span class="font-medium text-slate-500">ยี่ห้อฟิล์ม:</span> <span id="m-film" class="text-indigo-600 font-semibold"></span></div>
+                                <div><span class="font-medium text-slate-500">ตำแหน่งติดตั้ง:</span> <span id="m-installType" class="text-slate-800"></span></div>
+                                <div><span class="font-medium text-slate-500">โปรโมชั่น:</span> <span id="m-promotion" class="text-orange-600"></span></div>
+                                <div><span class="font-medium text-slate-500">ยอดขาย (บาท):</span> <span id="m-price" class="text-green-600 font-semibold"></span> บาท</div>
+                                <div><span class="font-medium text-slate-500">การชำระเงิน:</span> <span id="m-paymentStatus" class="px-2 py-1 text-xs rounded-full border"></span></div>
+                                
+                                <div class="col-span-1 md:col-span-2 mt-2 bg-slate-50 p-3 rounded-lg border border-slate-100" id="m-noteWrapper" style="display: none;">
+                                    <span class="font-medium text-slate-500 block mb-1">หมายเหตุ:</span> 
+                                    <span id="m-note" class="text-slate-800 italic"></span>
+                                </div>
+
+                                <div class="col-span-1 md:col-span-2 mt-2 drawer-card">
+                                    <h4 class="px-5 py-3 font-semibold text-slate-700 flex items-center border-b border-slate-100">
+                                        <svg class="w-5 h-5 mr-2 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h.01M11 15h2M5 7h14a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z"></path></svg>
+                                        การชำระเงิน
+                                    </h4>
+                                    <div id="m-paymentDetails" class="text-sm">
+                                    </div>
+                                </div>
+
+                                <div id="m-paymentProofWrapper" class="col-span-1 md:col-span-2 mt-2 drawer-card" style="display: none;">
+                                    <h4 class="px-5 py-3 font-semibold text-slate-700 flex items-center border-b border-slate-100">
+                                        <svg class="w-5 h-5 mr-2 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                        หลักฐานการโอนเงิน
+                                    </h4>
+                                    <div id="m-paymentProofDetails" class="grid grid-cols-1 gap-3 p-5">
+                                    </div>
+                                </div>
+
+                                <div class="col-span-1 md:col-span-2 border-t pt-3 mt-2">
+                                    <h4 class="font-semibold text-slate-700 mb-2 flex items-center">
+                                        <svg class="w-5 h-5 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        ข้อมูลการติดตั้งเพิ่มเติม (Detail_film)
+                                    </h4>
+                                    <div id="m-filmDetails" class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 bg-blue-50/30 p-3 rounded-lg border border-blue-100 text-sm">
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t">
+                    <button type="button" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-slate-800 text-base font-medium text-white hover:bg-slate-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm transition-colors" onclick="closeJobModal()">ปิดหน้าต่าง</button>
+                    <!-- ปุ่มเปิดหน้า Preview สำหรับพิมพ์ -->
+                    <button type="button" class="mt-3 w-full inline-flex justify-center rounded-lg border border-blue-600 shadow-sm px-4 py-2 bg-blue-50 text-base font-medium text-blue-700 hover:bg-blue-100 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-colors" onclick="openPrintPreview()">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        ดูตัวอย่างใบสั่งงาน (พรีวิว)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal ตัวใหม่สำหรับ Print Preview (แสดงจำลองกระดาษ A4) -->
+    <div id="printPreviewModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-800 bg-opacity-90 backdrop-blur-sm">
+        
+        <!-- แถบเมนูด้านบน (ซ่อนตอนปริ้นต์จริง) -->
+        <div class="sticky top-0 z-10 bg-white shadow-md px-6 py-4 flex justify-between items-center print-hidden">
+            <h3 class="text-lg font-bold text-slate-800">ตัวอย่างก่อนพิมพ์ (A4)</h3>
+            <div class="flex space-x-3">
+                <button onclick="closePrintPreview()" class="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg text-sm font-medium hover:bg-slate-300 transition-colors">
+                    ยกเลิก / กลับ
+                </button>
+                <button onclick="executePrint()" class="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-lg">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    ยืนยันสั่งพิมพ์
+                </button>
+            </div>
+        </div>
+
+        <!-- พื้นที่จำลองกระดาษ A4 (จัดเป็น Flexbox แบบปลอดภัย) -->
+        <div class="py-8 w-full flex justify-center min-h-screen items-center" id="printAreaWrapper">
+            <!-- ขนาด A4 210mm x 297mm ปล่อยให้ไหลตาม content -->
+            <div id="printArea" class="bg-white w-[210mm] min-h-[297mm] mx-auto py-[12mm] px-[12mm] shadow-2xl text-black text-[11px] leading-tight flex flex-col box-border">
+                
+                <!-- ================= ส่วนบน: ใบรับ/ส่งรถยนต์ ================= -->
+                <div class="relative flex-none">
+                    <!-- Header -->
+                    <div class="relative grid grid-cols-[1fr_1.45fr_1fr] items-center border-2 border-dotted border-slate-700 rounded-xl px-4 py-1 mb-2 min-h-[14mm]">
+                        <div class="flex items-center gap-7">
+                            <span class="text-[10px] font-medium text-slate-700 whitespace-nowrap">(สำหรับลูกค้า)</span>
+                            <div class="leading-none text-center text-slate-500">
+                                <div class="text-[10px] font-extrabold italic tracking-widest">MAHOLAN</div>
+                                <div class="text-[5px] tracking-[0.13em]">AUTOMOTIVE FILM</div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <span class="text-[27px] font-extrabold leading-none tracking-normal text-black">ใบรับ/ส่งรถยนต์</span>
+                        </div>
+                        <div class="text-[8.5px] text-right leading-[1.25] text-slate-800">
+                            โทรสอบถาม : <span class="font-extrabold text-[10px] text-black">02-055-6886</span> (กด 2)<br>
+                            เปิดทำการ : จันทร์ - เสาร์ เวลา 8.00 - 17.00 น.
+                        </div>
+                    </div>
+
+                    <div class="text-red-600 font-bold text-[11px] mb-3">*กรุณาส่งคืนใบนี้ตอนรับรถ</div>
+
+                    <!-- Content Split ซ้าย(ข้อมูล+ตาราง) 68% / ขวา(ยอดชำระ+QR) 32% -->
+                    <div class="flex gap-4">
+                        
+                        <!-- ฝั่งซ้าย 68% -->
+                        <div class="w-[68%]">
+                            <!-- ข้อมูลลูกค้าแบบ Grid คงที่ (ป้องกันบรรทัดเบี้ยว) -->
+                            <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[10px]">
+                                <!-- คอลัมน์ซ้าย -->
+                                <div class="grid grid-cols-[85px_1fr] items-end gap-1">
+                                    <span class="font-semibold pb-0.5">วันที่เข้ารับบริการ :</span>
+                                    <span class="border-b border-dotted border-black px-1 pb-0.5 whitespace-nowrap overflow-hidden text-ellipsis" id="p-date"></span>
+                                </div>
+                                <!-- คอลัมน์ขวา -->
+                                <div class="grid grid-cols-[55px_1fr] items-end gap-1">
+                                    <span class="font-semibold pb-0.5">เบอร์โทร :</span>
+                                    <span class="border-b border-dotted border-black px-1 pb-0.5 whitespace-nowrap overflow-hidden text-ellipsis" id="p-phone"></span>
+                                </div>
+
+                                <div class="grid grid-cols-[85px_1fr] items-end gap-1">
+                                    <span class="font-semibold pb-0.5">ชื่อลูกค้า :</span>
+                                    <span class="border-b border-dotted border-black px-1 pb-0.5 font-bold whitespace-nowrap overflow-hidden text-ellipsis" id="p-custName"></span>
+                                </div>
+                                <div class="grid grid-cols-[55px_1fr_15px] items-end gap-1">
+                                    <span class="font-semibold pb-0.5">เวลานัดคิว :</span>
+                                    <span class="border-b border-dotted border-black pl-1 pr-4 pb-0.5 text-left font-semibold" id="p-time"></span>
+                                    <span class="pb-0.5 text-right">น.</span>
+                                </div>
+
+                                <div class="grid grid-cols-[85px_1fr] items-end gap-1">
+                                    <span class="font-semibold pb-0.5">รุ่นรถยนต์ :</span>
+                                    <span class="border-b border-dotted border-black px-1 pb-0.5 whitespace-nowrap overflow-hidden text-ellipsis" id="p-carModel"></span>
+                                </div>
+                                <div class="grid grid-cols-[55px_1fr_15px] items-end gap-1">
+                                    <span class="font-semibold pb-0.5">เวลารับรถ :</span>
+                                    <span class="border-b border-dotted border-black px-1 pb-0.5 text-left font-semibold text-blue-700 whitespace-nowrap overflow-hidden text-ellipsis" id="p-receiveTime"></span>
+                                    <span class="pb-0.5 text-right">น.</span>
+                                </div>
+
+                                <div class="grid grid-cols-[85px_1fr] items-end gap-1">
+                                    <span class="font-semibold pb-0.5">ทะเบียนรถ :</span>
+                                    <span class="border-b border-dotted border-black px-1 pb-0.5 font-bold whitespace-nowrap overflow-hidden text-ellipsis" id="p-plate"></span>
+                                </div>
+                                <div class="grid grid-cols-[60px_1fr] items-end gap-1">
+                                    <span class="font-semibold pb-0.5 whitespace-nowrap">เวลานัดส่งรถ <span class="text-[7.5px] font-normal">(โดยประมาณ)</span> :</span>
+                                    <span class="border-b border-dotted border-black px-1 pb-0.5 text-center font-semibold text-blue-700 whitespace-nowrap overflow-hidden text-ellipsis" id="p-returnTime"></span>
+                                </div>
+                                <div id="p-plateWarning" class="hidden col-span-2 text-center text-red-600 text-[13px] font-extrabold border border-red-300 bg-red-50 py-1.5">
+                                    กรุณากรอกทะเบียนรถให้ครบ
+                                </div>
+
+                                <div class="grid grid-cols-[88px_1fr] items-end gap-2">
+                                    <span class="font-semibold pb-0.5">ประเภทลูกค้า :</span>
+                                    <span class="border-b border-dotted border-black px-2 pb-0.5 text-red-600 font-bold whitespace-nowrap overflow-hidden text-ellipsis" id="p-custType"></span>
+                                </div>
+                                <div class="col-start-2 text-[8px] text-red-600 mt-1 leading-none">
+                                    *หากรถเสร็จก่อนเวลาผิด เจ้าหน้าที่จะโทรแจ้งนะคะ
+                                </div>
+                            </div>
+
+                            <!-- ตารางข้อมูลฟิล์ม -->
+                            <div class="mt-4">
+                                <div class="flex justify-between text-[10.5px] font-bold mb-1.5">
+                                    <span>ข้อมูลติดตั้งฟิล์มรถยนต์ :</span>
+                                    <span>*การรับประกันโดย :<span class="ml-2 inline-block border-b border-dotted border-black px-8 font-normal" id="p-warranty">ร้าน</span></span>
+                                </div>
+                                <div class="print-table-shell">
+                                    <table class="w-full border-0 text-[10px] table-fixed">
+                                        <thead class="bg-gray-200 text-center border-b border-black">
+                                            <tr>
+                                                <th class="border-r border-black py-1 font-semibold w-[27%]">ตำแหน่ง</th>
+                                                <th class="border-r border-black py-1 font-semibold w-[51%]">ยี่ห้อ / รหัสฟิล์ม</th>
+                                                <th class="py-1 font-semibold w-[22%]">หมายเหตุ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="p-table1">
+                                            <!-- แทรกด้วย JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ฝั่งขวา 32% -->
+                        <div class="w-[32%] flex flex-col items-end">
+                            <div id="p-paymentDueBox" class="bg-gray-200 border border-gray-400 py-1.5 px-3 w-full flex justify-between items-center mb-4">
+                                <span class="font-bold text-[11px]">ยอดเงินที่ต้องชำระ :</span>
+                                <span class="text-red-600 font-bold text-[16px]" id="p-price"></span>
+                            </div>
+                            
+                            <!-- กล่องชำระเงิน Prompt Pay ใหญ่อลังการ -->
+                            <div class="prompt-pay-card w-full flex flex-col items-center text-center justify-start border border-black p-3 bg-white">
+                                <div class="prompt-pay-title bg-[#113566] text-white px-4 py-1.5 font-bold rounded-sm text-[12px] mb-3 w-full">Prompt Pay</div>
+                                
+                                <!-- QR Code ธนาคาร -->
+                                <div class="prompt-pay-qr w-[120px] h-[120px] bg-white border border-gray-300 flex flex-col items-center justify-center text-gray-400 mb-3 shrink-0 relative overflow-hidden">
+                                    <img src="images/qrcode_mhl.png" alt="QR Code ธนาคาร บริษัท มโหฬารฟิล์ม จำกัด" class="w-full h-full object-contain">
+                                </div>
+                                
+                                <div class="text-[10px] leading-[1.4] mb-3 font-medium">
+                                    บริษัท มโหฬารฟิล์ม จำกัด<br>
+                                    Biller ID : 010556214343699
+                                </div>
+                                
+                                <div class="border border-purple-800 rounded-md py-1.5 px-2 w-full bg-purple-50/30">
+                                    <div class="text-purple-800 font-bold text-[11px]">SCB ไทยพาณิชย์</div>
+                                    <div class="text-[16px] font-bold font-sans tracking-widest leading-none my-1">430-0-43329-0</div>
+                                    <div class="text-[9px] font-medium">บริษัท มโหฬารฟิล์ม จำกัด</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Checkboxes และลายเซ็นต์ ส่วนใบแรก -->
+                    <div class="flex justify-between items-end mt-2.5">
+                        <div class="w-[60%] text-[10px] flex flex-col gap-1.5">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 border border-black rounded-full mr-2 shrink-0"></div>
+                                <span>ขอรับบริการอบโอโซนในรถยนต์ <b class="text-red-600">ฟรี!</b> เป็นลูกค้าตามเงื่อนไขที่บริษัทกำหนด</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 border border-black rounded-full mr-2 shrink-0"></div>
+                                <span>เคลือบน้ำยาพ่นหยดน้ำ 3M (บานหน้า) <b class="text-red-600">ฟรี!</b> เป็นลูกค้าตามเงื่อนไขที่บริษัทกำหนด</span>
+                            </div>
+                            
+                            <!-- พื้นที่หมายเหตุ (จะแสดงถ้ามีข้อมูล) -->
+                            <div class="mt-1 text-[10px] text-red-600 font-semibold" id="p-noteContainer" style="display:none;">
+                                หมายเหตุ: <span class="text-slate-800 font-normal" id="p-note"></span>
+                            </div>
+                        </div>
+                        <div class="w-[40%] flex justify-end gap-10 text-center text-[10px]">
+                            <div class="w-24">
+                                <div class="mb-1">ลูกค้าเซ็นรับรถ</div>
+                                <div class="border-b border-dotted border-black w-full h-4"></div>
+                            </div>
+                            <div class="w-24">
+                                <div class="mb-1">พนักงานรับรถ</div>
+                                <div class="border-b border-dotted border-black w-full h-4"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ข้อความคำเตือนปรับขนาดใหญ่ขึ้นตามที่ขอ -->
+                    <div class="text-red-600 text-[12px] font-normal text-center mt-3 mb-1 leading-[1.42] w-full px-2">
+                        <span class="text-[13px]">*คำเตือน!! ลูกค้าควรตรวจเช็คทรัพย์สิน และตัวรถทั้งภายในและภายนอกรถ รวมถึงเอกสารต่างๆให้เรียบร้อยครบถ้วนก่อนนำ</span><br>
+                        รถออกจากร้านด้วยนะคะ บริษัทขอสงวนสิทธิ์ส่งคืนรถยนต์ตามข้อมูลในเอกสารให้กับลูกค้าที่มีเอกสารนี้มายืนยันเท่านั้น เพื่อประโยชน์<br>
+                        และความปลอดภัยของท่าน กรุณาเก็บรักษาและส่งคืนตอนรับรถนะคะ
+                    </div>
+                </div>
+
+                <!-- ================= เส้นประแบ่งครึ่งหน้า (ขยับลงและยืดหยุ่น) ================= -->
+                <div class="border-t-[1.5px] border-dashed border-gray-400 shrink-0 my-4"></div>
+
+                <!-- ================= ส่วนล่าง: ใบสั่งตัดฟิล์ม ================= -->
+                <div class="relative flex-1 flex flex-col">
+                    <div>
+                        <!-- Header 2 -->
+                        <div class="rounded-md border-[1.5px] border-black p-2 flex justify-between items-center mb-4 bg-gray-50/50">
+                            <h2 class="font-bold text-[16px]">ใบสั่งตัดฟิล์ม สำหรับรถยนต์</h2>
+                            <div class="text-[11px] font-bold flex items-end">
+                                <span class="mr-1">วันที่</span>
+                                <span class="border-b border-dotted border-black px-4 mr-4 text-center min-w-[80px] pb-0.5" id="p2-date"></span> 
+                                <span class="mr-1">เวลานัดติดตั้ง</span>
+                                <span class="border-b border-dotted border-black pl-1 pr-4 mr-1 text-left min-w-[60px] pb-0.5" id="p2-time"></span> 
+                                <span>น.</span>
+                            </div>
+                        </div>
+
+                        <!-- Customer Info 2 (Grid คงที่) -->
+                        <div class="grid grid-cols-3 gap-x-4 gap-y-2 text-[10.5px] mb-4">
+                            <div class="grid grid-cols-[60px_1fr] items-end gap-1">
+                                <span class="font-semibold pb-0.5">ชื่อลูกค้า :</span>
+                                <span class="border-b border-dotted border-black px-1 pb-0.5 font-bold whitespace-nowrap overflow-hidden text-ellipsis" id="p2-custName"></span>
+                            </div>
+                            <div class="grid grid-cols-[60px_1fr] items-end gap-1">
+                                <span class="font-semibold pb-0.5">รุ่นรถยนต์ :</span>
+                                <span class="border-b border-dotted border-black px-1 pb-0.5 whitespace-nowrap overflow-hidden text-ellipsis" id="p2-carModel"></span>
+                            </div>
+                            <div class="grid grid-cols-[75px_1fr] items-end gap-1">
+                                <span class="font-semibold pb-0.5">ทะเบียนรถ :</span>
+                                <span class="border-b border-dotted border-black px-1 pb-0.5 font-bold whitespace-nowrap overflow-hidden text-ellipsis" id="p2-plate"></span>
+                            </div>
+                            
+                            <div class="grid grid-cols-[60px_1fr] items-end gap-1">
+                                <span class="font-semibold pb-0.5">เบอร์โทร :</span>
+                                <span class="border-b border-dotted border-black px-1 pb-0.5 whitespace-nowrap overflow-hidden text-ellipsis" id="p2-phone"></span>
+                            </div>
+                            <div class="grid grid-cols-[70px_1fr] items-end gap-2">
+                                <span class="font-semibold pb-0.5 whitespace-nowrap">ประเภทลูกค้า :</span>
+                                <span class="border-b border-dotted border-black px-2 pb-0.5 font-bold whitespace-nowrap overflow-hidden text-ellipsis" id="p2-custType"></span>
+                            </div>
+                            <div class="grid grid-cols-[88px_1fr] items-end gap-2">
+                                <span class="font-semibold pb-0.5 whitespace-nowrap">การรับประกันโดย :</span>
+                                <span class="border-b border-dotted border-black px-2 pb-0.5 font-bold" id="p2-warranty"> ร้าน</span>
+                            </div>
+                        </div>
+
+                        <!-- ตารางใบสั่งตัด 2 -->
+                        <div class="print-table-shell mb-4">
+                            <table class="cutting-print-table w-full border-0 text-[10px] table-fixed">
+                                <thead class="text-center bg-gray-100 border-b border-black">
+                                    <tr>
+                                        <th rowspan="2" class="cut-installer-column border-r border-black p-1 font-semibold w-[8%]">ช่างติดตั้ง</th>
+                                        <th rowspan="2" class="cut-position-column border-r border-black p-1 font-semibold w-[14%]">ตำแหน่ง</th>
+                                        <th rowspan="2" class="cut-film-column border-r border-black p-1 font-semibold w-[31%]">ยี่ห้อ / รหัสฟิล์ม</th>
+                                        <th colspan="3" class="border-r border-black p-1 font-semibold border-b border-black">ขนาด(นิ้ว)</th>
+                                        <th rowspan="2" class="cut-note-column p-1 font-semibold w-[26%]">หมายเหตุ</th>
+                                    </tr>
+                                    <tr class="bg-gray-50">
+                                        <th class="cut-size-column border-r border-black p-1 font-semibold w-[7%]">กว้าง</th>
+                                        <th class="cut-size-column border-r border-black p-1 font-semibold w-[7%]">ยาว</th>
+                                        <th class="cut-size-column border-r border-black p-1 font-semibold w-[7%]">แผ่น</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="p-table2">
+                                    <!-- แทรกด้วย JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="cutting-freebies flex justify-between items-center mb-6 text-[10.5px] font-bold text-red-600 px-6">
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 border border-black rounded-full mr-2 shrink-0"></div>
+                                ขอรับบริการอบโอโซนในรถยนต์ ฟรี!
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-4 h-4 border border-black rounded-full mr-2 shrink-0"></div>
+                                เคลือบน้ำยาพ่นหยดน้ำ 3M (บานหน้า) ฟรี!
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cutting-signature-wrap mt-4">
+                        <!-- Signatures Grid 2 -->
+                        <div class="cutting-signatures grid grid-cols-3 gap-x-12 gap-y-6 text-[10.5px] px-2">
+                            <div class="grid grid-cols-[60px_1fr] items-end gap-1">
+                                <span class="pb-0.5">ผู้สั่งตัด</span>
+                                <div class="border-b border-dotted border-black h-4 text-center"></div>
+                            </div>
+                            <div class="grid grid-cols-[60px_1fr] items-end gap-1">
+                                <span class="pb-0.5">อนุมัติโดย</span>
+                                <div class="border-b border-dotted border-black h-4 text-center"></div>
+                            </div>
+                            <div class="grid grid-cols-[60px_1fr] items-end gap-1">
+                                <span class="pb-0.5">ผู้ตรวจสอบ</span>
+                                <div class="border-b border-dotted border-black h-4 text-center"></div>
+                            </div>
+                            
+                            <div class="grid grid-cols-[60px_1fr] items-end gap-1">
+                                <span class="pb-0.5">พนักงานขาย</span>
+                                <div class="flex h-5 items-start justify-center border-b border-dotted border-black pt-0.5 text-center font-bold leading-none text-blue-800" id="p2-salesName"></div>
+                            </div>
+                            <div class="grid grid-cols-[65px_1fr] items-end gap-1">
+                                <span class="pb-0.5">ผู้ตัด/ผู้เตรียม</span>
+                                <div class="border-b border-dotted border-black h-4 text-center"></div>
+                            </div>
+                            <div class="grid grid-cols-[60px_1fr] items-end gap-1">
+                                <span class="pb-0.5">เลขที่ใบเสร็จ</span>
+                                <div class="border-b border-dotted border-black h-4 text-center"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-auto pt-4">
+                        <div class="text-[9px] text-gray-400 text-right" id="p-timestamp"></div>
+                        <div id="p-cutReasonContainer" class="hidden mt-2 text-center text-red-600 font-normal text-[16px] leading-snug">
+                            เหตุผลขอตัดฟิล์ม: <span id="p-cutReason"></span>
+                            <div id="p-cutJobCodeWrapper" class="hidden mt-0.5 text-[12px] font-normal leading-tight text-black/45">
+                                (<span id="p-cutJobCode"></span>)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SHEET_ID = '1u__xYWoWZpmrnquc-Fpk19WtpcrckxSd0-_G35NWxXQ';
+        const SHEET_NAME = 'Bookings';
+        const DETAIL_SHEET_NAME = 'Detail_film';
+        const REASON_SHEET_NAME = 'เหตุผลขอตัดฟิล์ม'; // เพิ่มชีตอ้างอิงเหตุผล
+        const CUSTOMER_SHEET_NAME = 'Customer'; // เพิ่มชีตข้อมูลลูกค้า
+        const PAYIN_SHEET_NAME = 'PayIn';
+        const CONTACT_SHEET_NAME = 'สถิตการติดต่อ';
+        const MEMO_SHEET_NAME = 'memo';
+        const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
+        const DETAIL_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${DETAIL_SHEET_NAME}`;
+        const REASON_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${REASON_SHEET_NAME}`; // ลิงก์ดึงข้อมูลเหตุผล
+        const CUSTOMER_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${CUSTOMER_SHEET_NAME}`; // ลิงก์ดึงข้อมูลลูกค้า
+        const PAYIN_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${PAYIN_SHEET_NAME}`;
+        const CONTACT_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${CONTACT_SHEET_NAME}`;
+        const MEMO_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${MEMO_SHEET_NAME}`;
+
+        let allData = []; // ตัวแปรเก็บข้อมูลทั้งหมดจาก Sheet
+        let contactData = [];
+        let memoData = [];
+        let reasonMap = {}; // ตัวแปรเก็บพจนานุกรมแปลรหัสเหตุผล
+        let currentViewJobId = null; // ตัวแปรเก็บ ID งานที่เปิดดูอยู่ปัจจุบัน เพื่อใช้สั่งพิมพ์
+        const dom = {};
+
+        const DOM_IDS = [
+            'loadingMessage', 'tableContainer', 'errorMessage', 'lastUpdated', 'table-body',
+            'searchInput', 'dateFilter', 'clearDateBtn', 'jobModal', 'printPreviewModal', 'modal-title',
+            'summaryFilteredLabel', 'summaryFilteredSales', 'summaryFilteredJobs',
+            'summaryFilteredCard', 'summaryNewCard', 'summaryOldCard', 'summaryClaimCard', 'summaryFixCard',
+            'summaryNewJobs', 'summaryNewSales', 'summaryOldJobs', 'summaryOldSales', 'summaryClaimJobs', 'summaryClaimSales',
+            'summaryFixJobs', 'summaryFixSales', 'memoAlertCard', 'memoAlertCount', 'memoAlertList',
+            'm-jobId', 'm-date', 'm-time', 'm-carModel', 'm-plate', 'm-plateType', 'm-film',
+            'm-plateWarning', 'm-installType', 'm-promotion', 'm-price', 'm-paymentStatus', 'm-noteWrapper', 'm-note',
+            'm-customerDetails', 'm-paymentDetails', 'm-paymentProofWrapper', 'm-paymentProofDetails', 'm-filmDetails', 'm-status',
+            'p-date', 'p-time', 'p-custName', 'p-phone', 'p-carModel', 'p-plate', 'p-custType',
+            'p-warranty', 'p-receiveTime', 'p-returnTime', 'p-plateWarning', 'p-noteContainer', 'p-note',
+            'p-paymentDueBox', 'p-price', 'p-cutReasonContainer', 'p-cutReason', 'p-cutJobCodeWrapper', 'p-cutJobCode',
+            'p2-date', 'p2-time', 'p2-custName', 'p2-phone', 'p2-carModel', 'p2-plate',
+            'p2-custType', 'p2-warranty', 'p2-salesName', 'p-table1', 'p-table2', 'p-timestamp'
+        ];
+
+        function cacheDom() {
+            DOM_IDS.forEach(id => {
+                dom[id] = document.getElementById(id);
+            });
+        }
+
+        function textValue(value, fallback = "-") {
+            if (value === null || value === undefined) return fallback;
+            const text = String(value).trim();
+            return text === "" ? fallback : text;
+        }
+
+        function escapeHtml(value) {
+            return textValue(value, "").replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function parseCsv(csvText) {
+            return new Promise(resolve => {
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    transformHeader: header => header.trim(),
+                    complete: results => resolve(results.data)
+                });
+            });
+        }
+
+        function findKey(keys, matcher) {
+            return keys.find(matcher);
+        }
+
+        function normalizeLookupId(value) {
+            return textValue(value, "").replace(/\s+/g, "").toLowerCase();
+        }
+
+        function normalizeHeader(value) {
+            return textValue(value, "").replace(/[\s().（）]/g, "").toLowerCase();
+        }
+
+        function makeLookupMap(rows, keyMatcher) {
+            const map = {};
+            rows.forEach(row => {
+                const keys = Object.keys(row);
+                const idKey = findKey(keys, keyMatcher);
+                const id = idKey ? textValue(row[idKey], "") : "";
+                if (!id) return;
+
+                const normalizedId = normalizeLookupId(id);
+                const details = { ...(map[id] || map[normalizedId] || {}) };
+                Object.entries(row).forEach(([key, value]) => {
+                    if (key === idKey) return;
+                    const text = textValue(value, "");
+                    if (text && text !== "-") {
+                        details[key] = text;
+                    } else if (!(key in details)) {
+                        details[key] = text;
+                    }
+                });
+                map[id] = details;
+                if (normalizedId) map[normalizedId] = details;
+            });
+            return map;
+        }
+
+        // ปรับปรุงฟังก์ชันตรวจสอบการชำระเงินให้ดึงข้อมูลรูปลิงก์/หลักฐานมาด้วย
+        function buildPayInDetailsMap(rows) {
+            const map = {};
+            rows.forEach(row => {
+                const keys = Object.keys(row);
+                const jobKey = findKey(keys, key => key.replace(/\s/g, '').toLowerCase() === 'jobid' || key.toLowerCase().includes('job'));
+                const statusKey = findKey(keys, key => key.replace(/\s/g, '') === 'สถานะ') ||
+                    findKey(keys, key => key.toLowerCase().includes('status') || key.includes('สถานะ'));
+                const billKey = findKey(keys, key => {
+                    const k = key.replace(/\s/g, '').toLowerCase();
+                    return k.includes('เลขที่บิล') || k.includes('ใบเสร็จ') || k.includes('bill') || k.includes('receipt');
+                });
+                const payTypeKey = findKey(keys, key => {
+                    const k = key.replace(/\s/g, '').toLowerCase();
+                    return k.includes('ประเภทการชำระ') || k.includes('ประเภทชำระ') || k.includes('paymenttype') || k.includes('paytype');
+                });
+                const amountKey = findKey(keys, key => {
+                    const k = key.replace(/\s/g, '').toLowerCase();
+                    return k.includes('ยอดเงิน') || k.includes('ยอดชำระ') || k.includes('จำนวนเงิน') || k.includes('amount');
+                });
+                const productValueKey = findKey(keys, key => {
+                    const k = key.replace(/\s/g, '').toLowerCase();
+                    return k.includes('มูลค่าสินค้า') || k.includes('productvalue');
+                });
+                const proofKeys = keys.filter(key => {
+                    const k = key.replace(/\s/g, '').toLowerCase();
+                    return k.includes('หลักฐาน') || k.includes('สลิป') || k.includes('slip') || k.includes('รูป') || k.includes('image') || k.includes('แนบ');
+                });
+
+                if (!jobKey) return;
+
+                const jobId = textValue(row[jobKey], "");
+                const status = statusKey ? textValue(row[statusKey], "") : "-";
+                const proofs = proofKeys.map(key => textValue(row[key], "")).filter(value => value && value !== "-");
+                
+                if (!jobId) return;
+
+                const data = {
+                    status,
+                    billNo: billKey ? textValue(row[billKey], "-") : "-",
+                    payType: payTypeKey ? textValue(row[payTypeKey], "-") : "-",
+                    amount: amountKey ? parseFloat(textValue(row[amountKey], "0").replace(/[^\d.-]/g, '')) || 0 : 0,
+                    productValue: productValueKey ? parseFloat(textValue(row[productValueKey], "0").replace(/[^\d.-]/g, '')) || 0 : 0,
+                    proofs,
+                    hasSlip: proofs.some(value => value.length > 5)
+                };
+
+                map[jobId] = data;
+                map[normalizeLookupId(jobId)] = data;
+            });
+            return map;
+        }
+
+        function setText(id, value) {
+            dom[id].innerText = value;
+        }
+
+        function setVisible(element, isVisible, displayValue = 'block') {
+            element.style.display = isVisible ? displayValue : 'none';
+        }
+
+        function detailFilmWarningHtml() {
+            return `
+                <div class="col-span-1 md:col-span-2 rounded-xl border-2 border-yellow-400 bg-yellow-100 px-5 py-4 text-center shadow-sm">
+                    <div class="text-xl font-extrabold text-yellow-900">ยังไม่มีข้อมูล Detail_film</div>
+                    <div class="mt-1 text-base font-bold text-yellow-800">กรุณากลับไปเพิ่มข้อมูลการติดตั้งเพิ่มเติมก่อนพิมพ์เอกสาร</div>
+                </div>
+            `;
+        }
+
+        function isMissingPlate(plate) {
+            const value = textValue(plate, "").replace(/\s+/g, "");
+            return !value || value === "-";
+        }
+
+        function isPaymentCustomerType(customerType) {
+            const value = textValue(customerType, "").replace(/\s+/g, "");
+            return value === "ลูกค้าใหม่" || value === "ลูกค้าเก่า";
+        }
+
+        function translateCutFilmReason(value) {
+            const reasonId = textValue(value, "");
+            if (!reasonId || reasonId === "-") return "";
+            return reasonMap[normalizeLookupId(reasonId)] || reasonMap[reasonId] || reasonId;
+        }
+
+        function getCutFilmReason(job) {
+            if (!job.filmDetails) return "";
+            const reasonKey = Object.keys(job.filmDetails).find(key => {
+                const compactKey = key.replace(/\s+/g, "");
+                return compactKey.includes("เหตุผลขอตัดฟิล์ม") ||
+                    (compactKey.includes("เหตุผล") && compactKey.includes("ตัดฟิล์ม"));
+            });
+            if (!reasonKey) return "";
+
+            const reasonId = textValue(job.filmDetails[reasonKey], "");
+            if (!reasonId || reasonId === "-") return "";
+            return translateCutFilmReason(reasonId);
+        }
+
+        function getCutJobCode(job) {
+            if (!job.filmDetails) return "";
+            const codeKey = Object.keys(job.filmDetails).find(key => {
+                const compactKey = key.replace(/\s+/g, "").toLowerCase();
+                return compactKey.includes("รหัสงานตัด") ||
+                    compactKey.includes("detail_id") ||
+                    compactKey.includes("detailid") ||
+                    compactKey.includes("cutid") ||
+                    compactKey.includes("cuttingid");
+            });
+            if (!codeKey) return "";
+            const code = textValue(job.filmDetails[codeKey], "");
+            return (!code || code === "-") ? "" : code;
+        }
+
+        function convertDateToThaiFormat(dateStr) {
+            if(!dateStr) return "";
+            const [year, month, day] = dateStr.split('-');
+            const thaiYear = parseInt(year) + 543;
+            // ลบเลข 0 นำหน้า เพื่อให้ตรงกับ '14/5/2569'
+            return `${parseInt(day)}/${parseInt(month)}/${thaiYear}`;
+        }
+
+        // ฟังก์ชันแปลงข้อความเวลาให้รัดกุมยิ่งขึ้น
+        function timeToNumber(timeStr) {
+            if (!timeStr || timeStr === "-" || typeof timeStr !== 'string') return Number.MAX_SAFE_INTEGER;
+            
+            // ลบช่องว่างหน้า-หลัง และแปลงเป็นพิมพ์เล็กเผื่อมี am/pm (แม้ในตัวอย่างจะไม่มี)
+            const cleanTime = timeStr.trim().toLowerCase();
+            
+            // ใช้ Regular Expression เพื่อดึงแค่ตัวเลขที่คั่นด้วย : ออกมา
+            const match = cleanTime.match(/(\d+):(\d+)(?::(\d+))?/);
+            
+            if (match) {
+                const h = parseInt(match[1], 10) || 0;
+                const m = parseInt(match[2], 10) || 0;
+                const s = parseInt(match[3], 10) || 0;
+                return (h * 3600) + (m * 60) + s;
+            }
+            
+            return Number.MAX_SAFE_INTEGER;
+        }
+
+        function formatDisplayTime(value) {
+            const match = String(value || '').match(/(\d{1,2}):(\d{2})/);
+            return match ? `${parseInt(match[1], 10)}:${match[2]}` : textValue(value);
+        }
+
+        function formatSummaryMoney(value) {
+            return `฿${(Number(value) || 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })}`;
+        }
+
+        function isNewCustomerJob(job) {
+            return normalizeHeader(job.customerType).includes(normalizeHeader('ลูกค้าใหม่'));
+        }
+
+        function isOldCustomerJob(job) {
+            return normalizeHeader(job.customerType).includes(normalizeHeader('ลูกค้าเก่า'));
+        }
+
+        function isCancelledJob(job) {
+            return normalizeHeader(job.status).includes(normalizeHeader('ยกเลิก'));
+        }
+
+        function isClaimCustomerJob(job) {
+            const customerType = normalizeHeader(job.customerType);
+            return customerType.includes(normalizeHeader('เคลม')) ||
+                customerType.includes(normalizeHeader('ปัญหาฟิล์ม'));
+        }
+
+        function isFixCustomerJob(job) {
+            const customerType = normalizeHeader(job.customerType);
+            return customerType.includes(normalizeHeader('งานแก้')) ||
+                customerType.includes(normalizeHeader('ในวัน')) ||
+                customerType.includes(normalizeHeader('แก้'));
+        }
+
+        function sumJobSales(rows) {
+            return rows.reduce((sum, job) => sum + (Number(job.price) || 0), 0);
+        }
+
+        function parseContactCount(value) {
+            const number = parseFloat(textValue(value, "0").replace(/[^\d.-]/g, ""));
+            return Number.isFinite(number) ? number : 0;
+        }
+
+        function buildContactRows(rows) {
+            return rows.map(row => ({
+                date: textValue(row['วันที่'], ""),
+                phone: parseContactCount(row['โทร']),
+                line: parseContactCount(row['Line']),
+                fb: parseContactCount(row['FB']),
+                tiktok: parseContactCount(row['Tiktok']),
+                walkin: parseContactCount(row['WalkIn'])
+            })).filter(row => row.date);
+        }
+
+        function findRowValue(row, candidates) {
+            const keys = Object.keys(row || {});
+            const normalizedCandidates = candidates.map(normalizeHeader);
+            const key = keys.find(item => normalizedCandidates.includes(normalizeHeader(item))) ||
+                keys.find(item => normalizedCandidates.some(candidate => {
+                    const normalizedItem = normalizeHeader(item);
+                    return normalizedItem.includes(candidate) || candidate.includes(normalizedItem);
+            }));
+            return key ? textValue(row[key], "") : "";
+        }
+
+        function valueByColumnIndex(row, index) {
+            const values = Object.values(row || {});
+            return textValue(values[index], "");
+        }
+
+        function parseMemoDate(value) {
+            const raw = textValue(value, "");
+            if (!raw || raw === "-") return null;
+
+            let match = raw.match(/^\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+            if (match) {
+                let year = parseInt(match[1], 10);
+                if (year > 2400) year -= 543;
+                const date = new Date(year, parseInt(match[2], 10) - 1, parseInt(match[3], 10));
+                return Number.isNaN(date.getTime()) ? null : date;
+            }
+
+            match = raw.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
+            if (match) {
+                let year = match[3] ? parseInt(match[3], 10) : new Date().getFullYear();
+                if (year < 100) year = year > 40 ? year + 2500 : year + 2000;
+                if (year > 2400) year -= 543;
+                const date = new Date(year, parseInt(match[2], 10) - 1, parseInt(match[1], 10));
+                return Number.isNaN(date.getTime()) ? null : date;
+            }
+
+            return null;
+        }
+
+        function formatMemoDate(date, fallback = "") {
+            if (date) return `${date.getDate()}/${date.getMonth() + 1}`;
+            const raw = textValue(fallback, "");
+            return raw && raw !== "-" ? raw : "-";
+        }
+
+        function truncateMemoText(value, maxLength = 32) {
+            const text = textValue(value, "");
+            if (text.length <= maxLength) return text;
+            return `${text.slice(0, maxLength).trim()}...`;
+        }
+
+        function isMemoDueSoon(date) {
+            if (!date) return false;
+            const today = new Date();
+            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const dueStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            const diffDays = Math.round((dueStart - todayStart) / 86400000);
+            return diffDays <= 3;
+        }
+
+        function buildMemoRows(rows) {
+            return rows.map((row, index) => {
+                const status = findRowValue(row, ['สถานะงาน', 'สถานะ', 'Status']);
+                const dateText = findRowValue(row, ['วันที่แจ้งเตือน', 'วันแจ้งเตือน', 'วันที่', 'กำหนด', 'กำหนดแจ้งเตือน', 'Due Date', 'Date']);
+                const date = parseMemoDate(dateText);
+                const title = valueByColumnIndex(row, 3) ||
+                    findRowValue(row, ['รายละเอียด', 'ข้อความ', 'หมายเหตุ', 'หัวข้อ', 'เรื่อง', 'รายการ', 'แจ้งเตือน', 'memo', 'Memo']) ||
+                    Object.entries(row).find(([key, value]) => {
+                        const normalizedKey = normalizeHeader(key);
+                        const text = textValue(value, "");
+                        return text &&
+                            !normalizedKey.includes(normalizeHeader('สถานะ')) &&
+                            !normalizedKey.includes('status') &&
+                            !normalizedKey.includes(normalizeHeader('วันที่')) &&
+                            !normalizedKey.includes('date');
+                    })?.[1] ||
+                    `แจ้งเตือน ${index + 1}`;
+                return {
+                    id: index,
+                    title: textValue(title, ""),
+                    status,
+                    date,
+                    dateText
+                };
+            })
+                .filter(item => normalizeHeader(item.status) === 'on')
+                .sort((a, b) => {
+                    if (a.date && b.date) return a.date - b.date;
+                    if (a.date) return -1;
+                    if (b.date) return 1;
+                    return a.id - b.id;
+                });
+        }
+
+        function renderMemoAlerts() {
+            if (!dom.memoAlertCount || !dom.memoAlertList) return;
+
+            dom.memoAlertCount.innerText = `${memoData.length.toLocaleString('th-TH')} รายการ`;
+            if (!memoData.length) {
+                dom.memoAlertList.innerHTML = '<div class="text-slate-400">ไม่มีแจ้งเตือน</div>';
+                return;
+            }
+
+            const items = memoData.slice(0, 3).map(item => {
+                const dueSoon = isMemoDueSoon(item.date);
+                return `
+                <div class="flex items-center gap-1.5 rounded-lg ${dueSoon ? 'bg-rose-50 text-rose-700' : 'bg-blue-50'} px-2 py-1" title="${escapeHtml(item.title)}">
+                    <span class="shrink-0 font-extrabold ${dueSoon ? 'text-rose-700' : 'text-blue-700'}">${escapeHtml(formatMemoDate(item.date, item.dateText))}</span>
+                    ${dueSoon ? '<span class="memo-alert-shake inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-rose-100 text-[10px] text-rose-600">!</span>' : ''}
+                    <span class="min-w-0 flex-1 truncate font-normal">${escapeHtml(truncateMemoText(item.title, 86))}</span>
+                </div>
+            `;
+            }).join('');
+            const more = memoData.length > 3
+                ? `<div class="text-[11px] font-bold text-blue-600">+ อีก ${(memoData.length - 3).toLocaleString('th-TH')} รายการ</div>`
+                : '';
+            dom.memoAlertList.innerHTML = items + more;
+        }
+
+        function contactSummaryRows(dateInput) {
+            if (!dateInput) return contactData;
+            const dateText = convertDateToThaiFormat(dateInput);
+            return contactData.filter(row => row.date === dateText);
+        }
+
+        function renderContactSummary(dateInput, dateLabel) {
+            if (!dom.summaryContactLabel) return;
+            const rows = contactSummaryRows(dateInput);
+            const totals = rows.reduce((result, row) => {
+                result.phone += row.phone;
+                result.line += row.line;
+                result.fb += row.fb;
+                result.tiktok += row.tiktok;
+                result.walkin += row.walkin;
+                return result;
+            }, { phone: 0, line: 0, fb: 0, tiktok: 0, walkin: 0 });
+            const total = totals.phone + totals.line + totals.fb + totals.tiktok + totals.walkin;
+
+            dom.summaryContactLabel.innerText = `${dateLabel} จากชีตสถิตการติดต่อ`;
+            dom.summaryContactTotal.innerText = total.toLocaleString('th-TH');
+            dom.summaryContactPhone.innerText = totals.phone.toLocaleString('th-TH');
+            dom.summaryContactLine.innerText = totals.line.toLocaleString('th-TH');
+            dom.summaryContactFb.innerText = totals.fb.toLocaleString('th-TH');
+            dom.summaryContactTiktok.innerText = totals.tiktok.toLocaleString('th-TH');
+            dom.summaryContactWalkin.innerText = totals.walkin.toLocaleString('th-TH');
+        }
+
+        function renderDailySummary(filteredRows, dateRows, dateInput) {
+            const newRows = dateRows.filter(isNewCustomerJob);
+            const oldRows = dateRows.filter(isOldCustomerJob);
+            const claimRows = dateRows.filter(isClaimCustomerJob);
+            const fixRows = dateRows.filter(isFixCustomerJob);
+            const filteredRevenueRows = filteredRows.filter(job => !isClaimCustomerJob(job) && !isFixCustomerJob(job));
+            const dateLabel = dateInput ? `วันที่ ${convertDateToThaiFormat(dateInput)}` : 'ทุกวันที่แสดง';
+            const searchActive = Boolean(dom.searchInput.value.trim());
+            const filteredSales = sumJobSales(filteredRevenueRows);
+            const newSales = sumJobSales(newRows);
+            const oldSales = sumJobSales(oldRows);
+            const claimSales = sumJobSales(claimRows);
+            const fixSales = sumJobSales(fixRows);
+
+            dom.summaryFilteredLabel.innerText = `คิวทั้งหมด ${dateLabel}${searchActive ? ' + คำค้นหา' : ' ตามตัวกรอง'}`;
+            dom.summaryFilteredSales.innerText = formatSummaryMoney(filteredSales);
+            dom.summaryFilteredJobs.innerText = `${filteredRows.length.toLocaleString('th-TH')} คิว`;
+            dom.summaryNewJobs.innerText = `${newRows.length.toLocaleString('th-TH')} คิว`;
+            dom.summaryNewSales.innerText = formatSummaryMoney(newSales);
+            dom.summaryOldJobs.innerText = `${oldRows.length.toLocaleString('th-TH')} คิว`;
+            dom.summaryOldSales.innerText = formatSummaryMoney(oldSales);
+            dom.summaryClaimJobs.innerText = `${claimRows.length.toLocaleString('th-TH')} คิว`;
+            dom.summaryClaimSales.innerText = formatSummaryMoney(claimSales);
+            dom.summaryFixJobs.innerText = `${fixRows.length.toLocaleString('th-TH')} คิว`;
+            dom.summaryFixSales.innerText = formatSummaryMoney(fixSales);
+            renderContactSummary(dateInput, dateLabel);
+            renderMemoAlerts();
+        }
+
+        async function fetchGoogleSheetData() {
+            setVisible(dom.loadingMessage, true);
+            setVisible(dom.tableContainer, false);
+            setVisible(dom.errorMessage, false);
+
+            try {
+                // โหลดข้อมูลทุกชีตพร้อมกันเพื่อความรวดเร็ว
+                const responses = await Promise.all([
+                    fetch(CSV_URL),
+                    fetch(DETAIL_CSV_URL),
+                    fetch(REASON_CSV_URL),
+                    fetch(CUSTOMER_CSV_URL),
+                    fetch(PAYIN_CSV_URL),
+                    fetch(CONTACT_CSV_URL),
+                    fetch(MEMO_CSV_URL).catch(error => {
+                        console.warn(error);
+                        return null;
+                    })
+                ]);
+
+                if (responses.slice(0, 6).some(response => !response.ok)) throw new Error('Network response was not ok');
+                const [csvText, detailCsvText, reasonCsvText, customerCsvText, payInCsvText, contactCsvText, memoCsvText] = await Promise.all(
+                    responses.map(response => response ? response.text() : Promise.resolve(""))
+                );
+                
+                // ตรวจสอบสิทธิ์
+                if ([csvText, detailCsvText, reasonCsvText, customerCsvText, payInCsvText, contactCsvText].some(text => {
+                    const trimmedText = text.trim().toLowerCase();
+                    return trimmedText.startsWith('<!doctype html>') || trimmedText.startsWith('<html');
+                })) {
+                    throw new Error('Permission Denied');
+                }
+
+                const [bookingRows, detailRows, reasonRows, customerRows, payInRows, contactRows, memoRows] = await Promise.all([
+                    parseCsv(csvText),
+                    parseCsv(detailCsvText),
+                    parseCsv(reasonCsvText),
+                    parseCsv(customerCsvText),
+                    parseCsv(payInCsvText),
+                    parseCsv(contactCsvText),
+                    memoCsvText ? parseCsv(memoCsvText) : Promise.resolve([])
+                ]);
+                contactData = buildContactRows(contactRows);
+                memoData = buildMemoRows(memoRows);
+
+                // 0. สร้างพจนานุกรมแปลรหัส "เหตุผลขอตัดฟิล์ม"
+                reasonMap = {};
+                reasonRows.forEach(row => {
+                    const keys = Object.keys(row);
+                    const idKey = findKey(keys, key => key.replace(/\s/g, '').toLowerCase() === 'id');
+                    const reasonKey = findKey(keys, key => key.replace(/\s/g, '').includes('เหตุผลขอตัดฟิล์ม')) ||
+                        findKey(keys, key => key.includes('เหตุผล'));
+                    if (!idKey || !reasonKey) return;
+                    const code = textValue(row[idKey], "");
+                    if (code) {
+                        const reasonText = textValue(row[reasonKey], "");
+                        reasonMap[code] = reasonText;
+                        reasonMap[normalizeLookupId(code)] = reasonText;
+                    }
+                });
+
+                // 0.5 สร้างพจนานุกรมข้อมูลลูกค้า (customerMap)
+                const customerMap = makeLookupMap(customerRows, key => key.replace(/\s/g, '').toLowerCase() === 'custid' || key.toLowerCase().includes('cust'));
+                
+                // 1. แปลงข้อมูล Detail_film เพื่อเตรียมนำมาเทียบ
+                const filmDetailsMap = makeLookupMap(detailRows, key => key.replace(/\s/g, '').toLowerCase() === 'jobid' || key.toLowerCase().includes('job'));
+                const payInDetailsMap = buildPayInDetailsMap(payInRows);
+
+                // 2. แปลงตารางหลัก
+                allData = bookingRows.map(row => {
+                    const keys = Object.keys(row);
+
+                    const salesKey = findKey(keys, key => key.includes('พนง') || (key.includes('ขาย') && !key.includes('ยอด')) || key.includes('เซลล์'));
+                    const priceKey = findKey(keys, key => normalizeHeader(key) === 'ยอดขาย') ||
+                        findKey(keys, key => normalizeHeader(key).includes('ยอดขายบาท')) ||
+                        findKey(keys, key => key.includes('ยอดขาย'));
+                    const jobIdKey = findKey(keys, key => key.replace(/\s/g, '').toLowerCase() === 'jobid' || key.toLowerCase().includes('job'));
+                    const warrantyKey = findKey(keys, key => key.includes('ประกัน') || key.includes('Warranty'));
+                    const dateKey = findKey(keys, key => key.includes('วันที่'));
+                    const timeKey = findKey(keys, key => key.includes('เวลา'));
+                    const statusKey = findKey(keys, key => key.includes('Status'));
+                    const custId = textValue(row['CustID']);
+                    const jobId = jobIdKey ? textValue(row[jobIdKey]) : "-";
+                    const customerDetails = customerMap[custId] || null;
+                    const customerKeys = customerDetails ? Object.keys(customerDetails) : [];
+                    const nameKey = findKey(customerKeys, key => key.includes('ชื่อ'));
+                    const phoneKey = findKey(customerKeys, key => key.includes('เบอร์'));
+                    const channelNameKey = findKey(customerKeys, key => {
+                        const normalizedKey = normalizeHeader(key);
+                        return normalizedKey.includes('ชื่อช่องทางติดต่อ') ||
+                            (normalizedKey.includes('ชื่อ') && normalizedKey.includes('ช่องทาง'));
+                    });
+                    const channelKey = findKey(customerKeys, key => {
+                        const normalizedKey = normalizeHeader(key);
+                        return normalizedKey.includes('ช่องทางติดต่อ') && !normalizedKey.includes('ชื่อ');
+                    }) || findKey(customerKeys, key => key.includes('ช่องทาง') && key !== channelNameKey);
+                    const price = parseFloat(textValue(priceKey ? row[priceKey] : "0", "0").replace(/,/g, '')) || 0;
+                    const warrantyValue = warrantyKey ? textValue(row[warrantyKey], "") : "";
+                    
+                    const payInDetails = payInDetailsMap[jobId] || payInDetailsMap[normalizeLookupId(jobId)] || { status: "-", hasSlip: false };
+
+                    const job = {
+                        id: jobId,
+                        custId,
+                        custName: nameKey ? textValue(customerDetails[nameKey]) : "-",
+                        custPhone: phoneKey ? textValue(customerDetails[phoneKey]) : "-",
+                        customerChannel: channelKey ? textValue(customerDetails[channelKey]) : "-",
+                        customerChannelName: channelNameKey ? textValue(customerDetails[channelNameKey]) : "-",
+                        sales: salesKey ? textValue(row[salesKey]) : "-",
+                        date: textValue(row['วันที่ติดตั้ง'] || row[dateKey]),
+                        time: formatDisplayTime(row['เวลานัด'] || row[timeKey]),
+                        customerType: textValue(row['ประเภทลูกค้า']),
+                        carModel: textValue(row['รุ่นรถยนต์']),
+                        plate: textValue(row['ทะเบียนรถ']),
+                        plateType: textValue(row['ป้าย']),
+                        film: textValue(row['ยี่ห้อฟิล์ม']),
+                        installType: textValue(
+                            row['ตำแหน่งติดตั้ง'] ||
+                            row['ตำแหน่งติดตั้ง ใหม่'] ||
+                            row['ตำแหน่งติดตั้งใหม่'] ||
+                            row['การติดตั้ง'] ||
+                            row['ประเภทการติดตั้ง'] ||
+                            row['ตำแหน่ง']
+                        ),
+                        price,
+                        promotion: textValue(row['Pro_ID'] || row['โปรโมชั่น']),
+                        note: textValue(row['หมายเหตุ']),
+                        warranty: warrantyValue !== "" ? warrantyValue : "ร้าน",
+                        paymentStatus: textValue(payInDetails.status, "-"),
+                        billNo: textValue(payInDetails.billNo, "-"),
+                        payType: textValue(payInDetails.payType, "-"),
+                        paymentAmount: payInDetails.amount || 0,
+                        productValue: payInDetails.productValue || price,
+                        paymentProofs: payInDetails.proofs || [],
+                        hasSlip: payInDetails.hasSlip,
+                        status: textValue(row['Status'] || row[statusKey]),
+                        colorStatus: textValue(row['ColorStatus'], "Gray"),
+                        filmDetails: filmDetailsMap[jobId] || filmDetailsMap[normalizeLookupId(jobId)] || null,
+                        customerDetails
+                    };
+
+                    job.searchText = [job.plate, job.carModel, job.sales, job.custName, job.status, job.paymentStatus, job.billNo, job.payType, job.customerChannel, job.customerChannelName]
+                        .join(' ')
+                        .toLowerCase();
+                    return job;
+                }).filter(job => job.id !== "-" && job.id !== "" && !isCancelledJob(job));
+
+                setVisible(dom.loadingMessage, false);
+                setVisible(dom.tableContainer, true);
+                
+                const now = new Date();
+                setText('lastUpdated', `อัปเดตล่าสุด: ${now.toLocaleTimeString('th-TH', { hour: 'numeric', minute: '2-digit', hour12: false })} น.`);
+
+                applyFilters();
+                handlePrintJobRequest();
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                setVisible(dom.loadingMessage, false);
+                setVisible(dom.errorMessage, true);
+            }
+        }
+
+        function requestedPrintJobId() {
+            const params = new URLSearchParams(window.location.search);
+            return textValue(params.get('printJob') || params.get('jobId') || params.get('job'), "");
+        }
+
+        function handlePrintJobRequest() {
+            const jobId = requestedPrintJobId();
+            if (!jobId) return;
+            const job = allData.find(item => item.id === jobId || normalizeLookupId(item.id) === normalizeLookupId(jobId));
+            if (!job) return;
+            openJobModal(job.id);
+            openPrintPreview();
+        }
+
+        function getStatusColorClass(status, colorStatus) {
+            const s = (status || '').toLowerCase();
+            const c = (colorStatus || '').toLowerCase();
+            if (s.includes('เสร็จสิ้น') || c.includes('green')) return 'bg-green-100 text-green-800 border-green-200';
+            if (s.includes('กำลังติดตั้ง') || c.includes('blue')) return 'bg-blue-100 text-blue-800 border-blue-200';
+            if (s.includes('คิวใหม่') || c.includes('orange')) return 'bg-orange-100 text-orange-800 border-orange-200';
+            return 'bg-slate-100 text-slate-800 border-slate-200';
+        }
+
+        // ฟังก์ชันสำหรับแทรกไอคอนตามสถานะงาน
+        function getStatusHTML(status) {
+            const s = (status || '').toLowerCase();
+            const safeStatus = escapeHtml(status);
+            if (s.includes('เสร็จสิ้น')) {
+                // ไอคอนติ๊กถูก (Check Circle)
+                return `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> ${safeStatus}`;
+            }
+            if (s.includes('กำลังติดตั้ง')) {
+                // ไอคอนเฟืองหมุนช้าๆ (Spinning Gear) สื่อถึงกำลังดำเนินงาน
+                return `<svg class="animate-[spin_3s_linear_infinite] w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> ${safeStatus}`;
+            }
+            if (s.includes('คิวใหม่')) {
+                // ไอคอนนาฬิกา (Clock)
+                return `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> ${safeStatus}`;
+            }
+            return safeStatus;
+        }
+
+        function getPaymentStatusColorClass(status) {
+            const value = textValue(status, "-");
+            const normalized = value.toLowerCase().replace(/\s+/g, '');
+            if (!value || value === "-") return 'bg-slate-100 text-slate-600 border-slate-200';
+            if (normalized.includes('ชำระแล้ว') || normalized.includes('จ่ายแล้ว') || normalized.includes('โอนแล้ว') || normalized.includes('paid')) {
+                return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+            }
+            if (normalized.includes('มัดจำ') || normalized.includes('บางส่วน') || normalized.includes('partial') || normalized.includes('deposit')) {
+                return 'bg-amber-100 text-amber-800 border-amber-200';
+            }
+            if (normalized.includes('ยังไม่') || normalized.includes('ค้าง') || normalized.includes('รอชำระ') || normalized.includes('unpaid')) {
+                return 'bg-rose-100 text-rose-800 border-rose-200';
+            }
+            return 'bg-blue-100 text-blue-800 border-blue-200';
+        }
+
+        function getPaymentStatusHTML(status) {
+            const value = textValue(status, "-");
+            return escapeHtml(value || "-");
+        }
+
+        function paymentProofUrl(url) {
+            if (!url) return "";
+            const raw = textValue(url, "");
+            if (raw.startsWith('http')) {
+                if (raw.includes('drive.google.com')) {
+                    const match = raw.match(/[-\w]{25,}/);
+                    return match ? `https://lh3.googleusercontent.com/d/${match[0]}` : raw;
+                }
+                return raw;
+            }
+
+            let clean = raw.replace(/\/\/+/g, '/');
+            if (clean.startsWith('/')) clean = clean.substring(1);
+            const appNameMatch = clean.match(/^([^\/]+)/);
+            const appName = appNameMatch ? appNameMatch[1] : 'CAR_CRM-691939189';
+            return `https://www.appsheet.com/template/gettablefileurl?appName=${encodeURIComponent(appName)}&tableName=PayIn&fileName=${encodeURIComponent(clean)}`;
+        }
+
+        function drawerRow(label, value) {
+            const safeValue = textValue(value, "-");
+            if (!safeValue || safeValue === "-") return "";
+            return `
+                <div class="drawer-row">
+                    <span class="font-bold text-slate-400">${escapeHtml(label)}</span>
+                    <span class="text-slate-900">${escapeHtml(safeValue)}</span>
+                </div>
+            `;
+        }
+
+        function getPlateTypeHTML(plateType) {
+            const value = textValue(plateType, "");
+            if (!value || value === "-") return "";
+
+            if (normalizeHeader(value).includes(normalizeHeader("แดง"))) {
+                return `
+                    <span class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-[11px] font-semibold text-red-600" title="${escapeHtml(value)}">
+                        <span class="h-2.5 w-3.5 rounded-[3px] bg-red-500 ring-1 ring-red-200"></span>
+                        ป้ายแดง
+                    </span>
+                `;
+            }
+
+            return `<span class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-500">${escapeHtml(value)}</span>`;
+        }
+
+        function getCustomerTypeBadge(customerType) {
+            const value = textValue(customerType, "ไม่ระบุ");
+            const normalized = value.toLowerCase();
+            if (normalized.includes('เคลม')) {
+                return `<span class="ml-1 inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-700"><span>!</span>${escapeHtml(value)}</span>`;
+            }
+            if (normalized.includes('แก้')) {
+                return `<span class="ml-1 inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700"><span>↺</span>${escapeHtml(value)}</span>`;
+            }
+            if (normalized.includes('เก่า')) {
+                return `<span class="ml-1 inline-flex items-center gap-1 rounded-full border border-yellow-200 bg-yellow-50 px-2 py-0.5 text-[10px] font-medium text-yellow-700"><span>•</span>${escapeHtml(value)}</span>`;
+            }
+            return `<span class="ml-1 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700"><span>＋</span>${escapeHtml(value)}</span>`;
+        }
+
+        function compactInstallType(value, maxItems = 2) {
+            const raw = textValue(value, "");
+            if (!raw || raw === "-") return "-";
+            const parts = raw
+                .split(/[,，、\n]+/)
+                .map(part => part.trim())
+                .filter(Boolean);
+
+            if (parts.length > maxItems) {
+                return `${parts.slice(0, maxItems).join(' , ')}...`;
+            }
+
+            const result = parts.length ? parts.join(' , ') : raw;
+            return result.length > 42 ? `${result.slice(0, 42).trim()}...` : result;
+        }
+
+        function renderTable(data) {
+            const tbody = dom['table-body'];
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="px-6 py-12 text-center text-slate-500">ไม่พบข้อมูลคิวงานตามเงื่อนไขที่เลือก</td></tr>`;
+                return;
+            }
+
+            // Sort by date (parsed) then by time for clean timeline grouping
+            const sorted = [...data].sort((a, b) => {
+                const pa = (a.date || '').split('/');
+                const pb = (b.date || '').split('/');
+                const da = parseInt(pa[2] || 0) * 10000 + parseInt(pa[1] || 0) * 100 + parseInt(pa[0] || 0);
+                const db = parseInt(pb[2] || 0) * 10000 + parseInt(pb[1] || 0) * 100 + parseInt(pb[0] || 0);
+                if (da !== db) return da - db;
+                return timeToNumber(a.time) - timeToNumber(b.time);
+            });
+
+            let html = '';
+
+            for (let i = 0; i < sorted.length; i++) {
+                const job = sorted[i];
+
+                // Row highlight by status
+                const statusText = (job.status || '').toLowerCase();
+                let rowClass = 'bg-white hover:bg-slate-50 transition-colors duration-150 cursor-pointer';
+                if (statusText.includes('เสร็จสิ้น')) {
+                    rowClass = 'bg-green-50/60 hover:bg-green-100 transition-colors duration-150 cursor-pointer';
+                } else if (statusText.includes('กำลังติดตั้ง')) {
+                    rowClass = 'schedule-row-installing transition-colors duration-150 cursor-pointer';
+                } else if (statusText.includes('คิวใหม่')) {
+                    rowClass = 'bg-orange-50/60 hover:bg-orange-100 transition-colors duration-150 cursor-pointer';
+                }
+
+                const plateWarning = isMissingPlate(job.plate)
+                    ? '<div class="mt-1 inline-flex rounded-md border border-red-300 bg-red-50 px-2 py-0.5 text-xs font-extrabold text-red-700">กรุณากรอกทะเบียนรถให้ครบ</div>'
+                    : '';
+
+                const timeDisplay = job.time && job.time !== '-' ? escapeHtml(job.time) : '-';
+
+                html += `
+                    <tr class="${rowClass}" data-job-id="${escapeHtml(job.id)}">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-slate-500 leading-none">${timeDisplay}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-extrabold text-slate-900" title="ชื่อลูกค้า">${escapeHtml(job.custName)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${getCustomerTypeBadge(job.customerType).replace('ml-1 ', '')}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-slate-500">${escapeHtml(job.carModel)}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-slate-500">${escapeHtml(job.plate)}</div>
+                        ${plateWarning}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-slate-500" title="${escapeHtml(job.installType)}">${escapeHtml(compactInstallType(job.installType))}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="inline-flex items-center gap-2 text-sm text-slate-500">
+                            ${escapeHtml(job.billNo)}
+                            ${job.hasSlip ? `<span class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-teal-200 bg-teal-50 text-teal-600 shadow-sm" title="มีหลักฐานการชำระเงิน/สลิป"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></span>` : ''}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${escapeHtml(job.payType)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-900 font-extrabold">
+                        ${job.price ? job.price.toLocaleString('th-TH') : '-'}
+                    </td>
+                </tr>`;
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        function applyFilters() {
+            const searchTerm = dom.searchInput.value.trim().toLowerCase();
+            const dateInput = dom.dateFilter.value; // ค่าจะเป็นรูปแบบ YYYY-MM-DD
+            
+            let dateFilteredData = allData;
+
+            // กรองตามวันที่ติดตั้ง
+            if (dateInput) {
+                const sheetDateFormat = convertDateToThaiFormat(dateInput);
+                dateFilteredData = dateFilteredData.filter(job => job.date === sheetDateFormat);
+                dom.clearDateBtn.classList.remove('hidden');
+            } else {
+                dom.clearDateBtn.classList.add('hidden');
+            }
+
+            let filteredData = dateFilteredData;
+
+            // กรองตามการพิมพ์ค้นหา
+            if (searchTerm) {
+                filteredData = filteredData.filter(job => job.searchText.includes(searchTerm));
+            }
+
+            // เรียงลำดับข้อมูลตามเวลาจากน้อยไปมาก
+            filteredData = [...filteredData].sort((a, b) => timeToNumber(a.time) - timeToNumber(b.time));
+
+            renderDailySummary(filteredData, dateFilteredData, dateInput);
+            renderTable(filteredData);
+        }
+
+        let appHasStarted = false;
+
+        function startAppOnce() {
+            if (appHasStarted) return;
+            appHasStarted = true;
+            initApp();
+        }
+
+        function unlockPage() {
+            document.body.classList.remove('auth-locked');
+            startAppOnce();
+        }
+
+        function initLogin() {
+            window.CarCrmAuth.onLogin(unlockPage);
+            if (window.CarCrmAuth.isLoggedIn()) {
+                unlockPage();
+                return;
+            }
+
+            const form = document.getElementById('loginForm');
+            const userInput = document.getElementById('loginUser');
+            const passInput = document.getElementById('loginPass');
+            const error = document.getElementById('loginError');
+
+            form.addEventListener('submit', async event => {
+                event.preventDefault();
+                if (await window.CarCrmAuth.login(userInput.value.trim(), passInput.value)) {
+                    unlockPage();
+                    return;
+                }
+
+                error.classList.remove('hidden');
+                passInput.value = '';
+                passInput.focus();
+            });
+
+            userInput.focus();
+        }
+
+        function initialDateFilterValue() {
+            const params = new URLSearchParams(window.location.search);
+            const requestedDate = textValue(params.get('date'), "");
+            if (/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return requestedDate;
+
+            const today = new Date();
+            return new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        }
+
+        function isEmbeddedPrintMode() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('embed') === '1' || window.self !== window.top;
+        }
+
+        function initApp() {
+            cacheDom();
+            dom.searchInput.addEventListener('input', applyFilters);
+            dom['table-body'].addEventListener('click', event => {
+                const row = event.target.closest('tr[data-job-id]');
+                if (row) openJobModal(row.dataset.jobId);
+            });
+            dom.dateFilter.addEventListener('change', applyFilters);
+            dom.clearDateBtn.addEventListener('click', () => {
+                dom.dateFilter.value = '';
+                applyFilters();
+            });
+
+            dom.dateFilter.value = initialDateFilterValue();
+
+            // เริ่มดึงข้อมูลจาก Google Sheet
+            fetchGoogleSheetData();
+        }
+
+        window.addEventListener('load', initLogin);
+
+        // ฟังก์ชันสำหรับเปิด Popup แสดงรายละเอียดเมื่อคลิกที่คิวงาน
+        function openJobModal(jobId) {
+            currentViewJobId = jobId; // เก็บไว้เผื่อกดสั่งพริ้นต์
+            const job = allData.find(j => j.id === jobId);
+            if (!job) return;
+
+            setText('modal-title', `${job.custName} — ${job.id}`);
+
+            // นำข้อมูลของคิวนั้นๆ ไปใส่ในหน้าต่าง Popup
+            setText('m-jobId', job.id);
+            setText('m-date', job.date);
+            setText('m-time', formatDisplayTime(job.time));
+            setText('m-carModel', job.carModel);
+            setText('m-plate', job.plate);
+            setText('m-plateType', job.plateType);
+            setVisible(dom['m-plateWarning'], isMissingPlate(job.plate));
+            setText('m-film', job.film);
+            setText('m-installType', job.installType);
+            setText('m-promotion', job.promotion);
+            setText('m-price', job.price.toLocaleString());
+            
+            const paymentBadge = dom['m-paymentStatus'];
+            let paymentHtml = getPaymentStatusHTML(job.paymentStatus);
+            if(job.hasSlip) {
+                paymentHtml += `<span class="ml-1 text-blue-500 inline-block" title="มีหลักฐานการชำระเงิน/สลิป"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></span>`;
+            }
+            paymentBadge.innerHTML = paymentHtml;
+            paymentBadge.className = `px-2 py-1 inline-flex items-center text-xs rounded-full border ${getPaymentStatusColorClass(job.paymentStatus)}`;
+            
+            if (job.note && job.note.trim() !== "" && job.note.trim() !== "-") {
+                setVisible(dom['m-noteWrapper'], true);
+                setText('m-note', job.note);
+            } else {
+                setVisible(dom['m-noteWrapper'], false);
+            }
+
+            const paymentAmount = job.paymentAmount || job.price || 0;
+            dom['m-paymentDetails'].innerHTML = [
+                drawerRow('เลขที่บิล/ใบเสร็จ', job.billNo),
+                drawerRow('ประเภทการชำระ', job.payType),
+                drawerRow('มูลค่าสินค้า', `${(job.productValue || job.price || 0).toLocaleString('th-TH')} บาท`),
+                drawerRow('ยอดเงิน', `${paymentAmount.toLocaleString('th-TH')} บาท`),
+                `<div class="drawer-row">
+                    <span class="font-bold text-slate-400">สถานะการชำระ</span>
+                    <span><span class="inline-flex items-center rounded-lg border px-3 py-1 text-xs font-bold ${getPaymentStatusColorClass(job.paymentStatus)}">${getPaymentStatusHTML(job.paymentStatus)}</span></span>
+                </div>`
+            ].filter(Boolean).join('');
+
+            const proofHtml = (job.paymentProofs || []).map(rawUrl => {
+                const imgUrl = paymentProofUrl(rawUrl);
+                return `<a href="${escapeHtml(imgUrl)}" target="_blank" rel="noopener noreferrer">
+                    <img src="${escapeHtml(imgUrl)}" alt="หลักฐานการโอนเงิน" class="max-h-[28rem] w-full rounded-2xl border border-slate-200 object-cover shadow-sm"
+                        onerror="this.outerHTML='<div class=\\'rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-600\\'>โหลดรูปหลักฐานไม่ได้</div>'">
+                </a>`;
+            }).join('');
+            setVisible(dom['m-paymentProofWrapper'], Boolean(proofHtml));
+            dom['m-paymentProofDetails'].innerHTML = proofHtml;
+
+            const custContainer = dom['m-customerDetails'];
+            custContainer.innerHTML = '';
+            
+            if (job.customerDetails && Object.keys(job.customerDetails).length > 0) {
+                // ค้นหา key เพื่อความยืดหยุ่นกรณีชื่อคอลัมน์ใน Sheet มี space หรือพิมพ์ผิดนิดหน่อย
+                const getVal = (keyword) => {
+                    const key = Object.keys(job.customerDetails).find(k => k.includes(keyword));
+                    return (key && job.customerDetails[key] && job.customerDetails[key].trim() !== "") ? job.customerDetails[key] : null;
+                };
+
+                // 1. ข้อมูลลูกค้าพื้นฐาน
+                custContainer.innerHTML = `
+                    <div><span class="font-medium text-slate-500">ชื่อลูกค้า:</span> <span class="text-slate-800">${escapeHtml(getVal('ชื่อ') || '-')}</span></div>
+                    <div><span class="font-medium text-slate-500">เพศ:</span> <span class="text-slate-800">${escapeHtml(getVal('เพศ') || '-')}</span></div>
+                    <div><span class="font-medium text-slate-500">เบอร์โทรศัพท์:</span> <span class="text-slate-800">${escapeHtml(getVal('เบอร์') || '-')}</span></div>
+                    <div><span class="font-medium text-slate-500">ช่องทางติดต่อ:</span> <span class="text-slate-800">${escapeHtml(job.customerChannel || '-')}</span></div>
+                    <div><span class="font-medium text-slate-500">ชื่อช่องทางติดต่อ:</span> <span class="text-slate-800">${escapeHtml(job.customerChannelName || '-')}</span></div>
+                `;
+
+            } else {
+                custContainer.innerHTML = `<div class="text-slate-400 italic col-span-1 md:col-span-2 text-center py-2">- ไม่พบข้อมูลลูกค้าในชีต Customer -</div>`;
+            }
+
+            // ส่วนนำข้อมูล Detail_film มาแสดงแบบไดนามิก (ยืดหยุ่นตามจำนวนคอลัมน์)
+            const detailContainer = dom['m-filmDetails'];
+            detailContainer.innerHTML = '';
+            
+            if (job.filmDetails && Object.keys(job.filmDetails).length > 0) {
+                // คำที่ต้องการลบ (ไม่ต้องแสดงใน popup)
+                const excludedKeys = ['Detail_ID:', 'ขอตัดฟิล์ม:', 'การติดตั้ง:', 'ประเภทการติดตั้ง:', 'ตำแหน่งติดตั้ง:', 'ยี่ห้อฟิล์ม:'];
+                const detailHtml = Object.entries(job.filmDetails).map(([key, value]) => {
+                    // ข้ามถ้าไม่มีชื่อหัวข้อคอลัมน์
+                    if(!key) return ''; 
+
+                    const isCutReasonField = key.includes('เหตุผล') && key.includes('ตัดฟิล์ม');
+
+                    // เช็คว่าหัวข้อ (key) อยู่ในรายการที่ต้องข้ามหรือไม่
+                    const isExcluded = excludedKeys.some(excludedKey => key.includes(excludedKey.replace(':','')));
+                    if (isExcluded && !isCutReasonField) return '';
+
+                    let valToShow = (value && value.trim() !== "") ? value.trim() : "-";
+                    
+                    // ข้าม (ซ่อน) ช่องที่ไม่มีข้อมูล หรือมีค่าแค่ "-"
+                    if (valToShow === "-") return '';
+                    
+                    // แปลงรหัสเหตุผลเป็นข้อความ หากหัวข้อมีคำว่า 'เหตุผล'
+                    if (isCutReasonField || key.includes('เหตุผล') || key.includes('ตัดฟิล์ม')) {
+                        valToShow = translateCutFilmReason(valToShow) || valToShow;
+                    }
+
+                    if (isCutReasonField) {
+                        const cutJobCode = getCutJobCode(job);
+                        const cutReference = [cutJobCode, job.id].filter(item => item && item !== "-").join(" / ");
+                        return `
+                            <div class="col-span-1 md:col-span-2 rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-sm">
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div class="min-w-0">
+                                        <div class="text-xs font-extrabold uppercase tracking-wide text-rose-500">เหตุผลขอตัดฟิล์ม</div>
+                                        <div class="mt-1 text-base font-extrabold leading-relaxed text-rose-700">${escapeHtml(valToShow)}</div>
+                                        ${cutReference ? `<div class="mt-1 text-xs font-semibold text-slate-400">(${escapeHtml(cutReference)})</div>` : ''}
+                                    </div>
+                                    <button type="button" onclick="openPrintPreview()" class="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700">
+                                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                                        พิมพ์ใบส่งงาน
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    return `<div><span class="font-medium text-slate-500">${escapeHtml(key)}:</span> <span class="text-slate-800">${escapeHtml(valToShow)}</span></div>`;
+                }).join('');
+
+                // ถ้ากรองแล้วไม่มีข้อมูลใดๆ ให้แสดงเลย (ทุกช่องว่างหมด)
+                if (detailHtml) {
+                    detailContainer.innerHTML = detailHtml;
+                } else {
+                    detailContainer.innerHTML = detailFilmWarningHtml();
+                }
+            } else {
+                detailContainer.innerHTML = detailFilmWarningHtml();
+            }
+
+            // เปลี่ยนสีป้ายสถานะใน Popup ให้ตรงกับหน้าตาราง
+            const statusBadge = dom['m-status'];
+            statusBadge.innerHTML = getStatusHTML(job.status);
+            statusBadge.className = `px-2 py-1 inline-flex items-center text-xs rounded-full border ${getStatusColorClass(job.status, job.colorStatus)}`;
+
+            // แสดงหน้าต่าง Popup
+            dom.jobModal.classList.remove('hidden');
+        }
+
+        function closeJobModal() {
+            dom.jobModal.classList.add('hidden');
+            currentViewJobId = null;
+        }
+
+        // ================= เปิดหน้า Preview =================
+        function openPrintPreview() {
+            if (!currentViewJobId) return;
+            const job = allData.find(j => j.id === currentViewJobId);
+            if (!job) return;
+
+            // 1. ซ่อน Job Modal ชั่วคราว และโชว์หน้า Preview
+            dom.jobModal.classList.add('hidden');
+            dom.printPreviewModal.classList.remove('hidden');
+
+            // 2. ดึงข้อมูลลูกค้า
+            let custName = job.custName || "-";
+            let custPhone = job.custPhone || "-";
+
+            // 3. จัดการเรื่องเวลา (ลดทอนวินาทีทิ้ง ให้เหลือแค่ ชั่วโมง:นาที)
+            let printTime = job.time;
+            let parsedTime = "";
+            if (printTime && printTime !== "-") {
+                const parts = printTime.replace(/น\./g, '').trim().split(':');
+                if (parts.length >= 2) {
+                    parsedTime = `${parts[0]}:${parts[1]}`;
+                }
+            }
+
+            // คำนวณเวลารับรถ และเวลานัดส่งรถ โดยใช้ *เวลาปัจจุบัน*
+            let receiveTime = "";
+            let returnTime = "";
+            
+            const currentDateTime = new Date();
+            let currentH = currentDateTime.getHours();
+            let currentM = currentDateTime.getMinutes();
+            
+            // เวลาที่รับรถคือเวลาปัจจุบัน (ตอนกด Print)
+            receiveTime = `${currentH}:${currentM.toString().padStart(2, '0')}`;
+
+            const inst = (job.installType || "").toLowerCase();
+            
+            if (inst && inst !== "-") {
+                let addHours = 1; // Default
+                if (inst.includes("เต็มคัน") || inst.includes("รอบคัน")) {
+                    addHours = 3;
+                }
+                
+                let totalM = currentH * 60 + currentM + (addHours * 60);
+                let newH = Math.floor(totalM / 60) % 24;
+                let newM = Math.floor(totalM % 60);
+                
+                returnTime = `${newH}:${newM.toString().padStart(2, '0')}`;
+            }
+
+            // 4. ใส่ข้อมูลส่วนใบรับ/ส่งรถ
+            setText('p-date', job.date);
+            setText('p-time', parsedTime); 
+            setText('p-custName', custName);
+            setText('p-phone', custPhone);
+            setText('p-carModel', job.carModel);
+            setText('p-plate', job.plate);
+            setVisible(dom['p-plateWarning'], isMissingPlate(job.plate));
+            setText('p-custType', job.customerType);
+            
+            // ใส่การรับประกัน
+            setText('p-warranty', job.warranty || "ร้าน");
+            
+            // นำเวลาที่คำนวณบวกเพิ่มแล้ว ไปแสดงผล
+            setText('p-receiveTime', receiveTime);
+            setText('p-returnTime', returnTime);
+            
+            // หมายเหตุ (ถ้ามี)
+            if (job.note && job.note.trim() !== "" && job.note.trim() !== "-") {
+                setVisible(dom['p-noteContainer'], true);
+                setText('p-note', job.note);
+            } else {
+                setVisible(dom['p-noteContainer'], false);
+            }
+            
+            // แสดงยอดชำระเฉพาะลูกค้าใหม่ / ลูกค้าเก่า
+            const showPaymentDue = isPaymentCustomerType(job.customerType);
+            setVisible(dom['p-paymentDueBox'], showPaymentDue, 'flex');
+            if (showPaymentDue) {
+                let fPrice = "0.00";
+                if(!isNaN(job.price)) {
+                    fPrice = job.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                }
+                setText('p-price', fPrice);
+            } else {
+                setText('p-price', "");
+            }
+
+            const cutFilmReason = getCutFilmReason(job);
+            if (cutFilmReason) {
+                setVisible(dom['p-cutReasonContainer'], true);
+                setText('p-cutReason', cutFilmReason);
+                const cutJobCode = getCutJobCode(job);
+                const cutReference = [cutJobCode, job.id].filter(value => value && value !== "-").join(" / ");
+                setVisible(dom['p-cutJobCodeWrapper'], Boolean(cutReference));
+                setText('p-cutJobCode', cutReference);
+            } else {
+                setVisible(dom['p-cutReasonContainer'], false);
+                setText('p-cutReason', "");
+                setVisible(dom['p-cutJobCodeWrapper'], false);
+                setText('p-cutJobCode', "");
+            }
+
+            // 5. ใส่ข้อมูลส่วนใบสั่งตัด
+            setText('p2-date', job.date);
+            setText('p2-time', parsedTime); 
+            setText('p2-custName', custName);
+            setText('p2-phone', custPhone);
+            setText('p2-carModel', job.carModel);
+            setText('p2-plate', job.plate);
+            setText('p2-custType', job.customerType);
+            setText('p2-warranty', job.warranty || "ร้าน");
+
+            // ดึงชื่อเซลล์มาเตรียมไว้ใส่เส้นประ
+            setText('p2-salesName', (job.sales !== "-") ? job.sales : "");
+
+            // 6. ระบบจับคู่ตารางฟิล์ม (Smart AI Mapping)
+            // อัปเดต 'บานแค็บ' ให้เป็น 'บานฟิก' ตามตารางใหม่
+            const standardPositions = ['บานหน้า', 'บานหลัง', 'ประตู-หน้าซ้าย', 'ประตู-หน้าขวา', 'ประตู-หลังซ้าย', 'ประตู-หลังขวา', 'บานฟิก', 'ซันรูฟ'];
+            const tb1 = dom['p-table1'];
+            const tb2 = dom['p-table2'];
+
+            // ฟังก์ชันช่วยหาค่าจาก Detail_film โดยเทียบคำให้ยืดหยุ่นขึ้น
+            const normalize = s => s.replace(/[\s\-]/g, '').toLowerCase();
+
+            // ตรวจสอบว่าเป็นเคสซันรูฟอย่างเดียวหรือไม่ จาก ข้อมูลรถ, ประเภทการติดตั้ง, หรือหมายเหตุ
+            let searchString = ((job.installType || "") + " " + (job.carModel || "") + " " + (job.note || "") + " " + (job.promotion || "")).toLowerCase();
+            // ต้องไม่มีคำว่า "หน้า", "รอบคัน", และ "เต็มคัน" หรือ "ครึ่งคัน" ถึงจะถือว่าเป็นซันรูฟล้วนๆ
+            let isSunroofOnly = searchString.includes('ซันรูฟ') && 
+                                !searchString.includes('หน้า') && 
+                                !searchString.includes('รอบคัน') && 
+                                !searchString.includes('เต็มคัน') &&
+                                !searchString.includes('ครึ่งคัน');
+
+            const tableRows = standardPositions.map(pos => {
+                let filmBrand = '';
+                let filmCode = '';
+                let normPos = normalize(pos);
+                let matchedKey = null;
+
+                if (job.filmDetails) {
+                    // สเต็ปที่ 1: หาจากชื่อตำแหน่งแบบตรงๆ (บานหน้า, บานหลัง ฯลฯ)
+                    matchedKey = Object.keys(job.filmDetails).find(k => {
+                        const normK = normalize(k);
+                        return normK === normPos || normK.includes(normPos) || normPos.includes(normK);
+                    });
+                    
+                    if (matchedKey && (!job.filmDetails[matchedKey] || job.filmDetails[matchedKey] === "-")) {
+                        matchedKey = null; // คอลัมน์มีแต่ข้อมูลว่าง
+                    }
+
+                    // สเต็ปที่ 2: ถ้าไม่เจอ และเป็นตำแหน่งประตู/ฟิก/หลัง ให้ดึงจาก "รอบคัน" แทน
+                    if (!matchedKey && (normPos.includes('ประตู') || normPos.includes('ฟิก') || normPos.includes('หลัง'))) {
+                        matchedKey = Object.keys(job.filmDetails).find(k => normalize(k).includes('รอบคัน'));
+                        
+                        if (matchedKey && (!job.filmDetails[matchedKey] || job.filmDetails[matchedKey] === "-")) {
+                            matchedKey = null;
+                        }
+                    }
+
+                    // สเต็ปที่ 3 (Smart Fallback แก้เคสซันรูฟ): ถ้าระบบรู้ว่าเป็นเคสซันรูฟ แต่เซลล์เผลอกรอกข้อมูลลงช่อง "บานหน้า" ให้ดึงข้อมูลมาใส่ช่อง "ซันรูฟ"
+                    if (isSunroofOnly) {
+                        if (pos === 'ซันรูฟ' && !matchedKey) {
+                            // ดึงคอลัมน์แรกที่มีข้อมูลมาให้เลย เพราะมันคือซันรูฟแน่นอน
+                            matchedKey = Object.keys(job.filmDetails).find(k => {
+                                let v = job.filmDetails[k];
+                                return v && v !== "-" && v.trim() !== "";
+                            });
+                        } else if (pos !== 'ซันรูฟ') {
+                            // ล้างข้อมูลตำแหน่งอื่นๆ ทิ้งไปเลย เพราะเป็นเคสซันรูฟล้วน
+                            matchedKey = null;
+                        }
+                    }
+                }
+
+                // นำค่ามาใส่เตรียมพิมพ์
+                if (matchedKey && job.filmDetails[matchedKey] && job.filmDetails[matchedKey] !== "-") {
+                    filmCode = job.filmDetails[matchedKey];
+                    filmBrand = job.film; // เอายี่ห้อจากตารางหลัก (สำรองไว้ใช้ถ้ารหัสฟิล์มว่าง)
+                } else if (isSunroofOnly && pos === 'ซันรูฟ') {
+                    // Fallback ขั้นสุด: ถ้าไม่มีข้อมูลใน Detail_film เลย แต่รู้ว่าเป็นซันรูฟ ให้เอายี่ห้อในตารางหลักมาใส่
+                    filmBrand = job.film !== "-" ? job.film : "";
+                    filmCode = job.film !== "-" ? job.film : "";
+                }
+
+                // รวมยี่ห้อและรหัสฟิล์มเข้าด้วยกันแบบลดความซ้ำซ้อน (ถ้ามีรหัสฟิล์มแล้ว ให้ใช้รหัสฟิล์มเลย)
+                let combinedFilm = "";
+                if (filmCode && filmCode !== "-") {
+                    combinedFilm = filmCode;
+                } else if (filmBrand && filmBrand !== "-") {
+                    combinedFilm = filmBrand;
+                }
+
+                return {
+                    receipt: `
+                    <tr class="receipt-film-row border-b border-black">
+                        <td class="border-r border-black py-1.5 px-2 text-left">${escapeHtml(pos)}</td>
+                        <td class="border-r border-black py-1.5 px-2 text-center font-semibold">${escapeHtml(combinedFilm)}</td>
+                        <td class="py-1.5 px-2 text-left"></td>
+                    </tr>
+                    `,
+                    cutting: `
+                    <tr class="cutting-film-row border-b border-black text-center">
+                        <td class="border-r border-black py-1"></td>
+                        <td class="border-r border-black py-1 text-left px-2">${escapeHtml(pos)}</td>
+                        <td class="cut-film-column border-r border-black py-1 font-medium">${escapeHtml(combinedFilm)}</td>
+                        <td class="cut-size-column border-r border-black py-1"></td>
+                        <td class="cut-size-column border-r border-black py-1"></td>
+                        <td class="cut-size-column border-r border-black py-1"></td>
+                        <td class="cut-note-column py-1"></td>
+                    </tr>
+                    `
+                };
+            });
+            tb1.innerHTML = tableRows.map(row => row.receipt).join('');
+            tb2.innerHTML = tableRows.map(row => row.cutting).join('');
+
+            // ประทับเวลาวันที่สั่งพิมพ์
+            const now = new Date();
+            setText('p-timestamp', `${now.toLocaleDateString('en-GB')}, ${now.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: false })} (Print)`);
+        }
+
+        // ================= ปิดหน้า Preview กลับไปที่ Popup =================
+        function closePrintPreview() {
+            if (isEmbeddedPrintMode()) {
+                window.parent.postMessage({ type: 'close-print-frame' }, '*');
+                return;
+            }
+            dom.printPreviewModal.classList.add('hidden');
+            // กลับไปที่หน้าต่าง Popup เดิม
+            dom.jobModal.classList.remove('hidden'); 
+        }
+
+        // ================= ยืนยันสั่งพิมพ์จริงๆ =================
+        function executePrint() {
+            window.print();
+        }
+
+    </script>
+</body>
+</html>

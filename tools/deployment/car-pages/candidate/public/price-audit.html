@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>บัญชีตรวจสอบราคาขาย</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon-price-audit.svg">
+    <link rel="manifest" href="app.webmanifest?v=20261002-2">
+    <link rel="apple-touch-icon" href="images/car-crm-app-192.png?v=20261002-2">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body { font-family: 'Prompt', sans-serif; background-color: #d9ebfd; }
+        #loginScreen { display: none; }
+        body.auth-locked > :not(#loginScreen) { display: none !important; }
+        body.auth-locked #loginScreen { display: flex; }
+        .field {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.65rem;
+            padding: 0.65rem 0.75rem;
+            font-size: 0.95rem;
+            background: #ffffff;
+        }
+        .field:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.16); }
+
+        .price-table {
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.82rem;
+            width: 100%;
+        }
+        .price-table th, .price-table td {
+            border-right: 1px solid #fff;
+            border-bottom: 1px solid #fff;
+            padding: 0.38rem 0.55rem;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .price-table th {
+            background: #eef6ff;
+            color: #1e3a8a;
+            font-weight: 700;
+        }
+        .price-table th.base-head {
+            background: #dbeafe;
+            color: #1e3a8a;
+            text-align: left;
+        }
+        .price-table td.base-cell { text-align: left; font-weight: 600; }
+        .price-table tr.promo-row td { background: #fef3c7; color: #92400e; font-weight: 700; }
+        .price-table tr.campaign-row td { background: linear-gradient(90deg,#7c3aed,#6d28d9); color: #fde68a; font-weight: 800; }
+        .price-table tr.regular-row td { background: #dbeafe; color: #1e3a8a; }
+        .price-table tr.total-row td { background: linear-gradient(90deg,#eff6ff,#e0e7ff); font-weight: 800; color: #1e40af; border-top: 2px solid #60a5fa; }
+
+        .pro-btn {
+            padding: 0.4rem 1.1rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            border: 1.5px solid #7dd3fc;
+            color: #0369a1;
+            background: #f0f9ff;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .pro-btn:hover { background: #e0f2fe; }
+        .pro-btn.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; }
+        .pro-btn.changed {
+            border-color: #f59e0b;
+            background: #fffbeb;
+            color: #92400e;
+        }
+        .pro-btn.changed::after {
+            content: "เปลี่ยน";
+            margin-left: 0.45rem;
+            border-radius: 999px;
+            background: #f97316;
+            color: #fff;
+            padding: 0.12rem 0.45rem;
+            font-size: 0.68rem;
+        }
+        .pro-btn.changed.active {
+            border-color: #f97316;
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: #fff;
+        }
+        .pro-btn.changed.active::after {
+            background: rgba(255, 255, 255, 0.22);
+        }
+
+        #searchResults { z-index: 9999; }
+        body.embed-mode {
+            background-color: #ffffff;
+            overflow: hidden;
+        }
+        body.embed-mode main {
+            margin-left: 0 !important;
+            width: 100% !important;
+            padding-top: 0.5rem !important;
+            overflow: hidden;
+        }
+        body.embed-mode #quoteContent:not(.hidden) {
+            display: block;
+        }
+        body.embed-mode #priceTableSection:not(.hidden) {
+            display: block;
+            padding: 0.75rem;
+        }
+        body.embed-mode #priceTableTitle {
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+        body.embed-mode #priceTableBody {
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+        body.embed-mode .price-table {
+            font-size: clamp(0.68rem, 0.72vw, 0.82rem);
+        }
+        body.embed-mode .price-table th,
+        body.embed-mode .price-table td {
+            padding: 0.3rem 0.42rem;
+        }
+    </style>
+    <link rel="stylesheet" href="apple-style.css?v=20260520-4">
+    <script src="crm-auth.js?v=20261002-1" defer></script>
+    <script src="sidebar.js" defer></script>
+    <link rel="stylesheet" href="page-heading.css?v=20261002-1">
+</head>
+<body class="text-slate-900 auth-locked">
+
+    <!-- LOGIN -->
+    <div id="loginScreen" class="fixed inset-0 z-[9999] min-h-screen items-center justify-center bg-slate-950 px-4">
+        <form id="loginForm" class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+            <div class="mb-5">
+                <h1 class="text-2xl font-extrabold text-slate-900">เข้าสู่ระบบ</h1>
+                <p class="mt-1 text-sm text-slate-500">กรุณาเข้าสู่ระบบก่อนใช้งาน</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">User</label>
+                    <input id="loginUser" type="text" autocomplete="username" class="field" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Password</label>
+                    <input id="loginPass" type="password" autocomplete="current-password" class="field" required>
+                </div>
+            </div>
+            <p id="loginError" class="hidden mt-3 text-sm font-semibold text-red-600">User หรือ Password ไม่ถูกต้อง</p>
+            <button type="submit" class="mt-5 w-full rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800">เข้าสู่ระบบ</button>
+        </form>
+    </div>
+
+    <div data-car-crm-sidebar></div>
+
+    <main class="w-full px-4 py-8 sm:px-6 lg:ml-72 lg:w-[calc(100%-18rem)] lg:px-8">
+
+        <!-- HEADER -->
+        <section class="relative z-10 bg-white rounded-xl border border-slate-200 shadow-sm p-5 mb-6">
+            <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+                <div>
+                    <div class="car-page-heading car-page-heading-clear-menu">
+    <div class="car-page-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="images/page-heading-icons.svg#calculator"/></svg></div>
+    <div class="car-page-heading-copy">
+        <h1 class="car-page-heading-title">บัญชีตรวจสอบราคาขาย</h1>
+        <p id="lastUpdated" class="car-page-heading-subtitle">กำลังโหลดข้อมูลจากชีต ราคาขาย-บัญชี...</p>
+    </div>
+</div>
+                    <!-- Pro_ID selector -->
+                    <div id="proIdSelector" class="hidden mt-3 flex flex-wrap gap-2 items-center">
+                        <span class="text-xs font-bold text-slate-500">เลือกโปรโมชั่น:</span>
+                        <div id="proIdButtons" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full lg:max-w-3xl">
+                    <div class="relative">
+                        <label class="block text-xs font-bold text-slate-600 mb-1">ค้นหารุ่นรถยนต์</label>
+                        <input id="searchInput" type="search" class="field" placeholder="เช่น Toyota Prius / Tesla Model Y" autocomplete="off">
+                        <div id="searchResults" class="hidden absolute left-0 right-0 top-full z-50 mt-2 max-h-96 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl"></div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">เลือกรุ่นรถยนต์</label>
+                        <select id="modelFilter" class="field">
+                            <option value="">เลือกรุ่นรถ</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LOADING / ERROR -->
+        <div id="loadingMessage" class="bg-white rounded-xl border border-slate-200 px-6 py-12 text-center text-slate-500">
+            <svg class="animate-spin h-10 w-10 mx-auto mb-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="font-medium text-lg text-slate-700">กำลังโหลดข้อมูลราคา...</p>
+        </div>
+        <div id="errorMessage" class="hidden bg-red-50 border border-red-200 rounded-xl px-6 py-10 text-center text-red-600">
+            <p class="font-semibold text-lg">ไม่สามารถโหลดชีต ราคาขาย-บัญชี ได้</p>
+            <p class="text-sm mt-2 text-slate-700">โปรดตรวจสอบการแชร์ Google Sheet แล้วลองใหม่อีกครั้ง</p>
+            <button onclick="fetchPriceData()" class="mt-4 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-700">ลองใหม่</button>
+        </div>
+
+        <!-- CONTENT -->
+        <section id="quoteContent" class="hidden space-y-5">
+            <div id="emptyMessage" class="bg-white rounded-xl border border-slate-200 px-6 py-12 text-center text-slate-500">
+                กรุณาค้นหา หรือเลือกรุ่นรถยนต์ก่อน
+            </div>
+            <div id="multiMatchMessage" class="hidden bg-amber-50 rounded-xl border border-amber-200 px-6 py-5 text-amber-900 font-semibold"></div>
+
+            <!-- ตัวเลือกฟิล์ม -->
+            <section id="filmSelector" class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-extrabold text-slate-950">เลือกรุ่นฟิล์มที่ต้องการแสดง</h2>
+                        <p class="text-sm text-slate-500 mt-1">ติ๊กเฉพาะรุ่นฟิล์มที่ต้องการให้แสดงในตาราง</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="toggleFilmSelectorBtn" class="px-3 py-2 rounded-lg bg-blue-700 text-white text-xs font-bold hover:bg-blue-800">แสดงตัวเลือก</button>
+                    </div>
+                </div>
+                <div id="filmSelectorBody" class="hidden mt-4">
+                    <div class="flex justify-end gap-2 mb-4">
+                        <button id="selectAllFilmsBtn" class="px-3 py-2 rounded-lg bg-blue-700 text-white text-xs font-bold hover:bg-blue-800">เลือกทั้งหมด</button>
+                        <button id="clearFilmsBtn" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200">ล้าง</button>
+                    </div>
+                    <div id="filmOptions" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2"></div>
+                </div>
+            </section>
+
+            <!-- ตารางราคา -->
+            <section id="priceTableSection" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                <h2 id="priceTableTitle" class="text-lg font-extrabold text-slate-950 mb-4">ตารางราคา</h2>
+                <div id="priceTableBody" class="overflow-x-auto rounded-lg border border-slate-200">
+                    <div id="priceTableEl"></div>
+                </div>
+            </section>
+
+
+        </section>
+    </main>
+
+    <script>
+        const SHEET_ID        = '1u__xYWoWZpmrnquc-Fpk19WtpcrckxSd0-_G35NWxXQ';
+        const PRICE_SHEET     = 'ราคาขาย-บัญชี';
+        const CAR_MODEL_SHEET = 'Car_model';
+        const PRICE_CSV_URL   = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(PRICE_SHEET)}`;
+        const CAR_CSV_URL     = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CAR_MODEL_SHEET)}`;
+
+
+        const PRICE_PROMO_COLUMNS    = ['Pro_ID', 'โปรโมชั่น'];
+        const PRICE_KEY_COLUMNS      = ['กลุ่มราคา', 'ประเภทรถยนต์'];
+        const PRICE_POSITION_COLUMNS = ['ตำแหน่งติดตั้ง', 'ตำแหน่งติดตั้ง ใหม่', 'ตำแหน่งติดตั้งใหม่', 'ตำแหน่ง', 'รายการ', 'ชิ้นงาน'];
+        const PRICE_BASE_COLUMNS     = [...PRICE_PROMO_COLUMNS, ...PRICE_KEY_COLUMNS, ...PRICE_POSITION_COLUMNS, 'W', 'H', 'พท.'];
+        const HIDDEN_FILM_BRANDS     = new Set(['Pro_ID']);
+
+        const PRICE_PREVIEW_POSITION_ORDER = [
+            'บานหน้า','บานหลัง','ประตู-หน้าซ้าย','ประตู-หน้าขวา',
+            'ประตู-หลังซ้าย','ประตู-หลังขวา','บานฟิก-ซ้าย','บานฟิก-ขวา',
+            'บานฟิก-ซ้าย(1)','บานฟิก-ขวา(1)','ซันรูฟ',
+            'แครี่บอย-ซ้าย','แครี่บอย-ขวา','แครี่บอย-บานหลัง',
+            'ราคาปกติ','โปรโมชั่นเต็มคัน','โปรโมชั่นเต็มคัน+ซันรูฟ','แคมเปญพิเศษ!!'
+        ];
+
+        let allPriceRows      = [];   // raw all rows
+        let filteredPriceRows = [];   // rows filtered by selected Pro_ID
+        let carModels         = [];
+        let filmBrands        = [];
+        let selectableFilmBrands  = [];
+        let selectedFilmBrands    = new Set();
+        let availableProIds       = [];
+        let selectedProId         = '';
+        let isFilmSelectorOpen    = false;
+        let appHasStarted         = false;
+        let previewOrderedRows    = [];
+        let previewSelectedBrands = [];
+        let selectedPriceItemIndices = new Set();
+
+        // ─── UTILS ───────────────────────────────────────────────────────────
+        function parseCsv(csvText) {
+            return new Promise(resolve => {
+                Papa.parse(csvText, {
+                    header: true, skipEmptyLines: true,
+                    transformHeader: h => cleanText(h),
+                    complete: r => resolve(r.data)
+                });
+            });
+        }
+        function textValue(v, fb = '') {
+            if (v == null) return fb;
+            const s = String(v).trim();
+            return s === '' ? fb : s;
+        }
+        function cleanText(v) {
+            return textValue(v).replace(/^﻿/, '').replace(/​/g, '').replace(/\s+/g, ' ').trim();
+        }
+        function lookupKey(v) {
+            return cleanText(v).replace(/[\s._\-–—/\\]+/g, '').toLowerCase();
+        }
+        function parsePrice(v) {
+            const n = parseFloat(textValue(v, '0').replace(/[^\d.-]/g, ''));
+            return Number.isFinite(n) ? n : 0;
+        }
+        function formatBaht(v) {
+            const p = typeof v === 'number' ? v : parsePrice(v);
+            return p ? p.toLocaleString('th-TH') : '';
+        }
+        function escapeHtml(v) {
+            return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+        }
+        function getFirstField(row, candidates) {
+            return candidates.map(k => textValue(row?.[k])).find(Boolean) || '';
+        }
+        function getPricePosition(row) { return getFirstField(row, PRICE_POSITION_COLUMNS); }
+        function getPriceKey(row) {
+            return PRICE_KEY_COLUMNS.map(k => textValue(row?.[k])).find(Boolean) || textValue(row?.__values?.[1]);
+        }
+        function isHiddenFilmBrand(k) { return HIDDEN_FILM_BRANDS.has(cleanText(k)); }
+        function isSummaryRow(row) {
+            return ['ราคาปกติ','โปรโมชั่นเต็มคัน','โปรโมชั่นเต็มคัน+ซันรูฟ','แคมเปญพิเศษ!!'].includes(cleanText(getPricePosition(row)));
+        }
+        function priceRowClass(row) {
+            const p = cleanText(getPricePosition(row));
+            if (p.includes('แคมเปญ')) return 'campaign-row';
+            if (p.includes('โปรโมชั่น')) return 'promo-row';
+            if (p.includes('ราคาปกติ')) return 'regular-row';
+            return '';
+        }
+        function formatPreviewValue(row, key) {
+            const raw = textValue(row[key]);
+            if (!raw) return '';
+            const n = parsePrice(raw);
+            return n ? n.toLocaleString('th-TH') : raw;
+        }
+
+        // ─── NORMALIZE ───────────────────────────────────────────────────────
+        function normalizeRows(rows) {
+            return rows.map(row => {
+                const item = {};
+                const values = [];
+                Object.entries(row).forEach(([k, v], i) => {
+                    const ck = cleanText(k), cv = textValue(v);
+                    values.push(cv);
+                    item[ck] = cv;
+                    if (i === 0) Object.defineProperty(item, '__firstColumnValue', { value: cv, enumerable: false });
+                });
+                Object.defineProperty(item, '__values', { value: values, enumerable: false });
+                return item;
+            });
+        }
+        function normalizeCarModels(rows) {
+            return normalizeRows(rows).map(row => {
+                const values = row.__values || [];
+                const model = textValue(row['รุ่นรถยนต์'] || row.Model || values[2] || values[1]);
+                const priceGroup = textValue(row['กลุ่มราคา'] || row['ประเภทรถยนต์'] || row.Pro_ID || values[3] || values[2] || model);
+                return {
+                    id: textValue(row.ID || values[0]),
+                    brand: textValue(row['ยี่ห้อรถยนต์'] || row.Brand || values[1]),
+                    model, priceGroup,
+                    lookupValues: [...new Set([model, priceGroup, row.Pro_ID, row['กลุ่มราคา'], row['ประเภทรถยนต์'], ...values].map(textValue).filter(Boolean))]
+                };
+            }).filter(item => item.model);
+        }
+        function normalizePriceRows(rows) {
+            return normalizeRows(rows).filter(row => getPriceKey(row) || getPricePosition(row));
+        }
+        function detectFilmBrands(rows) {
+            const sample = rows[0] || {};
+            return Object.keys(sample).filter(k => !PRICE_BASE_COLUMNS.includes(k) && k !== Object.keys(sample)[0] && k.trim() !== '' && !isHiddenFilmBrand(k));
+        }
+
+        // ─── Pro_ID ───────────────────────────────────────────────────────────
+        function getAvailableProIds(rows) {
+            return [...new Set(rows.map(r => textValue(r['Pro_ID'])).filter(Boolean))];
+        }
+        function priceSignature(row) {
+            const parts = [
+                lookupKey(getPriceKey(row)),
+                lookupKey(getPricePosition(row)),
+                ...filmBrands.map(brand => `${lookupKey(brand)}:${parsePrice(row[brand])}`)
+            ];
+            return parts.join('|');
+        }
+        function getChangedProIds() {
+            const grouped = new Map();
+            allPriceRows.forEach(row => {
+                const proId = textValue(row['Pro_ID']);
+                if (!proId) return;
+                const key = `${lookupKey(getPriceKey(row))}|${lookupKey(getPricePosition(row))}`;
+                if (!grouped.has(key)) grouped.set(key, new Map());
+                grouped.get(key).set(proId, priceSignature(row));
+            });
+
+            const changed = new Set();
+            grouped.forEach(signatureByPro => {
+                if (signatureByPro.size <= 1) return;
+                const signatures = [...new Set(signatureByPro.values())];
+                if (signatures.length <= 1) return;
+                signatureByPro.forEach((signature, proId) => changed.add(proId));
+            });
+            return changed;
+        }
+
+        function renderProIdButtons() {
+            const container = document.getElementById('proIdButtons');
+            const selector  = document.getElementById('proIdSelector');
+            if (!availableProIds.length) { selector.classList.add('hidden'); return; }
+            selector.classList.remove('hidden');
+            const changedProIds = getChangedProIds();
+            container.innerHTML = availableProIds.map(id => `
+                <button class="pro-btn ${id === selectedProId ? 'active' : ''} ${changedProIds.has(id) ? 'changed' : ''}" data-proid="${escapeHtml(id)}">${escapeHtml(id)}</button>
+            `).join('');
+            container.querySelectorAll('.pro-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectedProId = btn.dataset.proid;
+                    applyProIdFilter();
+                    renderProIdButtons();
+                    refreshAll();
+                });
+            });
+        }
+
+        function applyProIdFilter() {
+            filteredPriceRows = selectedProId
+                ? allPriceRows.filter(r => textValue(r['Pro_ID']) === selectedProId)
+                : allPriceRows;
+            filmBrands = detectFilmBrands(filteredPriceRows);
+            selectableFilmBrands = buildSelectableFilmBrands();
+            selectedFilmBrands = new Set(selectableFilmBrands.map(b => b.key));
+        }
+
+        // ─── FILM SELECTOR ───────────────────────────────────────────────────
+        function buildSelectableFilmBrands() {
+            return filmBrands.filter(k => !isHiddenFilmBrand(k)).map(k => ({ key: k, label: k }));
+        }
+        function renderFilmOptions() {
+            document.getElementById('filmOptions').innerHTML = selectableFilmBrands.map(b => `
+                <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 cursor-pointer hover:bg-blue-50">
+                    <input type="checkbox" class="film-option rounded border-slate-300 text-blue-700" value="${escapeHtml(b.key)}" ${selectedFilmBrands.has(b.key) ? 'checked' : ''}>
+                    <span>${escapeHtml(b.label)}</span>
+                </label>
+            `).join('');
+            document.getElementById('filmOptions').querySelectorAll('.film-option').forEach(input => {
+                input.addEventListener('change', () => {
+                    input.checked ? selectedFilmBrands.add(input.value) : selectedFilmBrands.delete(input.value);
+                    renderPriceTable();
+                });
+            });
+        }
+
+        // ─── CAR LOOKUP ──────────────────────────────────────────────────────
+        function uniqueSorted(values) {
+            return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'th'));
+        }
+        function populateModelInputs() {
+            const models = uniqueSorted(carModels.map(c => c.model));
+            document.getElementById('modelFilter').innerHTML =
+                '<option value="">เลือกรุ่นรถ</option>' +
+                models.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+        }
+        function formatModelLine(car) {
+            const brand = car.brand && !lookupKey(car.model).includes(lookupKey(car.brand)) ? `${car.brand} ` : '';
+            return `${brand}${car.model}`.trim();
+        }
+        function getPriceRowsForCar(car) {
+            const lookups = (car.lookupValues?.length ? car.lookupValues : [car.model, car.priceGroup]).map(lookupKey).filter(Boolean);
+            return filteredPriceRows.filter(row => lookups.includes(lookupKey(getPriceKey(row))));
+        }
+        function findSelectedCar() {
+            const sel = document.getElementById('modelFilter').value;
+            if (sel) return { car: carModels.find(c => c.model === sel), count: 1 };
+            const search = lookupKey(document.getElementById('searchInput').value);
+            if (!search || search.length < 2) return { car: null, count: 0, tooShort: search.length > 0 && search.length < 2 };
+            const exact = carModels.find(c => lookupKey(c.model) === search);
+            if (exact) return { car: exact, count: 1 };
+            const matches = carModels.filter(c => lookupKey(c.model).includes(search));
+            return { car: null, count: matches.length };
+        }
+        function getSearchMatches() {
+            const search = lookupKey(document.getElementById('searchInput').value);
+            if (!search || search.length < 2) return [];
+            return carModels.filter(c => lookupKey(c.model).includes(search))
+                .sort((a, b) => {
+                    const score = (m, s) => m === s ? 0 : m.startsWith(s) ? 1 : 2;
+                    return score(lookupKey(a.model), search) - score(lookupKey(b.model), search) || a.model.localeCompare(b.model, 'th');
+                });
+        }
+        function renderSearchResults() {
+            const input = document.getElementById('searchInput');
+            const results = document.getElementById('searchResults');
+            if (!input.value.trim()) { results.classList.add('hidden'); results.innerHTML = ''; return; }
+            const matches = getSearchMatches();
+            if (!matches.length) { results.classList.remove('hidden'); results.innerHTML = '<div class="px-4 py-3 text-sm text-slate-500">ไม่พบรุ่นรถยนต์</div>'; return; }
+            results.classList.remove('hidden');
+            results.innerHTML = matches.slice(0, 12).map(car => `
+                <button type="button" class="search-result-btn w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-slate-100 last:border-b-0" data-model="${escapeHtml(car.model)}">
+                    <div class="font-bold text-slate-950">${escapeHtml(formatModelLine(car))}</div>
+                </button>
+            `).join('');
+            results.querySelectorAll('.search-result-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.getElementById('modelFilter').value = btn.dataset.model;
+                    document.getElementById('searchInput').value = btn.dataset.model;
+                    results.classList.add('hidden');
+                    renderPriceTable();
+                });
+            });
+        }
+
+        // ─── PRICE TABLE ─────────────────────────────────────────────────────
+        function orderRows(rows) {
+            return [...rows].sort((a, b) => {
+                const ai = PRICE_PREVIEW_POSITION_ORDER.indexOf(cleanText(getPricePosition(a)));
+                const bi = PRICE_PREVIEW_POSITION_ORDER.indexOf(cleanText(getPricePosition(b)));
+                return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+            });
+        }
+
+        function renderPriceTable() {
+            const { car, count, tooShort } = findSelectedCar();
+            const emptyEl    = document.getElementById('emptyMessage');
+            const multiEl    = document.getElementById('multiMatchMessage');
+            const tableSection = document.getElementById('priceTableSection');
+
+            emptyEl.classList.remove('hidden');
+            multiEl.classList.add('hidden');
+            tableSection.classList.add('hidden');
+
+            const searchVal = document.getElementById('searchInput').value.trim();
+            const filterVal = document.getElementById('modelFilter').value;
+            if (!searchVal && !filterVal) { emptyEl.innerText = 'กรุณาค้นหา หรือเลือกรุ่นรถยนต์ก่อน'; return; }
+            if (tooShort) { emptyEl.innerText = 'กรุณาพิมพ์อย่างน้อย 2 ตัวอักษร'; return; }
+            if (!car) {
+                emptyEl.innerText = count > 1 ? `พบ ${count} รุ่น กรุณาเลือกจากรายการ` : 'ไม่พบรุ่นรถยนต์ที่ค้นหา';
+                return;
+            }
+
+            const rows = getPriceRowsForCar(car);
+            if (!rows.length) { emptyEl.innerText = `ไม่พบราคาของรุ่น ${formatModelLine(car)} ใน${selectedProId ? ` Pro_ID: ${selectedProId}` : 'ชีตนี้'}`; return; }
+
+            const selectedBrands = selectableFilmBrands.filter(b => selectedFilmBrands.has(b.key));
+            if (!selectedBrands.length) { emptyEl.innerText = 'กรุณาเลือกรุ่นฟิล์มอย่างน้อย 1 รุ่น'; return; }
+
+            selectedBrands.sort((a, b) => {
+                const maxA = Math.max(0, ...rows.map(r => parsePrice(r[a.key])));
+                const maxB = Math.max(0, ...rows.map(r => parsePrice(r[b.key])));
+                return maxB - maxA;
+            });
+
+
+            emptyEl.classList.add('hidden');
+            tableSection.classList.remove('hidden');
+            document.getElementById('priceTableTitle').innerHTML =
+                `ตารางราคา: ${escapeHtml(formatModelLine(car))} <span class="ml-2 inline-flex items-center rounded-full bg-sky-50 px-3 py-1 text-xs font-extrabold text-sky-700 ring-1 ring-sky-200">โปรโมชั่น: ${escapeHtml(selectedProId || 'ทั้งหมด')}</span>`;
+
+            const orderedRows = orderRows(rows);
+            previewOrderedRows = orderedRows;
+            previewSelectedBrands = selectedBrands;
+            selectedPriceItemIndices = new Set();
+
+            const headerCells = [
+                '<th class="base-head">กลุ่มราคา</th>',
+                '<th class="base-head">รายการ</th>',
+                ...selectedBrands.map(b => `<th>${escapeHtml(b.label)}</th>`)
+            ].join('');
+
+            const bodyRows = orderedRows.map((row, index) => {
+                const summary = isSummaryRow(row);
+                const brandCells = selectedBrands.map(b => `<td>${escapeHtml(formatPreviewValue(row, b.key))}</td>`).join('');
+                return `<tr class="${priceRowClass(row)}${summary ? ' summary-row' : ''}">
+                    <td class="base-cell">${escapeHtml(getPriceKey(row))}</td>
+                    <td class="base-cell">${escapeHtml(getPricePosition(row))}</td>
+                    ${brandCells}
+                </tr>`;
+            }).join('');
+
+            document.getElementById('priceTableEl').innerHTML = `
+                <table class="price-table">
+                    <thead><tr>${headerCells}</tr></thead>
+                    <tbody>${bodyRows}</tbody>
+                </table>
+            `;
+            notifyEmbedHeight();
+        }
+
+        function notifyEmbedHeight() {
+            if (!document.body.classList.contains('embed-mode')) return;
+            requestAnimationFrame(() => {
+                const height = Math.ceil(document.documentElement.scrollHeight);
+                window.parent.postMessage({ type: 'priceTableHeight', height }, '*');
+            });
+        }
+
+
+        function refreshAll() {
+            populateModelInputs();
+            renderFilmOptions();
+            renderPriceTable();
+        }
+
+        // ─── COLLAPSIBLE ─────────────────────────────────────────────────────
+        function updateCollapsible() {
+            document.getElementById('filmSelectorBody').classList.toggle('hidden', !isFilmSelectorOpen);
+            document.getElementById('toggleFilmSelectorBtn').innerText = isFilmSelectorOpen ? 'ซ่อนตัวเลือก' : 'แสดงตัวเลือก';
+        }
+
+        // ─── FETCH ───────────────────────────────────────────────────────────
+        async function fetchPriceData() {
+            document.getElementById('loadingMessage').classList.remove('hidden');
+            document.getElementById('errorMessage').classList.add('hidden');
+            document.getElementById('quoteContent').classList.add('hidden');
+            try {
+                const [carRes, priceRes] = await Promise.all([fetch(CAR_CSV_URL), fetch(PRICE_CSV_URL)]);
+                if (!carRes.ok || !priceRes.ok) throw new Error('network');
+                const [carText, priceText] = await Promise.all([carRes.text(), priceRes.text()]);
+                const [carRows, parsedPriceRows] = await Promise.all([parseCsv(carText), parseCsv(priceText)]);
+
+                carModels    = normalizeCarModels(carRows);
+                allPriceRows = normalizePriceRows(parsedPriceRows);
+
+                availableProIds = getAvailableProIds(allPriceRows);
+                selectedProId   = availableProIds[availableProIds.length - 1] || ''; // เลือก Pro_ID ล่าสุด
+                applyProIdFilter();
+                renderProIdButtons();
+                refreshAll();
+
+                // Check URL params for embed mode and initial search
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('embed') === '1') {
+                    document.body.classList.add('embed-mode', 'car-crm-sidebar-collapsed');
+                    const sidebar = document.querySelector('[data-car-crm-sidebar]');
+                    if (sidebar) sidebar.style.display = 'none';
+                    const header = document.querySelector('main > section.z-10');
+                    if (header) header.style.display = 'none';
+                    const filmSelector = document.getElementById('filmSelector');
+                    if (filmSelector) filmSelector.style.display = 'none';
+                    const main = document.querySelector('main');
+                    if (main) {
+                        main.className = 'w-full p-1 sm:p-2';
+                        main.style.setProperty('margin-left', '0', 'important');
+                        main.style.setProperty('width', '100%', 'important');
+                        main.style.setProperty('padding-top', '0.5rem', 'important');
+                    }
+                    document.body.style.backgroundColor = '#ffffff';
+                }
+
+                const initialCarModel = urlParams.get('carModel');
+                const initialProId = urlParams.get('proId');
+
+                if (initialProId && availableProIds.includes(initialProId)) {
+                    selectedProId = initialProId;
+                    applyProIdFilter();
+                    renderProIdButtons();
+                }
+
+                if (initialCarModel) {
+                    document.getElementById('searchInput').value = initialCarModel;
+                    const matches = getSearchMatches();
+                    if (matches.length > 0) {
+                        document.getElementById('modelFilter').value = matches[0].model;
+                        document.getElementById('searchInput').value = matches[0].model;
+                    }
+                    renderPriceTable();
+                }
+
+                document.getElementById('loadingMessage').classList.add('hidden');
+                document.getElementById('quoteContent').classList.remove('hidden');
+                notifyEmbedHeight();
+                document.getElementById('lastUpdated').innerText =
+                    `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH', { hour: 'numeric', minute: '2-digit', hour12: false })} น.`;
+            } catch (err) {
+                console.error(err);
+                document.getElementById('loadingMessage').classList.add('hidden');
+                document.getElementById('errorMessage').classList.remove('hidden');
+            }
+        }
+
+        // ─── INIT ────────────────────────────────────────────────────────────
+        function initApp() {
+            document.getElementById('searchInput').addEventListener('input', () => {
+                document.getElementById('modelFilter').value = '';
+                renderSearchResults();
+                renderPriceTable();
+            });
+            document.getElementById('modelFilter').addEventListener('change', () => {
+                const v = document.getElementById('modelFilter').value;
+                if (v) document.getElementById('searchInput').value = v;
+                document.getElementById('searchResults').classList.add('hidden');
+                renderPriceTable();
+            });
+            document.getElementById('selectAllFilmsBtn').addEventListener('click', () => {
+                selectedFilmBrands = new Set(selectableFilmBrands.map(b => b.key));
+                renderFilmOptions(); renderPriceTable();
+            });
+            document.getElementById('clearFilmsBtn').addEventListener('click', () => {
+                selectedFilmBrands.clear();
+                renderFilmOptions(); renderPriceTable();
+            });
+            document.getElementById('toggleFilmSelectorBtn').addEventListener('click', () => {
+                isFilmSelectorOpen = !isFilmSelectorOpen; updateCollapsible();
+            });
+            updateCollapsible();
+            fetchPriceData();
+        }
+
+        function startAppOnce() {
+            if (appHasStarted) return;
+            appHasStarted = true;
+            initApp();
+        }
+
+        function unlockPage() {
+            document.body.classList.remove('auth-locked');
+            startAppOnce();
+        }
+
+        window.addEventListener('load', () => {
+            window.CarCrmAuth.onLogin(unlockPage);
+            if (window.CarCrmAuth.isLoggedIn()) {
+                unlockPage();
+                return;
+            }
+            document.getElementById('loginForm').addEventListener('submit', async e => {
+                e.preventDefault();
+                const u = document.getElementById('loginUser').value.trim();
+                const p = document.getElementById('loginPass').value;
+                if (await window.CarCrmAuth.login(u, p)) {
+                    unlockPage();
+                } else {
+                    document.getElementById('loginError').classList.remove('hidden');
+                    document.getElementById('loginPass').value = '';
+                }
+            });
+            document.getElementById('loginUser').focus();
+        });
+    </script>
+</body>
+</html>
+

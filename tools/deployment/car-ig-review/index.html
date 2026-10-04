@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CAR CRM · Isolated Instagram review</title>
+  <link rel="stylesheet" href="review.css">
+  <script defer src="review.js"></script>
+</head>
+<body>
+  <main>
+    <header><span class="brand" aria-hidden="true">CAR</span><div><h1>Instagram review test</h1><p>CAR CRM · Separate controlled test environment</p></div></header>
+    <section id="login">
+      <h2>Reviewer access</h2>
+      <p>Enter the dedicated access key supplied by the app owner. It grants access only to this isolated test, without customer records, Google Sheets or the main CRM.</p>
+      <form id="login-form"><label for="review-key">Reviewer access key</label><input id="review-key" type="password" autocomplete="off" required minlength="32" maxlength="256"><button type="submit">Open test</button></form>
+    </section>
+    <section id="test" hidden>
+      <div class="section-heading"><h2>Approved test scope</h2><button class="secondary" id="signout" type="button">Sign out</button></div>
+      <dl><div><dt>Business account</dt><dd>@mhlcarfilm</dd></div><div><dt>Approved tester</dt><dd>@crazyoilly</dd></div><div><dt>Inbound test</dt><dd>Test</dd></div><div><dt>Fixed reply</dt><dd lang="th">ทดสอบเชื่อมต่อ CAR CRM สำหรับขอสิทธิ์ Meta</dd></div></dl>
+      <p>This environment verifies a signed inbound Test and its sender through Meta. It can send one approved fixed reply when the owner explicitly enables that feature. General message composition and CRM lead saving are not available here.</p>
+      <div class="facts" aria-live="polite"><p id="configured"></p><p id="inbound"></p><p id="send-state"></p><p id="thread-state"></p><p id="expires"></p></div>
+      <div class="actions"><button id="refresh" class="secondary" type="button">Refresh status</button><button id="verify" type="button">Verify inbound Test</button><button id="take" class="secondary" type="button" hidden>Take this test thread</button><button id="send" type="button" disabled>Send the fixed reply once</button><button id="release" class="secondary" type="button" hidden>Release this test thread</button></div>
+      <p class="hint">If there is no verified Test, ask the app owner to arrange the approved tester. Do not sign in with the owner's personal Instagram credentials. The main CAR CRM intake is a separate application.</p>
+    </section>
+    <p id="notice" role="status" aria-live="polite"></p>
+  </main>
+</body>
+</html>

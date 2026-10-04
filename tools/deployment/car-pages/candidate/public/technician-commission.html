@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>คำนวณค่าคอมช่าง</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon-install-summary.svg">
+    <link rel="manifest" href="app.webmanifest?v=20261002-2">
+    <link rel="apple-touch-icon" href="images/car-crm-app-192.png?v=20261002-2">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="damage-calculator.js"></script>
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #d9ebfd;
+        }
+
+        #loginScreen {
+            display: none;
+        }
+
+        body.auth-locked > :not(#loginScreen) {
+            display: none !important;
+        }
+
+        body.auth-locked #loginScreen {
+            display: flex;
+        }
+
+        .summary-table {
+            width: 100%;
+            min-width: 0;
+            table-layout: fixed;
+        }
+    </style>
+    <link rel="stylesheet" href="apple-style.css?v=20260520-4">
+    <style>
+        body {
+            background: #f4f7fb !important;
+        }
+
+        .install-page {
+            max-width: 1480px;
+        }
+
+        .page-panel {
+            border: 1px solid rgba(15, 23, 42, 0.08) !important;
+            border-radius: 18px !important;
+            background: rgba(255, 255, 255, 0.94) !important;
+            box-shadow: 0 14px 38px rgba(15, 23, 42, 0.07) !important;
+        }
+
+        .page-hero {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .eyebrow {
+            color: #0f766e;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
+        .metric-card {
+            min-height: 116px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            border-radius: 16px;
+            padding: 1rem;
+            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+        }
+
+        .metric-label {
+            color: #64748b;
+            font-size: 0.82rem;
+            font-weight: 800;
+        }
+
+        .metric-value {
+            margin-top: 0.35rem;
+            color: #0f172a;
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .metric-note {
+            margin-top: 0.45rem;
+            color: #94a3b8;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+
+
+        .summary-table th,
+        .summary-table td {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+
+        .summary-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            padding: 0.45rem 0.4rem;
+            font-size: 0.68rem;
+            letter-spacing: 0;
+            line-height: 1.2;
+            white-space: normal;
+        }
+
+        .summary-table td {
+            padding: 0.32rem 0.4rem;
+            font-size: 0.76rem;
+            line-height: 1.25;
+            white-space: nowrap;
+        }
+
+        .summary-table th:nth-child(1),
+        .summary-table td:nth-child(1) {
+            width: 10.5%;
+        }
+
+        .summary-table th:nth-child(2),
+        .summary-table td:nth-child(2) {
+            width: 14%;
+        }
+
+        .summary-table th:nth-child(n+3):nth-child(-n+10),
+        .summary-table td:nth-child(n+3):nth-child(-n+10) {
+            width: 5.4%;
+        }
+
+        .summary-table th:nth-child(11),
+        .summary-table td:nth-child(11) {
+            width: 5.2%;
+        }
+
+        .summary-table th:nth-child(12),
+        .summary-table td:nth-child(12) {
+            width: 6.3%;
+        }
+
+        .summary-table th:nth-child(13),
+        .summary-table td:nth-child(13) {
+            width: 9.6%;
+        }
+
+        .summary-table th:nth-child(14),
+        .summary-table td:nth-child(14) {
+            width: 11.2%;
+        }
+
+        .number-cell {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .commission-section-row td {
+            padding: 0.48rem 0.6rem !important;
+            color: #0f172a;
+            font-size: 0.8rem;
+            font-weight: 800;
+            white-space: normal;
+        }
+
+        .commission-section-full-sunroof td {
+            background: #bbf7d0 !important;
+        }
+
+        .commission-section-full td {
+            background: #bfdbfe !important;
+        }
+
+        .commission-section-partial td {
+            background: #ddd6fe !important;
+        }
+
+        .commission-rate-cell,
+        .commission-amount-cell {
+            font-variant-numeric: tabular-nums;
+            font-weight: 700;
+        }
+
+        .commission-amount-cell {
+            background: rgba(226, 232, 240, 0.45);
+        }
+
+        .commission-grand-total td {
+            background: #0f172a !important;
+            color: #ffffff !important;
+            font-weight: 800;
+        }
+
+        @media (max-width: 1200px) {
+            .summary-table {
+                min-width: 1040px;
+            }
+        }
+
+        /* Lock grand total footer row - prevent hover from overriding dark bg */
+        .summary-table tr.grand-total-row:hover td,
+        .summary-table tr.grand-total-row td {
+            background: transparent !important;
+        }
+        .summary-table tr.grand-total-row {
+            background: linear-gradient(to right, #334155, #1e293b) !important;
+        }
+
+        /* Ensure month column text is always visible */
+        .summary-table td.month-cell {
+            color: #1e293b !important;
+            font-weight: 800 !important;
+            padding-left: 0.4rem !important;
+            padding-right: 0.4rem !important;
+        }
+
+        @media (min-width: 768px) {
+            .page-hero {
+                grid-template-columns: minmax(0, 1fr) auto;
+                align-items: end;
+            }
+
+            .metric-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 1280px) {
+            .filter-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+    </style>
+    <script src="crm-auth.js?v=20261002-1" defer></script>
+    <script src="sidebar.js" defer></script>
+    <script src="commission-auth.js" defer></script>
+    <link rel="stylesheet" href="page-heading.css?v=20261002-1">
+</head>
+<body class="text-slate-800 auth-locked">
+    <div id="loginScreen" class="fixed inset-0 z-[9999] min-h-screen items-center justify-center bg-slate-950 px-4">
+        <form id="loginForm" class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div class="mb-5">
+                <h1 class="text-2xl font-extrabold text-slate-900">เข้าสู่ระบบ</h1>
+                <p class="mt-1 text-sm text-slate-500">กรุณาเข้าสู่ระบบก่อนใช้งาน</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="loginUser" class="mb-1 block text-sm font-semibold text-slate-700">User</label>
+                    <input id="loginUser" type="text" autocomplete="username" class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label for="loginPass" class="mb-1 block text-sm font-semibold text-slate-700">Password</label>
+                    <input id="loginPass" type="password" autocomplete="current-password" class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+            </div>
+            <p id="loginError" class="mt-3 hidden text-sm font-semibold text-red-600">User หรือ Password ไม่ถูกต้อง</p>
+            <button type="submit" class="mt-5 w-full rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800">เข้าสู่ระบบ</button>
+        </form>
+    </div>
+
+    <div data-car-crm-sidebar></div>
+
+    <main class="install-page w-full px-4 py-6 sm:px-6 lg:ml-72 lg:w-[calc(100%-18rem)] lg:px-8">
+        <section class="page-panel mb-4 p-5">
+            <div class="page-hero">
+                <div>
+                    
+                    <div class="car-page-heading car-page-heading-clear-menu">
+    <div class="car-page-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="images/page-heading-icons.svg#calculator"/></svg></div>
+    <div class="car-page-heading-copy">
+        <h1 class="car-page-heading-title">คำนวณค่าคอมช่าง</h1>
+        <p id="lastUpdated" class="car-page-heading-subtitle">Bookings + Car_model + Commission_Rate</p>
+    </div>
+</div>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 sm:gap-4">
+                    <div class="flex items-center gap-2">
+                        <label for="filterMode" class="text-sm font-bold text-slate-600">การกรอง</label>
+                        <select id="filterMode" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-32 font-medium">
+                            <option value="month">รอบคอม</option>
+                            <option value="custom">ระบุช่วงวันที่</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <label for="typeFilter" class="text-sm font-bold text-slate-600">ประเภทลูกค้า</label>
+                        <select id="typeFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-32 font-medium">
+                            <option value="">ทั้งหมด</option>
+                            <option value="ลูกค้าใหม่">ลูกค้าใหม่</option>
+                            <option value="ลูกค้าเก่า">ลูกค้าเก่า</option>
+                        </select>
+                    </div>
+                    
+                    <div id="monthFilterContainer" class="flex items-center gap-2">
+                        <label for="monthFilter" class="text-sm font-bold text-slate-600">รอบคอม</label>
+                        <select id="monthFilter" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-52 font-medium">
+                            <option value="">ทุกรอบ</option>
+                        </select>
+                    </div>
+
+                    <div id="customDateContainer" class="hidden flex flex-wrap items-center gap-2">
+                        <label for="startDateInput" class="text-sm font-bold text-slate-600">เริ่มต้น</label>
+                        <input id="startDateInput" type="date" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-38 font-medium">
+                        <label for="endDateInput" class="text-sm font-bold text-slate-600">สิ้นสุด</label>
+                        <input id="endDateInput" type="date" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-38 font-medium">
+                    </div>
+
+                    <button type="button" onclick="fetchSummaryData()" class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-700">
+                        รีเฟรช
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="metric-grid mb-4" aria-label="ยอดสรุป">
+            <article class="metric-card bg-emerald-50">
+                <p class="metric-label text-emerald-700">รวมค่าคอม</p>
+                <p id="summaryTotal" class="metric-value text-emerald-700">0.00</p>
+                <p class="metric-note text-emerald-500">บาท ตามตัวกรอง</p>
+            </article>
+            <article class="metric-card bg-blue-50">
+                <p class="metric-label text-blue-700">ความเสียหายจากฟิล์ม</p>
+                <p id="summaryNew" class="metric-value text-blue-700">0.00</p>
+                <p class="metric-note text-blue-500">ข้อมูลจากตารางความเสียหาย (หาร 2)</p>
+            </article>
+            <article class="metric-card bg-purple-50">
+                <p class="metric-label text-purple-700">ความเสียหายอื่นๆ</p>
+                <p id="summaryClaim" class="metric-value text-purple-700">0.00</p>
+                <p class="metric-note text-purple-500">ดึงข้อมูลจาก other-damage.html</p>
+            </article>
+            <article class="metric-card bg-rose-50 border-rose-200">
+                <p class="metric-label text-rose-700">รวมค่าคอมสุทธิ</p>
+                <p id="summaryFix" class="metric-value text-rose-700">0.00</p>
+                <p class="metric-note text-rose-500">การ์ด 1 - 2 - 3</p>
+            </article>
+        </section>
+
+
+
+        <section class="page-panel overflow-hidden">
+            <div class="flex flex-col gap-1 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="text-lg font-extrabold text-slate-900">รายละเอียด</h2>
+                    <p class="text-sm font-medium text-slate-500">แยกตามรอบคอม กลุ่มราคา และตำแหน่งติดตั้ง</p>
+                </div>
+                <span id="connectionStatus" class="text-sm font-bold text-slate-500">กำลังโหลดข้อมูล...</span>
+            </div>
+
+            <div id="loadingMessage" class="px-6 py-12 text-center text-slate-500">
+                <svg class="mx-auto mb-4 h-10 w-10 animate-spin text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-lg font-bold text-slate-700">กำลังโหลดข้อมูล...</p>
+            </div>
+
+            <div id="errorMessage" class="hidden bg-red-50 px-6 py-10 text-center text-red-600">
+                <p class="text-lg font-extrabold">โหลดข้อมูลไม่สำเร็จ</p>
+                <p class="mt-2 text-sm text-slate-600">ตรวจสอบสิทธิ์ Google Sheets หรือการเชื่อมต่อ</p>
+            </div>
+
+            <div id="tableWrap" class="hidden overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+                <table class="summary-table min-w-full divide-y divide-slate-200 border-collapse">
+                    <thead class="bg-slate-600 text-white">
+                        <tr id="summaryHead"></tr>
+                    </thead>
+                    <tbody id="summaryBody" class="divide-y divide-slate-200 bg-white"></tbody>
+                </table>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-3 text-xs font-semibold text-slate-500">
+                <span>Google Sheets</span>
+                <span>จับคู่รุ่นรถกับกลุ่มราคาและเรท Commission_Rate</span>
+            </div>
+        </section>
+
+        <section class="page-panel overflow-hidden mt-6">
+            <div class="flex flex-col gap-1 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="text-lg font-extrabold text-slate-900">รายละเอียดความเสียหาย (Mistake)</h2>
+                    <p class="text-sm font-medium text-slate-500">ดึงข้อมูลจากหน้า damage แยกตามรอบคอม กลุ่มราคา และตำแหน่งติดตั้ง</p>
+                </div>
+            </div>
+
+            <div id="damageTableWrap" class="hidden overflow-x-auto rounded-xl border border-slate-200 shadow-sm m-5">
+                <table class="summary-table min-w-full divide-y divide-slate-200 border-collapse">
+                    <thead class="bg-slate-600 text-white">
+                        <tr id="damageSummaryHead">
+                            <th class="text-left font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">วันที่</th>
+                            <th class="text-left font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">รุ่นฟิล์ม</th>
+                            <th class="text-left font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">ช่างติดตั้ง</th>
+                            <th class="text-left font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">ตำแหน่ง</th>
+                            <th class="text-left font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">เหตุผล / หมายเหตุ</th>
+                            <th class="text-right font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">Sqf.</th>
+                            <th class="text-right font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">ต้นทุน/Sqf.</th>
+                            <th class="text-right font-bold text-white text-xs px-3 py-2 whitespace-nowrap">มูลค่า</th>
+                        </tr>
+                    </thead>
+                    <tbody id="damageSummaryBody" class="divide-y divide-slate-200 bg-white"></tbody>
+                </table>
+            </div>
+            
+            <div id="damageLoadingMessage" class="px-6 py-8 text-center text-slate-500">
+                <p class="text-sm font-bold text-slate-700">กำลังประมวลผลข้อมูลความเสียหาย...</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const SHEET_ID = '1u__xYWoWZpmrnquc-Fpk19WtpcrckxSd0-_G35NWxXQ';
+        const BOOKINGS_SHEET_NAME = 'Bookings';
+        const CAR_MODEL_SHEET_NAME = 'Car_model';
+        const COMMISSION_RATE_SHEET_NAME = 'Commission_Rate';
+        const DATA_SHEET_NAME = 'data';
+        const INSTALLER_SHEET_NAME = 'Detail_Installer';
+
+        const BOOKINGS_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(BOOKINGS_SHEET_NAME)}`;
+        const CAR_MODEL_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CAR_MODEL_SHEET_NAME)}`;
+        const COMMISSION_RATE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(COMMISSION_RATE_SHEET_NAME)}`;
+        const DATA_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(DATA_SHEET_NAME)}`;
+        const INSTALLER_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(INSTALLER_SHEET_NAME)}`;
+        const FILM_COST_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('ต้นทุนฟิล์ม')}`;
+        const REASON_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('เหตุผลขอตัดฟิล์ม')}`;
+        const OTHER_DAMAGE_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('ความเสียหายอื่นๆ')}`;
+        
+        const INSTALLER_CSV_URLS = [
+            INSTALLER_CSV_URL,
+            `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Detail Installer')}`,
+            `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Detail_Installers')}`,
+            `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('Installer')}`,
+            `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent('ช่างติดตั้ง')}`
+        ];
+
+        const CUSTOMER_TYPE_FIELDS = ['ประเภทลูกค้า', 'Customer Type', 'CustomerType', 'customer_type'];
+        const CUSTOMER_GROUPS = ['ลูกค้าใหม่', 'ลูกค้าเก่า'];
+        const dom = {};
+        const DOM_IDS = [
+            'loginForm', 'loginUser', 'loginPass', 'loginError', 'monthFilter',
+            'summaryTotal', 'summaryNew', 'summaryClaim', 'summaryFix',
+            'loadingMessage', 'errorMessage', 'tableWrap', 'summaryHead', 'summaryBody',
+            'lastUpdated', 'connectionStatus',
+            'filterMode', 'monthFilterContainer', 'customDateContainer', 'startDateInput', 'endDateInput',
+            'typeFilter', 'damageTableWrap', 'damageSummaryHead', 'damageSummaryBody', 'damageLoadingMessage'
+        ];
+
+        let rawBookings = [];
+        let rawCarModels = [];
+        let rawCommissionRates = [];
+        let rawData = [];
+        let rawInstaller = [];
+        let rawReason = [];
+        let rawOtherDamage = [];
+        let filmCostMap = {};
+        let summaryRows = [];
+        let allSummaryRows = [];
+        let appHasStarted = false;
+
+        const POSITION_COLUMNS = ['บานหน้า', 'บานหลัง', 'ประตูหน้าซ้าย', 'ประตูหน้าขวา', 'ประตูหลังซ้าย', 'ประตูหลังขวา', 'ซันรูฟ', 'ทั้งคัน'];
+        const COMMISSION_SECTIONS = [
+            {
+                key: 'fullSunroof',
+                title: 'เต็มคัน + ซันรูฟ',
+                rateField: 'fullSunroofRate',
+                className: 'commission-section-full-sunroof',
+                rateLabel: 'เรทค่าคอม/คัน (เต็มคัน + ซันรูฟ)'
+            },
+            {
+                key: 'full',
+                title: 'เต็มคัน',
+                rateField: 'fullRate',
+                className: 'commission-section-full',
+                rateLabel: 'เรทค่าคอม/คัน (เต็มคัน)'
+            },
+            {
+                key: 'partial',
+                title: 'ประกอบคัน',
+                rateField: 'fullRate',
+                className: 'commission-section-partial',
+                rateLabel: 'เรทค่าคอม/คัน (เต็มคัน)'
+            }
+        ];
+        const collapsedMonths = new Set();
+
+        function cacheDom() {
+            DOM_IDS.forEach(id => {
+                dom[id] = document.getElementById(id);
+            });
+        }
+
+        function textValue(value, fallback = '') {
+            if (value === null || value === undefined) return fallback;
+            const text = String(value).trim();
+            return text === '' ? fallback : text;
+        }
+
+        function escapeHtml(value) {
+            return textValue(value).replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function normalizeText(value) {
+            return textValue(value).replace(/[\s._\-()（）/\\]+/g, '').toLowerCase();
+        }
+
+        function isCancelledStatus(value) {
+            return normalizeText(value).includes('ยกเลิก');
+        }
+
+        function normalizeLookupId(value) {
+            return textValue(value).replace(/[\s._\-–—/\\]+/g, '').toLowerCase();
+        }
+
+        function findField(row, candidates) {
+            if (!row) return '';
+            const keys = Object.keys(row).filter(key => normalizeText(key));
+            const normalizedCandidates = candidates.map(normalizeText).filter(Boolean);
+            const key = keys.find(item => normalizedCandidates.includes(normalizeText(item))) ||
+                keys.find(item => normalizedCandidates.some(candidate => {
+                    const normalizedItem = normalizeText(item);
+                    if (!normalizedItem || candidate.length < 2 || normalizedItem.length < 2) return false;
+                    return normalizedItem.includes(candidate) || candidate.includes(normalizedItem);
+                }));
+            return key ? textValue(row[key]) : '';
+        }
+
+        function parseCsv(csvText) {
+            return new Promise(resolve => {
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    transformHeader: header => header.trim(),
+                    complete: results => resolve(results.data)
+                });
+            });
+        }
+
+        function isHtmlResponseText(text) {
+            const trimmedText = text.trim().toLowerCase();
+            return trimmedText.startsWith('<!doctype html>') ||
+                trimmedText.startsWith('<html') ||
+                trimmedText.includes('google.visualization.query.setresponse') ||
+                trimmedText.includes('invalid query');
+        }
+
+        async function fetchCsvText(url) {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Network response was not ok');
+            const text = await response.text();
+            if (isHtmlResponseText(text)) throw new Error('Permission denied');
+            return text;
+        }
+        
+        async function fetchCsvTexts(urls) {
+            return Promise.all(urls.map(url => fetchCsvText(url).catch(() => null)));
+        }
+
+        function parseDate(value) {
+            const raw = textValue(value);
+            let match = raw.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+            if (match) {
+                let year = parseInt(match[1], 10);
+                if (year > 2400) year -= 543;
+                const date = new Date(year, parseInt(match[2], 10) - 1, parseInt(match[3], 10));
+                return Number.isNaN(date.getTime()) ? null : date;
+            }
+
+            match = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+            if (!match) return null;
+            let year = parseInt(match[3], 10);
+            if (year < 100) year += 2000;
+            if (year > 2400) year -= 543;
+            const date = new Date(year, parseInt(match[2], 10) - 1, parseInt(match[1], 10));
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        function parseInputDate(dateStr) {
+            if (!dateStr) return null;
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return null;
+            return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        }
+
+        function monthKeyFromDate(date) {
+            if (!date) return 'ไม่ระบุเดือน';
+            const periodDate = new Date(date.getFullYear(), date.getMonth(), 1);
+            if (date.getDate() >= 26) {
+                periodDate.setMonth(periodDate.getMonth() + 1);
+            }
+            return `${periodDate.getFullYear()}-${String(periodDate.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        function commissionPeriodRangeFromKey(monthKey) {
+            if (!monthKey || monthKey === 'ไม่ระบุเดือน') return null;
+            const [year, monthNumber] = monthKey.split('-').map(Number);
+            if (!year || !monthNumber) return null;
+            return {
+                start: new Date(year, monthNumber - 2, 26),
+                end: new Date(year, monthNumber - 1, 25)
+            };
+        }
+
+        function parseCommissionCycleStart(value) {
+            const match = textValue(value).match(/(\d{1,2})\s*[\/\-]\s*(\d{1,2})\s*[\/\-]\s*(\d{2,4})/);
+            if (!match) return null;
+
+            let year = parseInt(match[3], 10);
+            // รอบคอมในชีตบันทึกเป็น พ.ศ. แบบ 2 หลัก เช่น 69 = 2569
+            if (year < 100) year = year >= 50 ? year + 2500 : year + 2000;
+            if (year > 2400) year -= 543;
+
+            const date = new Date(year, parseInt(match[2], 10) - 1, parseInt(match[1], 10));
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        function otherDamageRecordedDate(row) {
+            return parseDate(findField(row, [
+                'วันที่ลงรายการ',
+                'วันที่บันทึก',
+                'วันที่เกิดเหตุ',
+                'วันที่ติดตั้ง',
+                'วันที่',
+                'Date'
+            ]));
+        }
+
+        function otherDamageCommissionMonthKey(row) {
+            const commissionCycle = findField(row, ['นำไปหักคอมรอบ', 'รอบหักคอม', 'รอบหักค่าคอม']);
+            const cycleStart = parseCommissionCycleStart(commissionCycle);
+
+            // ให้รอบในชีตเป็นแหล่งข้อมูลหลัก เช่น 26/7/69 - 25/8/69 = รอบ 2026-08
+            // รายการเก่าที่ยังไม่มีรอบหักคอมจึงค่อยคำนวณจากวันที่ลงรายการ
+            return monthKeyFromDate(cycleStart || otherDamageRecordedDate(row));
+        }
+
+        function formatPeriodDate(date, includeYear = false) {
+            const options = { day: 'numeric', month: 'short' };
+            if (includeYear) options.year = 'numeric';
+            return date.toLocaleDateString('th-TH', options).replace(/พ\.ศ\.\s*/g, '');
+        }
+
+        function monthLabelFromKey(monthKey) {
+            if (!monthKey || monthKey === 'ไม่ระบุเดือน') return 'ไม่ระบุเดือน';
+            const range = commissionPeriodRangeFromKey(monthKey);
+            if (!range) return 'ไม่ระบุเดือน';
+            return `${formatPeriodDate(range.start)} - ${formatPeriodDate(range.end, true)}`;
+        }
+
+        function uniqueValues(rows, key, labelKey) {
+            return [...new Map(rows.map(row => [row[key], labelKey ? row[labelKey] : row[key]])).entries()]
+                .filter(([key]) => textValue(key))
+                .sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'th'));
+        }
+
+
+
+        function createCarModelMap(rows) {
+            return rows.reduce((map, row) => {
+                const model = findField(row, ['รุ่นรถยนต์', 'รุ่นรถ', 'Model']);
+                const priceGroup = findField(row, ['กลุ่มราคา', 'ประเภทรถยนต์', 'Pro_ID', 'Price Group', 'PriceGroup', 'price_group']);
+                if (!model) return map;
+                map[normalizeLookupId(model)] = priceGroup || 'ไม่ระบุกลุ่มราคา';
+                return map;
+            }, {});
+        }
+
+        function parseNumber(value) {
+            const number = Number(textValue(value).replace(/,/g, ''));
+            return Number.isFinite(number) ? number : 0;
+        }
+
+        function createCommissionRateMap(rows) {
+            return rows.reduce((map, row) => {
+                const vehicleType = findField(row, ['ประเภทรถยนต์', 'ประเภทรถ', 'กลุ่มราคา', 'Vehicle Type']);
+                if (!vehicleType) return map;
+                map[normalizeLookupId(vehicleType)] = {
+                    fullRate: parseNumber(findField(row, ['เต็มคัน', 'Full'])),
+                    fullSunroofRate: parseNumber(findField(row, ['เต็มคัน + ซันรูฟ', 'เต็มคัน+ซันรูฟ', 'Full + Sunroof']))
+                };
+                return map;
+            }, {});
+        }
+
+        function classifyCustomerGroup(customerType) {
+            const value = normalizeText(customerType);
+            if (!value) return '';
+            if (value.includes('claim') || value.includes('problem') || value.includes('warranty')) return '';
+            if (value.includes('fix') || value.includes('rework') || value.includes('sameday')) return '';
+            if (value.includes('เคลม') || value.includes('ปัญหา') || value.includes('แก้') || value.includes('ในวัน')) return '';
+            if (value.includes('เก่า') || value.includes('old') || value.includes('repeat') || value.includes('existing') || value.includes('returning')) return 'ลูกค้าเก่า';
+            if (value.includes('ใหม่') || value.includes('new')) return 'ลูกค้าใหม่';
+            return '';
+        }
+
+        function isCommissionCustomerBooking(booking) {
+            const customerType = findField(booking, CUSTOMER_TYPE_FIELDS);
+            return CUSTOMER_GROUPS.includes(classifyCustomerGroup(customerType));
+        }
+
+        function createBlankPositionCounts() {
+            return POSITION_COLUMNS.reduce((result, column) => {
+                result[column] = 0;
+                return result;
+            }, {});
+        }
+
+        function addPositionCounts(target, counts) {
+            POSITION_COLUMNS.forEach(column => {
+                target[column] += counts[column] || 0;
+            });
+        }
+
+        function getInstallPositionCounts(installType) {
+            const posValue = normalizeText(installType);
+            const counts = createBlankPositionCounts();
+
+            if (posValue.includes('บานหน้า') || posValue.includes('หน้าเต็ม') || posValue.includes('กระจกหน้า') || posValue.includes('front') || posValue.includes('windshield')) {
+                counts['บานหน้า'] += 1;
+            }
+            if (posValue.includes('บานหลัง') || posValue.includes('กระจกหลัง') || posValue.includes('rear') || posValue.includes('back')) {
+                counts['บานหลัง'] += 1;
+            }
+            if (posValue.includes('ประตูหน้าซ้าย') || (posValue.includes('ประตูหน้า') && posValue.includes('ซ้าย')) || (posValue.includes('ประตู') && posValue.includes('หน้าซ้าย'))) {
+                counts['ประตูหน้าซ้าย'] += 1;
+            }
+            if (posValue.includes('ประตูหน้าขวา') || (posValue.includes('ประตูหน้า') && posValue.includes('ขวา')) || (posValue.includes('ประตู') && posValue.includes('หน้าขวา'))) {
+                counts['ประตูหน้าขวา'] += 1;
+            }
+            if (posValue.includes('ประตูหลังซ้าย') || (posValue.includes('ประตูหลัง') && posValue.includes('ซ้าย')) || (posValue.includes('ประตู') && posValue.includes('หลังซ้าย'))) {
+                counts['ประตูหลังซ้าย'] += 1;
+            }
+            if (posValue.includes('ประตูหลังขวา') || (posValue.includes('ประตูหลัง') && posValue.includes('ขวา')) || (posValue.includes('ประตู') && posValue.includes('หลังขวา'))) {
+                counts['ประตูหลังขวา'] += 1;
+            }
+            if (posValue.includes('ซันรูฟ') || posValue.includes('sunroof')) {
+                counts['ซันรูฟ'] += 1;
+            }
+
+            return counts;
+        }
+
+        function createCommissionRow(monthKey, priceGroup, section, rate) {
+            return {
+                monthKey,
+                monthText: monthLabelFromKey(monthKey),
+                priceGroup,
+                section,
+                rate,
+                commission: 0,
+                pieceTotal: 0,
+                equivalentCars: 0,
+                totalUnits: 0,
+                ...createBlankPositionCounts()
+            };
+        }
+
+        function createEmptyCommissionSections() {
+            return COMMISSION_SECTIONS.reduce((result, section) => {
+                result[section.key] = [];
+                return result;
+            }, {});
+        }
+
+        function buildSummaryRows(bookingRows, carModelRows, commissionRateRows) {
+            const carModelMap = createCarModelMap(carModelRows);
+            const rateMap = createCommissionRateMap(commissionRateRows);
+            const summary = {};
+
+            bookingRows.forEach(booking => {
+                const jobId = findField(booking, ['JobID', 'Job ID', 'รหัสงาน']);
+                if (!jobId) return;
+                const status = findField(booking, ['Status', 'สถานะ']);
+                if (isCancelledStatus(status)) return;
+                if (!isCommissionCustomerBooking(booking)) return;
+
+                const date = parseDate(findField(booking, ['วันที่ติดตั้ง', 'วันที่', 'Date']));
+                const carModel = findField(booking, ['รุ่นรถยนต์', 'รุ่นรถ', 'Model']);
+                const installType = findField(booking, [
+                    'ตำแหน่งติดตั้ง',
+                    'ตำแหน่งติดตั้ง ใหม่',
+                    'ตำแหน่งติดตั้งใหม่',
+                    'การติดตั้ง',
+                    'ประเภทการติดตั้ง',
+                    'ตำแหน่ง',
+                    'Install Type',
+                    'InstallType',
+                    'Installation',
+                    'Position'
+                ]);
+                const mappedPriceGroup = carModelMap[normalizeLookupId(carModel)];
+                const priceGroup = mappedPriceGroup || (rateMap[normalizeLookupId(carModel)] ? carModel : 'ไม่ระบุกลุ่มราคา');
+                const monthKey = monthKeyFromDate(date);
+                const rates = rateMap[normalizeLookupId(priceGroup)] || { fullRate: 0, fullSunroofRate: 0 };
+                const posValue = normalizeText(installType);
+                const isFull = posValue.includes('เต็มคัน') || posValue.includes('รอบคัน') || posValue.includes('ทั้งคัน') || posValue.includes('full') || posValue.includes('whole');
+                const isSunroof = posValue.includes('ซันรูฟ') || posValue.includes('sunroof');
+                const section = isFull && isSunroof ? 'fullSunroof' : (isFull ? 'full' : 'partial');
+                const summaryKey = `${section}||${monthKey}||${priceGroup}`;
+
+                if (!summary[summaryKey]) {
+                    const rate = section === 'fullSunroof' ? rates.fullSunroofRate : rates.fullRate;
+                    summary[summaryKey] = createCommissionRow(monthKey, priceGroup, section, rate);
+                }
+
+                const row = summary[summaryKey];
+
+                if (isFull && isSunroof) {
+                    row['ทั้งคัน'] += 1;
+                    row['ซันรูฟ'] += 1;
+                    row.totalUnits += 1;
+                } else if (isFull) {
+                    row['ทั้งคัน'] += 1;
+                    row.totalUnits += 1;
+                } else {
+                    const counts = getInstallPositionCounts(installType);
+                    addPositionCounts(row, counts);
+                    const pieceTotal = POSITION_COLUMNS
+                        .filter(column => column !== 'ทั้งคัน')
+                        .reduce((sum, column) => sum + counts[column], 0);
+                    row.pieceTotal += pieceTotal;
+                    row.totalUnits = row.pieceTotal / 6;
+                }
+
+                row.equivalentCars = row.section === 'partial' ? row.pieceTotal / 6 : row.totalUnits;
+                row.commission = row.equivalentCars * row.rate;
+            });
+
+            const sections = createEmptyCommissionSections();
+            Object.values(summary).forEach(row => {
+                if (sections[row.section]) sections[row.section].push(row);
+            });
+            Object.values(sections).forEach(rows => rows.sort((a, b) => (
+                b.monthKey.localeCompare(a.monthKey) ||
+                a.priceGroup.localeCompare(b.priceGroup, 'th')
+            )));
+            return sections;
+        }
+
+        function flattenCommissionRows(sections) {
+            if (!sections) return [];
+            return COMMISSION_SECTIONS.flatMap(section => sections[section.key] || []);
+        }
+
+        function populateMonthFilter() {
+            const current = dom.monthFilter.value;
+            const months = [...new Map(flattenCommissionRows(allSummaryRows).map(row => [row.monthKey, row.monthText])).entries()]
+                .sort((a, b) => b[0].localeCompare(a[0]));
+            dom.monthFilter.innerHTML = '<option value="">ทุกรอบ</option>' + months
+                .map(([key, label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`)
+                .join('');
+            
+            const now = new Date();
+            const currentCalendarMonthKey = monthKeyFromDate(now);
+            
+            if (current) {
+                dom.monthFilter.value = months.some(([key]) => key === current) ? current : '';
+            } else {
+                const hasCurrentCalendar = months.some(([key]) => key === currentCalendarMonthKey);
+                if (hasCurrentCalendar) {
+                    dom.monthFilter.value = currentCalendarMonthKey;
+                } else if (months.length > 0) {
+                    dom.monthFilter.value = months[0][0];
+                } else {
+                    dom.monthFilter.value = '';
+                }
+            }
+        }
+
+        function filteredRows() {
+            return summaryRows;
+        }
+
+        function toggleMonthCollapse(monthKey) {
+            if (collapsedMonths.has(monthKey)) {
+                collapsedMonths.delete(monthKey);
+            } else {
+                collapsedMonths.add(monthKey);
+            }
+            renderSummary();
+        }
+        window.toggleMonthCollapse = toggleMonthCollapse;
+
+        function formatMoney(value) {
+            return (Number(value) || 0).toLocaleString('th-TH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function formatDecimal(value, digits = 2) {
+            return (Number(value) || 0).toLocaleString('th-TH', {
+                minimumFractionDigits: digits,
+                maximumFractionDigits: digits
+            });
+        }
+
+        function formatCount(value) {
+            return (Number(value) || 0) > 0 ? Number(value).toLocaleString('th-TH') : '';
+        }
+
+        function renderCommissionHeader(rateLabel) {
+            return `
+                <th class="text-left font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">เดือน</th>
+                <th class="text-left font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">ประเภทรถ</th>
+                ${POSITION_COLUMNS.map(col => `<th class="text-center font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">${escapeHtml(col)}</th>`).join('')}
+                <th class="text-center font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">รวมคัน</th>
+                <th class="text-center font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">ทั้งหมด (คัน)</th>
+                <th class="text-center font-bold text-white text-xs px-3 py-2 border-r border-white/20 whitespace-nowrap">${escapeHtml(rateLabel)}</th>
+                <th class="text-center font-bold text-white text-xs px-3 py-2 whitespace-nowrap">ค่าคอม (บาท)</th>
+            `;
+        }
+
+        function renderSectionRows(section, rows, columnCount) {
+            const sectionTotal = summarizeCommissionRows(rows);
+            let html = `
+                <tr class="commission-section-row ${section.className}">
+                    <td colspan="${columnCount}">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span>*${escapeHtml(section.title)}</span>
+                            <span>${formatDecimal(sectionTotal.totalUnits)} คัน / ${formatMoney(sectionTotal.commission)} บาท</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+
+            if (!rows.length) {
+                return html + `<tr><td colspan="${columnCount}" class="text-center font-semibold text-slate-400">ไม่มีรายการ</td></tr>`;
+            }
+
+            let lastMonth = '';
+            rows.forEach(row => {
+                const monthText = row.monthKey === lastMonth ? '' : row.monthText;
+                lastMonth = row.monthKey;
+                const sectionMeta = COMMISSION_SECTIONS.find(item => item.key === row.section);
+                const totalCarsText = row.section === 'partial' ? formatDecimal(row.pieceTotal / 6, 1) : '';
+
+                html += `
+                    <tr class="border-b border-slate-100 bg-white hover:bg-slate-50">
+                        <td class="month-cell text-xs font-extrabold text-slate-800 border-r border-slate-200" title="${escapeHtml(monthText)}">${escapeHtml(monthText)}</td>
+                        <td class="font-semibold text-slate-700 border-r border-slate-200" title="${escapeHtml(row.priceGroup)}">${escapeHtml(row.priceGroup)}</td>
+                        ${POSITION_COLUMNS.map(col => `<td class="text-center border-r border-slate-100">${formatCount(row[col])}</td>`).join('')}
+                        <td class="text-center border-r border-slate-100">${totalCarsText}</td>
+                        <td class="text-center font-extrabold border-r border-slate-100">${formatDecimal(row.equivalentCars)}</td>
+                        <td class="commission-rate-cell text-right border-r border-slate-100" title="${escapeHtml(sectionMeta ? sectionMeta.rateLabel : '')}">${formatMoney(row.rate)}</td>
+                        <td class="commission-amount-cell text-right">${formatMoney(row.commission)}</td>
+                    </tr>
+                `;
+            });
+
+            return html;
+        }
+
+        function summarizeCommissionRows(rows) {
+            return rows.reduce((totals, row) => {
+                totals.commission += row.commission || 0;
+                totals.totalUnits += row.equivalentCars || 0;
+                if (row.section === 'partial') {
+                    totals.partialUnits += row.equivalentCars || 0;
+                } else {
+                    totals.fullUnits += row.totalUnits || 0;
+                }
+                POSITION_COLUMNS.forEach(column => {
+                    totals[column] += row[column] || 0;
+                });
+                return totals;
+            }, {
+                commission: 0,
+                totalUnits: 0,
+                fullUnits: 0,
+                partialUnits: 0,
+                ...createBlankPositionCounts()
+            });
+        }
+
+        function renderGrandTotalRow(totals) {
+            return `
+                <tr class="commission-grand-total border-t-2 border-slate-600">
+                    <td>รวมทั้งหมด</td>
+                    <td></td>
+                    ${POSITION_COLUMNS.map(col => `<td class="text-center">${formatCount(totals[col]) || '-'}</td>`).join('')}
+                    <td class="text-center">${formatDecimal(totals.partialUnits, 1)}</td>
+                    <td class="text-center">${formatDecimal(totals.totalUnits)}</td>
+                    <td></td>
+                    <td class="text-right">${formatMoney(totals.commission)}</td>
+                </tr>
+            `;
+        }
+
+        function updateSummaryCards(totals, totalFilmDamage = 0, totalOtherDamage = 0) {
+            const filmDamageDeduction = totalFilmDamage / 2;
+            const values = {
+                summaryTotal: formatMoney(totals.commission),
+                summaryNew: formatMoney(filmDamageDeduction),
+                summaryClaim: formatMoney(totalOtherDamage),
+                summaryFix: formatMoney(totals.commission - filmDamageDeduction - totalOtherDamage)
+            };
+
+            Object.entries(values).forEach(([id, value]) => {
+                if (dom[id]) dom[id].innerText = value;
+            });
+        }
+
+        function renderSummary() {
+            const sections = filteredRows();
+            const allRows = flattenCommissionRows(sections);
+            const columnCount = POSITION_COLUMNS.length + 6;
+
+            dom.summaryHead.innerHTML = renderCommissionHeader('เรทค่าคอม/คัน');
+
+            if (!allRows.length) {
+                dom.summaryBody.innerHTML = `<tr><td colspan="${columnCount}" class="py-8 text-center font-semibold text-slate-400">ยังไม่มีข้อมูลตามตัวกรองที่เลือก</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            COMMISSION_SECTIONS.forEach(section => {
+                const rows = sections[section.key] || [];
+                html += renderSectionRows(section, rows, columnCount);
+            });
+
+            const totals = summarizeCommissionRows(allRows);
+            html += renderGrandTotalRow(totals);
+            dom.summaryBody.innerHTML = html;
+        }
+
+        function processAndRenderSummary() {
+            const filterMode = dom.filterMode.value;
+            let filteredBookings = rawBookings;
+
+            if (filterMode === 'month') {
+                const month = dom.monthFilter.value;
+                if (month) {
+                    filteredBookings = rawBookings.filter(b => {
+                        const date = parseDate(findField(b, ['วันที่ติดตั้ง', 'วันที่', 'Date']));
+                        return monthKeyFromDate(date) === month;
+                    });
+                }
+            } else if (filterMode === 'custom') {
+                const start = parseInputDate(dom.startDateInput.value);
+                const end = parseInputDate(dom.endDateInput.value);
+                filteredBookings = rawBookings.filter(b => {
+                    const date = parseDate(findField(b, ['วันที่ติดตั้ง', 'วันที่', 'Date']));
+                    if (!date) return false;
+                    if (start && date < start) return false;
+                    if (end && date > end) return false;
+                    return true;
+                });
+            }
+
+            filteredBookings = filteredBookings.filter(b => {
+                const status = findField(b, ['Status', 'สถานะ']);
+                return !isCancelledStatus(status);
+            });
+
+            const damageBookings = filteredBookings.filter(b => {
+                const promotion = findField(b, ['Pro_ID', 'โปรโมชั่น']);
+                return normalizeLookupId(promotion) === 'mistake';
+            });
+
+            filteredBookings = filteredBookings.filter(isCommissionCustomerBooking);
+
+            let tableBookings = filteredBookings;
+            const selectedType = dom.typeFilter.value;
+            if (selectedType) {
+                tableBookings = filteredBookings.filter(b => {
+                    const customerType = findField(b, CUSTOMER_TYPE_FIELDS);
+                    return classifyCustomerGroup(customerType) === selectedType;
+                });
+            }
+
+            summaryRows = buildSummaryRows(tableBookings, rawCarModels, rawCommissionRates);
+            const totals = summarizeCommissionRows(flattenCommissionRows(summaryRows));
+            
+            let totalOtherDamage = 0;
+            rawOtherDamage.forEach(row => {
+                const recordedDate = otherDamageRecordedDate(row);
+                
+                let include = false;
+                if (filterMode === 'month') {
+                    const month = dom.monthFilter.value;
+                    if (!month || otherDamageCommissionMonthKey(row) === month) include = true;
+                } else if (filterMode === 'custom') {
+                    const start = parseInputDate(dom.startDateInput.value);
+                    const end = parseInputDate(dom.endDateInput.value);
+                    if (recordedDate && (!start || recordedDate >= start) && (!end || recordedDate <= end)) include = true;
+                }
+                
+                if (include) {
+                    const amountText = findField(row, ['มูลค่าความเสียหาย', 'มูลค่าของเสีย', 'มูลค่า', 'ยอดเงิน', 'ค่าเสียหาย', 'ราคา', 'จำนวนเงิน', 'Amount']);
+                    const amount = parseFloat(String(amountText || '0').replace(/[^0-9.-]/g, '')) || 0;
+                    totalOtherDamage += amount;
+                }
+            });
+            
+            const totalFilmDamage = renderDamageSummary(damageBookings);
+            updateSummaryCards(totals, totalFilmDamage, totalOtherDamage);
+            renderSummary();
+        }
+
+        function renderDamageSummary(damageBookings) {
+            const allDamageRows = typeof DamageCalculator !== 'undefined' 
+                ? DamageCalculator.buildDamageRows(damageBookings, rawData, rawInstaller, rawReason, rawCarModels) 
+                : [];
+            
+            let html = '';
+            let totalValue = 0;
+            let totalSqf = 0;
+            
+            if (!allDamageRows.length) {
+                if (dom.damageSummaryBody) dom.damageSummaryBody.innerHTML = `<tr><td colspan="8" class="py-8 text-center font-semibold text-slate-400">ยังไม่มีข้อมูลความเสียหายตามตัวกรองที่เลือก</td></tr>`;
+                return 0;
+            }
+            
+            allDamageRows.sort((a, b) => {
+                const dateA = a.date ? a.date.getTime() : 0;
+                const dateB = b.date ? b.date.getTime() : 0;
+                return dateA - dateB || String(a.film).localeCompare(String(b.film));
+            });
+            
+            let lastDate = '';
+            let lastFilm = '';
+            let lastInstaller = '';
+            
+            allDamageRows.forEach(row => {
+                const dateText = row.dateText;
+                const isNewDate = dateText !== lastDate;
+                if (isNewDate) { lastDate = dateText; lastFilm = ''; lastInstaller = ''; }
+                
+                const isNewFilm = row.film !== lastFilm;
+                if (isNewFilm) { lastFilm = row.film; lastInstaller = ''; }
+                
+                const isNewInstaller = row.installer !== lastInstaller;
+                if (isNewInstaller) { lastInstaller = row.installer; }
+                
+                const dashIcon = `<div class="h-3.5 w-3.5 rounded-sm bg-slate-400 flex items-center justify-center text-white font-black leading-none text-[10px]">-</div>`;
+                const displayDate = isNewDate ? `<span class="inline-flex items-center gap-1.5">${dashIcon}${escapeHtml(dateText)}</span>` : '';
+                const displayFilm = isNewFilm ? `<span class="inline-flex items-center gap-1.5">${dashIcon}${escapeHtml(row.film)}</span>` : '';
+                const displayInstaller = isNewInstaller ? `<span class="inline-flex items-center gap-1.5">${dashIcon}${escapeHtml(row.installer)}</span>` : '';
+                
+                const rowFilmKey = String(row.film).replace(/[\s._\-–—/\\]+/g, '').toLowerCase();
+                let cost = filmCostMap[rowFilmKey] || 0;
+                
+                if (!cost) {
+                    const matchingKeys = Object.keys(filmCostMap).filter(k => rowFilmKey.startsWith(k));
+                    if (matchingKeys.length > 0) {
+                        const longestKey = matchingKeys.sort((a, b) => b.length - a.length)[0];
+                        cost = filmCostMap[longestKey];
+                    }
+                }
+                
+                const sqf = row.sqf || 0;
+                const damageVal = cost * sqf;
+                totalValue += damageVal;
+                totalSqf += sqf;
+                
+                html += `
+                    <tr class="border-b border-slate-100 bg-white hover:bg-slate-50">
+                        <td class="font-semibold text-slate-700 border-r border-slate-200 py-2 px-3">${displayDate}</td>
+                        <td class="text-slate-700 border-r border-slate-200 py-2 px-3">${displayFilm}</td>
+                        <td class="text-slate-700 border-r border-slate-200 py-2 px-3">${displayInstaller}</td>
+                        <td class="text-slate-700 border-r border-slate-200 py-2 px-3">${escapeHtml(row.position)}</td>
+                        <td class="text-slate-700 border-r border-slate-200 py-2 px-3 text-sm">${escapeHtml(row.reasonText)}${row.note ? '<br><span class="text-slate-400 text-xs">' + escapeHtml(row.note) + '</span>' : ''}</td>
+                        <td class="text-right border-r border-slate-100 py-2 px-3">${sqf ? sqf.toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '-'}</td>
+                        <td class="text-right border-r border-slate-100 py-2 px-3">${cost ? cost.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
+                        <td class="text-right font-semibold text-rose-600 py-2 px-3">${damageVal ? damageVal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                <tr class="commission-grand-total border-t-2 border-slate-600 bg-slate-50">
+                    <td colspan="5" class="text-right font-bold py-2 px-3">รวมทั้งหมด</td>
+                    <td class="text-right font-extrabold text-slate-800 py-2 px-3">${totalSqf ? totalSqf.toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '-'}</td>
+                    <td class="border-r border-slate-100"></td>
+                    <td class="text-right font-extrabold text-rose-500 py-2 px-3">${totalValue ? totalValue.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
+                </tr>
+            `;
+            
+            if (dom.damageSummaryBody) dom.damageSummaryBody.innerHTML = html;
+            return totalValue;
+        }
+
+        async function fetchInstallerCsv() {
+            for (const url of INSTALLER_CSV_URLS) {
+                try {
+                    const text = await fetchCsvText(url);
+                    if (text) return text;
+                } catch (e) { }
+            }
+            return null;
+        }
+
+        async function fetchSummaryData() {
+            dom.loadingMessage.classList.remove('hidden');
+            dom.errorMessage.classList.add('hidden');
+            dom.tableWrap.classList.add('hidden');
+            if (dom.damageLoadingMessage) dom.damageLoadingMessage.classList.remove('hidden');
+            if (dom.damageTableWrap) dom.damageTableWrap.classList.add('hidden');
+            dom.connectionStatus.innerText = 'กำลังโหลดข้อมูลจาก Google Sheets...';
+
+            try {
+                const bookingText = await fetchCsvText(BOOKINGS_CSV_URL).catch(() => null);
+                const carModelText = await fetchCsvText(CAR_MODEL_CSV_URL).catch(() => null);
+                const commissionRateText = await fetchCsvText(COMMISSION_RATE_CSV_URL).catch(() => null);
+                
+                if (!bookingText || !carModelText || !commissionRateText) {
+                    throw new Error('ไม่สามารถโหลดข้อมูลหลักได้ครบถ้วน');
+                }
+
+                const dataText = await fetchCsvText(DATA_CSV_URL).catch(() => null);
+                const filmCostText = await fetchCsvText(FILM_COST_CSV_URL).catch(() => null);
+                const reasonText = await fetchCsvText(REASON_CSV_URL).catch(() => null);
+                const otherDamageText = await fetchCsvText(OTHER_DAMAGE_CSV_URL).catch(() => null);
+                const installerText = await fetchInstallerCsv();
+
+                const bookingRows = bookingText ? await parseCsv(bookingText) : [];
+                const carModelRows = carModelText ? await parseCsv(carModelText) : [];
+                const commissionRateRows = commissionRateText ? await parseCsv(commissionRateText) : [];
+                const dataRows = dataText ? await parseCsv(dataText) : [];
+                const filmCostRows = filmCostText ? await parseCsv(filmCostText) : [];
+                const reasonRows = reasonText ? await parseCsv(reasonText) : [];
+                const otherDamageRows = otherDamageText ? await parseCsv(otherDamageText) : [];
+                const installerRows = installerText ? await parseCsv(installerText) : [];
+
+                rawBookings = bookingRows;
+                rawCarModels = carModelRows;
+                rawCommissionRates = commissionRateRows;
+                rawData = dataRows;
+                rawInstaller = installerRows;
+                rawReason = reasonRows;
+                rawOtherDamage = otherDamageRows;
+                
+                filmCostMap = {};
+                filmCostRows.forEach(row => {
+                    const vals = Object.values(row);
+                    if (vals.length >= 2) {
+                        const film = vals[0];
+                        const costText = String(vals[1]).replace(/[^\d.-]/g, '');
+                        const cost = parseFloat(costText);
+                        if (film && cost > 0) {
+                            filmCostMap[String(film).replace(/[\s._\-–—/\\]+/g, '').toLowerCase()] = cost;
+                        }
+                    }
+                });
+
+                allSummaryRows = buildSummaryRows(rawBookings, rawCarModels, rawCommissionRates);
+
+                populateMonthFilter();
+                processAndRenderSummary();
+
+                dom.loadingMessage.classList.add('hidden');
+                dom.tableWrap.classList.remove('hidden');
+                if (dom.damageLoadingMessage) dom.damageLoadingMessage.classList.add('hidden');
+                if (dom.damageTableWrap) dom.damageTableWrap.classList.remove('hidden');
+                dom.lastUpdated.innerText = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH', { hour: 'numeric', minute: '2-digit', hour12: false })} น.`;
+                dom.connectionStatus.innerText = 'เชื่อมต่อข้อมูลสดเรียบร้อย';
+            } catch (error) {
+                console.error(error);
+                dom.loadingMessage.classList.add('hidden');
+                dom.errorMessage.classList.remove('hidden');
+                dom.connectionStatus.innerText = 'โหลดข้อมูลไม่สำเร็จ';
+                if (dom.errorMessage) {
+                    dom.errorMessage.innerHTML += `<div class="mt-4 text-left text-xs bg-slate-100 p-4 rounded overflow-auto max-h-40 break-all">${escapeHtml(error.stack || error.message || String(error))}</div>`;
+                }
+            }
+        }
+
+        function initApp() {
+            cacheDom();
+            
+            dom.filterMode.addEventListener('change', () => {
+                const isCustom = dom.filterMode.value === 'custom';
+                dom.monthFilterContainer.classList.toggle('hidden', isCustom);
+                dom.customDateContainer.classList.toggle('hidden', !isCustom);
+                processAndRenderSummary();
+            });
+            
+            dom.monthFilter.addEventListener('change', () => processAndRenderSummary());
+            dom.startDateInput.addEventListener('change', () => processAndRenderSummary());
+            dom.endDateInput.addEventListener('change', () => processAndRenderSummary());
+            dom.typeFilter.addEventListener('change', () => processAndRenderSummary());
+
+            fetchSummaryData();
+        }
+
+        function startAppOnce() {
+            if (appHasStarted) return;
+            appHasStarted = true;
+            initApp();
+        }
+
+        async function requestCommissionAccess() {
+
+            const granted = await window.CarCrmCommissionAuth.request({
+                title: 'คำนวณค่าคอมช่าง',
+                message: 'ใส่รหัสผ่านเพื่อเข้าสู่หน้าคำนวณค่าคอมช่าง',
+                confirmText: 'เข้าสู่หน้า',
+                cancelText: 'กลับ'
+            });
+
+            if (granted) {
+                return true;
+            }
+
+            window.location.href = 'install-summary.html';
+            return false;
+        }
+
+        async function unlockPage() {
+            if (!await requestCommissionAccess()) return;
+            document.body.classList.remove('auth-locked');
+            startAppOnce();
+        }
+
+        function setupLogin() {
+            cacheDom();
+            window.CarCrmAuth.onLogin(unlockPage);
+            if (window.CarCrmAuth.isLoggedIn()) {
+                unlockPage();
+                return;
+            }
+
+            dom.loginForm.addEventListener('submit', async event => {
+                event.preventDefault();
+                const user = dom.loginUser.value.trim();
+                const pass = dom.loginPass.value;
+                if (await window.CarCrmAuth.login(user, pass)) {
+                    dom.loginError.classList.add('hidden');
+                    unlockPage();
+                    return;
+                }
+
+                dom.loginError.classList.remove('hidden');
+                dom.loginPass.select();
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', setupLogin);
+    </script>
+</body>
+</html>

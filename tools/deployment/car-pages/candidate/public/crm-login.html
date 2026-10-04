@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="th">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>เข้าสู่ระบบ CAR CRM</title>
+    <link rel="stylesheet" href="crm-login.css">
+</head>
+<body>
+    <main>
+        <h1>CAR CRM</h1><p id="loginMessage">เข้าสู่ระบบเพื่อใช้งาน</p>
+        <form id="loginForm">
+            <div id="userField"><label for="loginUser">ชื่อผู้ใช้</label><input id="loginUser" autocomplete="username" value="admin" required></div>
+            <label for="loginPass">รหัสผ่าน</label><input id="loginPass" type="password" autocomplete="current-password" required>
+            <p id="loginError" role="alert"></p>
+            <button id="loginButton" type="submit">เข้าสู่ระบบ</button>
+        </form>
+    </main>
+    <script src="crm-auth.js"></script><script src="crm-login.js"></script>
+</body>
+</html>
