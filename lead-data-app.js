@@ -106,7 +106,6 @@
         session = await api('session');
         if (attempt !== connection) return;
         $('current-user').textContent = session.name; $('signout').hidden = session.mode === 'local';
-        prefetchFormOptions();
         const entryUrl = new URL(location.href);
         if (entryUrl.searchParams.get('newLead') === '1' && initialTab() === 'leads') {
             entryUrl.searchParams.delete('newLead');
@@ -167,10 +166,10 @@
     async function showTab(next) {
         if (next === 'instagram' && !INSTAGRAM_ENABLED) next = 'line';
         editorOpenRequest++;
-        if (session) prefetchFormOptions();
         // Contact reports share the same timeline panel.
         if (!['line','facebook','instagram','leads','followups','connection'].includes(next)) next = 'line';
         const inbox = ['line','facebook','instagram'].includes(next);
+        if (session && !inbox) prefetchFormOptions();
         $('add-lead').hidden = next !== 'leads';
         if (next !== 'connection') history.replaceState(null,'',['leads','followups','instagram'].includes(next) ? '#' + next : location.pathname + location.search);
         ['account-label','range-buttons'].forEach(id => { $(id).hidden = !inbox; });
@@ -205,8 +204,10 @@
         requireSession();
         const currentRequest = ++request;
         const currentTab = tab;
+        const currentSession = session, currentService = service;
         if (currentTab === 'instagram') instagramError = null;
-        const isCurrent = () => currentRequest === request && tab === currentTab;
+        const isCurrent = () => currentRequest === request && tab === currentTab && session === currentSession && service === currentService;
+        let optionsPrefetched = false;
         const query = {platform:currentTab,start:rangeStart,end:rangeEnd};
         const cached = inboxLoader.peek(query);
         if (cached) {
@@ -222,6 +223,7 @@
                 contacts = core.inboxActivities(value); account = value.account; summary = null;
                 inboxSource = value.source || 'webhook'; inboxIncomplete = !complete;
                 renderInbox();
+                if (!refresh && !optionsPrefetched && isCurrent()) { optionsPrefetched = true; prefetchFormOptions(); }
                 notice(complete ? '' : `แสดงข้อมูลแล้ว ${value.contacts.length} รายชื่อ · กำลังโหลดเพิ่มเติม สถิติยังไม่ครบ`);
             }});
             if (!result || !isCurrent()) return;
@@ -688,7 +690,7 @@
 
     $('signout').addEventListener('click',() => { if (cloudLead) { void window.CarCrmAuth.logout(); return; } accessKey = ''; sessionStorage.removeItem('carLeadAccessKey'); $('service-form').elements.accessKey.value = ''; resetRecords(); void showTab('connection'); notice('ตัดการเชื่อมต่อระบบลีดแล้ว'); });
     $('service-form').elements.accessKey.value = accessKey;
-    $('refresh-inbox').addEventListener('click',guard(async () => { formOptions.clear(); prefetchFormOptions(); await Promise.all([loadRecords(true),loadInbox({refresh:true})]); }));
+    $('refresh-inbox').addEventListener('click',guard(async () => { await Promise.all([loadRecords(true),loadInbox({refresh:true})]); }));
     function setRange(mode) {
         rangeMode = mode;
         const today = day(new Date());
