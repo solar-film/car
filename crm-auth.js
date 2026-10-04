@@ -25,16 +25,18 @@
     function signal() {
         try { window.localStorage.setItem(SIGNAL_KEY, String(Date.now()) + ':' + Math.random()); } catch (_) {}
     }
-    async function request(action, input) {
+    async function request(action, input, leadService = false) {
         if (!/^https?:$/.test(window.location.protocol)) throw new Error('กรุณาเปิด CAR_CRM ผ่านเซิร์ฟเวอร์ ไม่ใช่เปิดไฟล์ HTML โดยตรง');
-        const payload = cloud ? {...input,action,sessionToken:stored(TOKEN_KEY) || memoryToken,clientId:clientId()} : input;
-        const response = await fetch(cloud ? endpoint : new URL('api/crm-auth/' + action, window.location.href), {
-            method: cloud || input ? 'POST' : 'GET', credentials:cloud ? 'omit' : 'same-origin', cache:'no-store',
-            headers: payload ? {'Content-Type':cloud ? 'text/plain;charset=UTF-8' : 'application/json'} : {},
-            body: payload ? JSON.stringify(payload) : undefined, signal:AbortSignal.timeout(cloud ? 30000 : 10000)
+        const remote = cloud || leadService;
+        const payload = remote ? {...input,action,sessionToken:stored(TOKEN_KEY) || memoryToken,clientId:clientId()} : input;
+        const target = leadService ? endpoint.replace('?crmAuth=1','?crmLead=1') : cloud ? endpoint : new URL('api/crm-auth/' + action, window.location.href);
+        const response = await fetch(target, {
+            method: remote || input ? 'POST' : 'GET', credentials:remote ? 'omit' : 'same-origin', cache:'no-store',
+            headers: payload ? {'Content-Type':remote ? 'text/plain;charset=UTF-8' : 'application/json'} : {},
+            body: payload ? JSON.stringify(payload) : undefined, signal:AbortSignal.timeout(leadService ? 60000 : cloud ? 30000 : 10000)
         });
         const result = await response.json();
-        if (!response.ok || result.ok === false) throw new Error(result.error || 'ตรวจสิทธิ์ CAR_CRM ไม่สำเร็จ');
+        if (!response.ok || result.ok === false) throw Object.assign(new Error(result.error || 'ตรวจสิทธิ์ CAR_CRM ไม่สำเร็จ'),{status:Number(result.code) || response.status});
         if (cloud && action === 'login' && result.authenticated && /^[A-Za-z0-9_-]{43}$/.test(result.sessionToken || '')) rememberToken(result.sessionToken);
         if (cloud && result.authenticated) verifiedUntil = Number(result.expiresAt) || 0;
         if (cloud && action === 'logout') rememberToken('');
@@ -94,6 +96,7 @@
     });
     window.addEventListener('focus',refresh);
     try { window.localStorage.removeItem('carCrmLoggedIn'); } catch (_) {}
-    window.CarCrmAuth = Object.freeze({isLoggedIn:() => authenticated,login,logout,onLogin,refresh,request});
+    window.CarCrmAuth = Object.freeze({isLoggedIn:() => authenticated,login,logout,onLogin,refresh,request,
+        leadRequest:(action,input) => request(action,input,true)});
     refresh();
 })();

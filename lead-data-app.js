@@ -3,6 +3,7 @@
     'use strict';
     const $ = id => document.getElementById(id);
     const core = window.CarLeadCore;
+    const cloudLead = location.hostname === 'solar-film.github.io' || document.documentElement.dataset.leadTransport === 'apps-script';
     // Pause Instagram intake while retaining its integration and saved records.
     const INSTAGRAM_ENABLED = false;
     document.querySelector('[data-tab="instagram"]').hidden = !INSTAGRAM_ENABLED;
@@ -66,6 +67,10 @@
     function prefetchFormOptions() { void formOptions.get().catch(() => {}); }
     function notice(text, failure = false) { $('notice').hidden = !text; $('notice').textContent = text; $('notice').classList.toggle('error', failure); }
     async function api(action, input) {
+        if (cloudLead) {
+            const route = new URL(action,'https://car.invalid/');
+            return window.CarCrmAuth.leadRequest(route.pathname.slice(1),{query:Object.fromEntries(route.searchParams),input});
+        }
         const headers = {};
         if (accessKey) headers['X-Car-Lead-Key'] = accessKey;
         if (input) headers['Content-Type'] = 'application/json';
@@ -96,7 +101,8 @@
         $('instagram-connection').textContent = settings.instagramConfigured ? `Instagram: @${settings.instagramUsername} · ตรวจสิทธิ์อ่านแชตเมื่อเปิดแท็บ` : 'Instagram: รอตั้งค่าเชื่อมต่อบัญชี CAR';
         $('facebook-connection').textContent = settings.facebookAccount ? `Facebook: ${settings.facebookAccount}` : 'Facebook: ยังไม่ได้ระบุเพจ CAR';
         $('line-connection').textContent = settings.lineConfigured ? 'LINE: รถยนต์ @maholan · ตั้งค่ารับข้อมูลแล้ว' : 'LINE: รถยนต์ @maholan · รอตั้งค่า webhook CAR';
-        $('access-label').hidden = settings.local;
+        $('access-label').hidden = settings.local || cloudLead;
+        $('service-form').hidden = cloudLead;
         session = await api('session');
         if (attempt !== connection) return;
         $('current-user').textContent = session.name; $('signout').hidden = session.mode === 'local';
@@ -144,12 +150,12 @@
         if (!isCurrent()) return;
         records = result; recordsLoaded = true; renderInstallations(); renderInbox();
         if (intake) {
-            void api('sheet-leads').then(sheet => {
+            void (result.sheetLeads ? Promise.resolve({leads:result.sheetLeads}) : api('sheet-leads')).then(sheet => {
                 if(isCurrent()) updateFollowUpCount(sheet.leads);
             }).catch(() => { if(isCurrent()) updateFollowUpCount(null); });
             return;
         }
-        try { const sheet = await api('sheet-leads'); if (!isCurrent()) return; sheetLeads=sheet.leads.map(lead => ({...lead,status:customerFollowUp(lead)}));
+        try { const sheet = result.sheetLeads ? {leads:result.sheetLeads} : await api('sheet-leads'); if (!isCurrent()) return; sheetLeads=sheet.leads.map(lead => ({...lead,status:customerFollowUp(lead)}));
             renderStatusOptions();
             sheetLeads.forEach(lead => { lead.installationDate = lead.customerId ? 'กำลังโหลด…' : '—'; });
             renderLeads();
@@ -578,6 +584,14 @@
             }
             const local = {...lead,id:lead.id,name:values.name,phone:values.phone,salesperson:values.admin,note:values.note,
                 leadId:saved.leadId,sheetKey:key,sheetData:values,sheetRow:saved.rowNumber,sheetSavedAt:new Date().toISOString()};
+            if (typeof cloudLead !== 'undefined' && cloudLead) {
+                // The verified Sheet row is the durable record. No second database commit is needed.
+                lead = {...local,id:'sheet-lead:' + saved.leadId,source:source || {platform:'manual'}};
+                applyConfirmedLead(saved,values,lead,lead);
+                refreshAfterLeadSave(saved);
+                notice(`บันทึกลงชีต lead แล้ว · แถว ${saved.rowNumber}`);
+                return;
+            }
             try {
                 const result = contact ? await api('select',{platform,contactId:contact.id,lead:local}) : await api('lead',local);
                 if (!result.lead?.id) throw new Error('ไม่พบรหัสรายการที่บันทึก');
@@ -672,7 +686,7 @@
         accessKey = event.target.elements.accessKey.value; sessionStorage.setItem('carLeadAccessKey',accessKey); await connect();
     }));
 
-    $('signout').addEventListener('click',() => { accessKey = ''; sessionStorage.removeItem('carLeadAccessKey'); $('service-form').elements.accessKey.value = ''; resetRecords(); void showTab('connection'); notice('ตัดการเชื่อมต่อระบบลีดแล้ว'); });
+    $('signout').addEventListener('click',() => { if (cloudLead) { void window.CarCrmAuth.logout(); return; } accessKey = ''; sessionStorage.removeItem('carLeadAccessKey'); $('service-form').elements.accessKey.value = ''; resetRecords(); void showTab('connection'); notice('ตัดการเชื่อมต่อระบบลีดแล้ว'); });
     $('service-form').elements.accessKey.value = accessKey;
     $('refresh-inbox').addEventListener('click',guard(async () => { formOptions.clear(); prefetchFormOptions(); await Promise.all([loadRecords(true),loadInbox({refresh:true})]); }));
     function setRange(mode) {
@@ -861,7 +875,19 @@
     renderLeads(); renderInstallations(); renderInbox();
     window.addEventListener('hashchange',guard(async () => { await showTab(initialTab()); renderCarCrmSidebar(); }));
     void showTab(initialTab());
-    connect().catch(e => { notice(e.message,true); void showTab('connection'); });
+    async function startLead() {
+        if (cloudLead) {
+            $('service-form').hidden = true;
+            $('signout').textContent = 'ออกจากระบบ';
+            $('current-user').textContent = 'กำลังตรวจสอบการเข้าสู่ระบบ…';
+            if (!await window.CarCrmAuth.refresh()) {
+                location.replace('crm-login.html?next=' + encodeURIComponent('lead-data.html' + location.search + location.hash));
+                return;
+            }
+        }
+        await connect();
+    }
+    startLead().catch(e => { void showTab('connection'); notice(e.message,true); });
 })();
 
 
