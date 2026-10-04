@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CAR CRM · สาธิต Instagram รอบจริง</title>
+  <link rel="stylesheet" href="/review.css">
+  <script src="/review.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><div class="logo" aria-hidden="true">CRM</div><div><p class="eyebrow">CAR CRM · INSTAGRAM</p><h1>สาธิต Instagram รอบจริง</h1><p>บันทึกการใช้งานจริง · บัญชีทดสอบ @Crazyoilly</p></div></header>
+    <section aria-labelledby="steps-title">
+      <h2 id="steps-title">ขั้นตอนการสาธิต</h2>
+      <ol>
+        <li>เริ่มอัด เลือกแท็บ “CAR CRM · สาธิต Instagram รอบจริง” แล้วรอให้ระบบยืนยันว่าเป็นแท็บนี้</li>
+        <li>ให้ @Crazyoilly ทัก “Test” มาที่ @mhlcarfilm แล้วตรวจข้อความและตอบผ่าน API</li>
+        <li>เมื่อส่งตอบสำเร็จ เปิดแท็บ Instagram แล้วกด “แชร์แท็บนี้แทน” บนแถบ Chrome เพื่ออัดข้อความที่ได้รับจริง</li>
+        <li>หยุดอัด ตรวจวิดีโอ แล้วดาวน์โหลดไฟล์ไว้สำหรับ App Review</li>
+      </ol>
+      <p class="note">เครื่องมือนี้แยกจากหน้าลีดเดิม และเก็บวิดีโอในเบราว์เซอร์ของคุณ</p>
+    </section>
+    <section aria-labelledby="connection-title">
+      <div class="section-head"><h2 id="connection-title">การเชื่อมต่อบัญชีทดสอบ</h2><span class="pill">@mhlcarfilm → @Crazyoilly</span></div>
+      <p id="connection-status" role="status">กำลังตรวจการตั้งค่า…</p>
+      <button id="verify" type="button">ตรวจข้อความ Test ผ่าน API</button>
+      <p class="note">บัญชีทดสอบต้องมีบทบาทในแอปขณะใช้ Standard Access</p>
+      <details id="webhook-setup">
+        <summary>เตรียมรับข้อความทดสอบผ่าน Webhook</summary>
+        <p>สำหรับแอป CRM_LEAD · ID 1703232694436408 ใช้เมื่อ API อ่านประวัติขัดข้อง</p>
+        <p>ตัวรับนี้เก็บเฉพาะ “Test” ที่ตรวจชื่อผู้ส่งได้เป็น @crazyoilly ในหน่วยความจำ แยกจากข้อมูล CRM เดิม และเปิดใช้ได้ครั้งละ 2 ชั่วโมง</p>
+        <form id="secret-form">
+          <p><label for="app-secret">App Secret ของ CRM_LEAD</label><br><input id="app-secret" type="password" autocomplete="off" maxlength="32" required></p>
+          <p class="note">ใช้ตรวจลายเซ็นข้อความจาก Meta · เก็บในหน่วยความจำจนปิดตัวทดสอบ · กรอกที่หน้านี้โดยตรง</p>
+          <button type="submit">ใช้ App Secret สำหรับรอบทดสอบนี้</button>
+        </form>
+        <p id="webhook-status" role="status">ยังไม่ได้เปิดรับข้อความผ่าน HTTPS</p>
+        <p><label for="webhook-verify-token">Verification token สำหรับ Webhook รอบนี้</label><br><input id="webhook-verify-token" type="text" autocomplete="off" readonly></p>
+        <p class="note">ใช้เฉพาะการยืนยัน URL ใน Meta · เปลี่ยนใหม่เมื่อเปิดตัวทดสอบรอบใหม่</p>
+      </details>
+      <div id="reply-panel" hidden>
+        <div id="thread-panel" hidden>
+          <h2>รับช่วงเฉพาะแชตทดสอบ</h2>
+          <p>ใช้เฉพาะ Test จาก @crazyoilly · คืนการควบคุมให้ระบบเดิมทันทีหลังส่งข้อความ</p>
+          <button id="thread-check" class="secondary" type="button">ตรวจการควบคุมแชต</button>
+          <button id="thread-take" class="secondary" type="button">รับช่วงแชต Test ของ @crazyoilly</button>
+          <button id="thread-release" class="secondary" type="button">คืนการควบคุมแชต</button>
+          <p id="thread-status" role="status"></p>
+        </div>
+        <h2>ตอบข้อความทดสอบจาก CAR CRM</h2>
+        <p class="reply-text">ทดสอบเชื่อมต่อ CAR CRM สำหรับขอสิทธิ์ Meta</p>
+        <p><label><input id="reply-confirm" type="checkbox"> ยืนยันส่งข้อความนี้จาก @mhlcarfilm ไปที่ @Crazyoilly</label></p>
+        <button id="reply" type="button" disabled>ส่งข้อความทดสอบ</button>
+        <p id="reply-status" role="status"></p>
+        <button id="new-round" type="button" class="secondary" hidden>เตรียมรอบใหม่หลังได้รับ Test ใหม่</button>
+        <p id="new-round-status" role="status"></p>
+      </div>
+    </section>
+    <section aria-labelledby="record-title">
+      <div class="section-head"><h2 id="record-title">อัดหน้าจอ</h2><span id="timer" class="pill">00:00</span></div>
+      <p>เลือกแท็บ Chrome ชื่อ “CAR CRM · สาธิต Instagram รอบจริง” ระบบจะตรวจแท็บก่อนเริ่มอัด</p>
+      <div class="controls"><button id="start" type="button">เริ่มอัดหน้าจอ</button><button id="stop" class="secondary" type="button" disabled>หยุดอัด</button><a id="download" class="button secondary" hidden>ดาวน์โหลดวิดีโอ</a><button id="save-local" class="secondary" type="button" hidden>บันทึกวิดีโอไว้ในเครื่อง</button></div>
+      <p id="record-status" role="status">ยังไม่ได้เริ่มอัด</p>
+      <video id="preview" controls playsinline hidden aria-label="ตัวอย่างวิดีโอที่อัด"></video>
+    </section>
+  </main>
+</body>
+</html>
