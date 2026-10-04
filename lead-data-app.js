@@ -61,8 +61,8 @@
     let service = localStorage.getItem('carLeadServiceUrl') || (/^https?:$/.test(location.protocol) ? location.origin : 'http://127.0.0.1:3092');
     const formOptions = core.createOptionsCache(() => api('options'));
     const sheetContactCache = core.createOptionsCache(() => api('sheet-status'), {ttlMs:60000});
-    const inboxLoader = core.createInboxLoader(({platform,page,date,cursor,refresh}) =>
-        api(`inbox?platform=${platform}&page=${page}&date=${date}&cursor=${encodeURIComponent(cursor)}${refresh ? '&refresh=1' : ''}`));
+    const inboxLoader = core.createInboxLoader(({platform,page,start,date,cursor,refresh}) =>
+        api(`inbox?platform=${platform}&page=${page}&date=${date}${platform === 'line' && start ? '&start='+encodeURIComponent(start) : ''}&cursor=${encodeURIComponent(cursor)}${refresh ? '&refresh=1' : ''}`));
     let editorOpenRequest = 0;
     function prefetchFormOptions() { void formOptions.get().catch(() => {}); }
     function notice(text, failure = false) { $('notice').hidden = !text; $('notice').textContent = text; $('notice').classList.toggle('error', failure); }
@@ -96,6 +96,9 @@
     async function connect() {
         const attempt = ++connection;
         resetRecords();
+        // Both reads are independent: start the session check while configuration loads.
+        const sessionRequest = api('session');
+        sessionRequest.catch(() => {});
         settings = await api('config');
         if (attempt !== connection) return;
         $('instagram-connection').textContent = settings.instagramConfigured ? `Instagram: @${settings.instagramUsername} · ตรวจสิทธิ์อ่านแชตเมื่อเปิดแท็บ` : 'Instagram: รอตั้งค่าเชื่อมต่อบัญชี CAR';
@@ -103,7 +106,7 @@
         $('line-connection').textContent = settings.lineConfigured ? 'LINE: รถยนต์ @maholan · ตั้งค่ารับข้อมูลแล้ว' : 'LINE: รถยนต์ @maholan · รอตั้งค่า webhook CAR';
         $('access-label').hidden = settings.local || cloudLead;
         $('service-form').hidden = cloudLead;
-        session = await api('session');
+        session = await sessionRequest;
         if (attempt !== connection) return;
         $('current-user').textContent = session.name; $('signout').hidden = session.mode === 'local';
         const entryUrl = new URL(location.href);
@@ -210,16 +213,21 @@
         let optionsPrefetched = false;
         const query = {platform:currentTab,start:rangeStart,end:rangeEnd};
         const cached = inboxLoader.peek(query);
+        const stored = cached ? null : readInboxSnapshot(query);
         if (cached) {
             contacts = core.inboxActivities(cached); account = cached.account; inboxSource = cached.source || 'webhook';
+        } else if (stored) {
+            // Show the last complete list from this tab at once, then replace it when the fresh read completes.
+            contacts = core.inboxActivities(stored); account = stored.account; inboxSource = stored.source || 'webhook';
         }
         page = 0; inboxLoading = !cached || refresh; inboxIncomplete = false;
         $('refresh-inbox').disabled = true;
         renderInbox();
-        notice(inboxLoading ? 'กำลังอ่านรายชื่อ CAR…' : '');
+        notice(inboxLoading ? (stored ? 'แสดงรายชื่อล่าสุดที่โหลดไว้ · กำลังอัปเดต…' : 'กำลังอ่านรายชื่อ CAR…') : '');
         const sheetStatus = checkSheetContacts({refresh}).then(() => null, error => error);
         try {
             const result = await inboxLoader.load({...query,refresh,isCurrent,onPage:(value,{complete}) => {
+                if (stored && !complete) { notice(`แสดงรายชื่อล่าสุดที่โหลดไว้ · กำลังอัปเดต ${value.contacts.length} รายชื่อ…`); return; }
                 contacts = core.inboxActivities(value); account = value.account; summary = null;
                 inboxSource = value.source || 'webhook'; inboxIncomplete = !complete;
                 renderInbox();
@@ -227,6 +235,7 @@
                 notice(complete ? '' : `แสดงข้อมูลแล้ว ${value.contacts.length} รายชื่อ · กำลังโหลดเพิ่มเติม สถิติยังไม่ครบ`);
             }});
             if (!result || !isCurrent()) return;
+            writeInboxSnapshot(query,result);
             const sheetError = await sheetStatus;
             if (!isCurrent()) return;
             if (sheetError) throw sheetError;
@@ -252,6 +261,24 @@
             if (!contacts.length && currentTab !== 'instagram') { $('inbox-list').innerHTML = empty(error.message); $('inbox-summary').hidden = true; }
             notice(currentTab === 'instagram' && !contacts.length ? '' : (contacts.length ? 'อัปเดตข้อมูลยังไม่ครบ · แสดงรายการที่โหลดได้แล้ว · ' : '') + error.message,true);
         } finally { if (isCurrent()) { inboxLoading = false; $('refresh-inbox').disabled = false; } }
+    }
+    // Per-tab snapshot (sessionStorage, cleared when the tab closes or on sign-out) used only on the GitHub Pages build.
+    function inboxSnapshotKey(query) { return 'carLeadInbox:' + JSON.stringify([query.platform,query.start,query.end]); }
+    function snapshotsEnabled() { return typeof cloudLead !== 'undefined' && cloudLead && typeof sessionStorage !== 'undefined'; }
+    function readInboxSnapshot(query) {
+        if (!snapshotsEnabled()) return null;
+        try {
+            const saved = JSON.parse(sessionStorage.getItem(inboxSnapshotKey(query)) || 'null');
+            return saved && Date.now() - saved.savedAt < 15 * 60 * 1000 && saved.value && Array.isArray(saved.value.contacts) ? saved.value : null;
+        } catch { return null; }
+    }
+    function writeInboxSnapshot(query, value) {
+        if (!snapshotsEnabled()) return;
+        try { sessionStorage.setItem(inboxSnapshotKey(query), JSON.stringify({savedAt:Date.now(),value})); } catch {}
+    }
+    function clearInboxSnapshots() {
+        if (!snapshotsEnabled()) return;
+        try { Object.keys(sessionStorage).filter(key => key.startsWith('carLeadInbox:')).forEach(key => sessionStorage.removeItem(key)); } catch {}
     }
     function instagramConnection(error) {
         const waiting = error.code === 'INSTAGRAM_PERMISSION_REQUIRED';
@@ -688,7 +715,7 @@
         accessKey = event.target.elements.accessKey.value; sessionStorage.setItem('carLeadAccessKey',accessKey); await connect();
     }));
 
-    $('signout').addEventListener('click',() => { if (cloudLead) { void window.CarCrmAuth.logout(); return; } accessKey = ''; sessionStorage.removeItem('carLeadAccessKey'); $('service-form').elements.accessKey.value = ''; resetRecords(); void showTab('connection'); notice('ตัดการเชื่อมต่อระบบลีดแล้ว'); });
+    $('signout').addEventListener('click',() => { if (cloudLead) { clearInboxSnapshots(); void window.CarCrmAuth.logout(); return; } accessKey = ''; sessionStorage.removeItem('carLeadAccessKey'); $('service-form').elements.accessKey.value = ''; resetRecords(); void showTab('connection'); notice('ตัดการเชื่อมต่อระบบลีดแล้ว'); });
     $('service-form').elements.accessKey.value = accessKey;
     $('refresh-inbox').addEventListener('click',guard(async () => { await Promise.all([loadRecords(true),loadInbox({refresh:true})]); }));
     function setRange(mode) {

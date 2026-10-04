@@ -115,7 +115,8 @@
             return entry && now() < entry.expiresAt ? entry.value : null;
         }
         async function readPage(query) {
-            const key = JSON.stringify([query.platform,query.date,query.page,query.cursor]);
+            // Only LINE pages depend on the range start (one-response ranges); other channels keep reusing pages when the period widens.
+            const key = JSON.stringify([query.platform,query.platform === 'line' ? query.start : '',query.date,query.page,query.cursor]);
             let entry = pages.get(key);
             if (entry && (entry.pending || now() < entry.expiresAt)) return entry.pending || entry.value;
             entry = {platform:query.platform};
@@ -141,13 +142,14 @@
             let cursor = '';
             for (let page = 0; page < 100; page++) {
                 if (!active()) return null;
-                const result = await readPage({platform,page,date:end,cursor,refresh:refresh && page === 0});
+                const result = await readPage({platform,page,start,date:end,cursor,refresh:refresh && page === 0});
                 if (!active()) return null;
                 const rows = result.contacts || [];
                 for (const row of rows) collected.set(row.id,row);
                 const direct = ['facebook-conversations','instagram-conversations'].includes(result.source);
                 const oldest = rows.length ? dayKey(rows[rows.length-1].last_seen_at) : '';
-                const more = direct ? result.nextCursor : rows.length === 30;
+                // A server that answers the whole range at once marks it complete; otherwise keep paging.
+                const more = result.rangeComplete === true && result.rangeStart === start ? false : direct ? result.nextCursor : rows.length === 30;
                 const complete = !more || !rows.length || Boolean(oldest && oldest < start && collected.size >= 30);
                 const value = {...result,contacts:[...collected.values()]};
                 onPage(value,{complete,cached:false});
