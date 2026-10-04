@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ตรวจสอบคิวช่างรายเดือน</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon-technician.svg">
+    <link rel="manifest" href="/app.webmanifest?v=20261002-2">
+    <link rel="apple-touch-icon" href="/images/car-crm-app-192.png?v=20261002-2">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link rel="stylesheet" href="apple-style.css?v=20260520-4">
+    <script src="sidebar.js" defer></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
+        
+        /* ซ่อน Scrollbar แต่ยังเลื่อนได้ สำหรับส่วนรายการ */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Card states by status */
+        .card-installing {
+            background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+            border: 1px solid #fdba74;
+            border-left: 4px solid #ea580c;
+            box-shadow: 0 2px 12px rgba(234, 88, 12, 0.15);
+        }
+        .card-installing:hover {
+            box-shadow: 0 4px 20px rgba(234, 88, 12, 0.25);
+        }
+        .card-done {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+        }
+        .card-done:hover {
+            box-shadow: 0 2px 10px rgba(16, 185, 129, 0.12);
+        }
+        .card-default {
+            background: #fff;
+            border: 1px solid #f1f5f9;
+        }
+        .card-default:hover {
+            border-color: #bfdbfe;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+        }
+
+        .queue-card {
+            cursor: pointer;
+        }
+
+        .queue-card:focus-visible {
+            outline: 3px solid rgba(59, 130, 246, 0.45);
+            outline-offset: 3px;
+        }
+
+        .month-row {
+            cursor: pointer;
+            transition: background-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .month-row:hover {
+            background: #eff6ff;
+            box-shadow: inset 3px 0 0 #3b82f6;
+        }
+
+        .month-row:focus-visible {
+            outline: 3px solid rgba(59, 130, 246, 0.45);
+            outline-offset: -3px;
+        }
+
+        .timeline-dot {
+            box-shadow: 0 0 0 4px #bfdbfe;
+        }
+
+        .team-check-dropdown summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .team-check-dropdown[open] .team-check-menu {
+            display: block;
+        }
+
+        /* ซ่อนลูกศรขึ้นลงของช่อง type=number */
+        .damage-cell[type=number]::-webkit-outer-spin-button,
+        .damage-cell[type=number]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .damage-cell[type=number] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        /* ทำตารางให้กระชับ — ลด padding ของเซลล์ในตาราง damage modal */
+        #dm-tableBody td { padding: 4px 6px !important; }
+        #dm-tableBody .damage-cell { padding-top: 6px !important; padding-bottom: 6px !important; }
+        #dm-tableBody .team-check-dropdown summary { min-height: 36px !important; }
+    </style>
+    <link rel="stylesheet" href="page-heading.css?v=20261002-1">
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
+    <div id="appContainer" class="flex min-h-screen">
+        <div data-car-crm-sidebar></div>
+        <div id="appContent" class="flex-1 w-full min-w-0 bg-slate-50">
+            <main class="flex min-h-screen w-full max-w-none flex-col px-4 py-6 sm:px-6 lg:px-8">
+                
+                <!-- ส่วนหัวและสรุปตัวเลข -->
+                <header class="mb-6 rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
+                    <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                        <div class="car-page-heading car-page-heading-clear-menu">
+    <div class="car-page-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="images/page-heading-icons.svg#wrench"/></svg></div>
+    <div class="car-page-heading-copy">
+        <h1 class="car-page-heading-title">
+                                    ตรวจสอบคิวติดตั้ง
+                                </h1>
+        <p id="pageDateLabel" class="car-page-heading-subtitle">
+                                    <i data-lucide="loader-2" class="h-3 w-3 animate-spin"></i> กำลังโหลดข้อมูล...
+                                </p>
+    </div>
+</div>
+
+                        <!-- กล่องสรุปตัวเลข (กระชับขึ้น) -->
+                        <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end sm:gap-3">
+                            <div class="flex min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 shadow-sm sm:gap-3 sm:px-4 sm:py-3">
+                                <div class="shrink-0 rounded-lg bg-slate-100 p-2 text-slate-500"><i data-lucide="list-checks" class="h-5 w-5"></i></div>
+                                <div>
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">ทั้งหมด</p>
+                                    <p id="yesterdayCount" class="text-xl font-extrabold leading-none text-slate-900">-</p>
+                                </div>
+                            </div>
+                            <div class="flex min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 shadow-sm sm:gap-3 sm:px-4 sm:py-3">
+                                <div class="shrink-0 rounded-lg bg-emerald-50 p-2 text-emerald-600"><i data-lucide="clipboard-check" class="h-5 w-5"></i></div>
+                                <div>
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">แอดแล้ว</p>
+                                    <p id="todayCount" class="text-xl font-extrabold leading-none text-slate-900">-</p>
+                                </div>
+                            </div>
+                            <div class="flex min-w-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2.5 shadow-sm sm:gap-3 sm:px-4 sm:py-3">
+                                <div class="shrink-0 rounded-lg bg-amber-50 p-2 text-amber-600"><i data-lucide="clipboard-x" class="h-5 w-5"></i></div>
+                                <div>
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">ยังไม่แอด</p>
+                                    <p id="tomorrowCount" class="text-xl font-extrabold leading-none text-slate-900">-</p>
+                                </div>
+                            </div>
+
+                            <button type="button" onclick="fetchQueueData()" class="flex min-w-0 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-500">
+                                <i data-lucide="refresh-cw" class="h-4 w-4 shrink-0"></i> <span class="truncate">รีเฟรช</span>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- สถานะกำลังโหลด -->
+                <section id="loadingMessage" class="flex flex-col items-center justify-center py-20">
+                    <i data-lucide="loader-circle" class="w-10 h-10 animate-spin text-blue-500 mb-4"></i>
+                    <p class="text-slate-500 font-medium">กำลังเชื่อมต่อ Google Sheet...</p>
+                </section>
+
+                <!-- สถานะ Error -->
+                <section id="errorMessage" class="hidden rounded-xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
+                    <i data-lucide="shield-alert" class="w-10 h-10 text-red-500 mx-auto mb-3"></i>
+                    <p class="text-lg font-bold text-red-700">ไม่สามารถโหลดข้อมูลได้</p>
+                    <p class="mt-1 text-sm text-red-600">โปรดตรวจสอบการแชร์ Google Sheet หรือการเชื่อมต่ออินเทอร์เน็ต</p>
+                </section>
+
+        <!-- พื้นที่แสดงคิวรายเดือน -->
+        <section id="queueContent" class="hidden flex-1">
+            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div class="flex flex-col gap-3 border-b border-slate-200 bg-white px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h2 class="text-xl font-extrabold text-slate-900">รายการติดตั้ง</h2>
+                        <p id="monthSummary" hidden></p>
+                    </div>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+                        <label class="block text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                            ช่วงเวลา
+                            <select id="dateRangeFilter" class="mt-1 h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                <option value="today">วันนี้</option>
+                                <option value="yesterday">เมื่อวาน</option>
+                                <option value="month" selected>เดือนนี้</option>
+                                <option value="year">ปีนี้</option>
+                            </select>
+                        </label>
+                        <label class="block text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                            เดือน/ปี
+                            <input id="monthFilter" type="month" class="mt-1 h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:shadow-none">
+                        </label>
+                        <label class="block text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                            ประเภท
+                            <select id="customerTypeFilter" class="mt-1 h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                <option value="all">ทั้งหมด</option>
+                            </select>
+                        </label>
+                        <label class="block text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                            สถานะข้อมูล data
+                            <select id="dataStatusFilter" class="mt-1 h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100">
+                                <option value="all">ทั้งหมด</option>
+                                <option value="added">แอดแล้ว</option>
+                                <option value="missing">ยังไม่แอด</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[1040px] table-fixed text-left text-sm">
+                        <thead class="bg-slate-50 text-xs font-extrabold uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="w-[8%] px-5 py-3">เวลา</th>
+                                <th class="w-[18%] px-4 py-3">ลูกค้า / JobID</th>
+                                <th class="w-[9%] px-4 py-3">ประเภท</th>
+                                <th class="w-[17%] px-4 py-3">ข้อมูลรถ</th>
+                                <th class="w-[7%] px-3 py-3">ติดตั้ง</th>
+                                <th class="w-[16%] px-4 py-3">ฟิล์ม</th>
+                                <th class="w-[10%] px-4 py-3">สถานะงาน</th>
+                                <th class="w-[15%] px-5 py-3">ข้อมูล data</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthTableBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <footer class="mt-8 flex items-center justify-between border-t border-slate-200 pt-4 text-xs text-slate-500">
+            <span id="lastUpdated" class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> -</span>
+        </footer>
+    </main>
+    </div>
+    </div>
+
+    <!-- Modal: บันทึก/แก้ไขข้อมูลความเสียหาย -->
+    <div id="damageModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+        <div class="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+
+            <form id="damageForm" class="flex min-h-0 flex-1 flex-col" onsubmit="submitDamage(event)">
+                <!-- หัว modal: gradient + compact info chips -->
+                <div class="relative bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 border-b border-slate-200 px-5 py-3">
+                    <button type="button" onclick="closeDamageModal()" class="absolute top-3 right-3 rounded-lg bg-white/80 p-1.5 text-slate-400 shadow-sm ring-1 ring-slate-200 transition hover:bg-white hover:text-slate-700">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                    <div class="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px] pr-10">
+                        <div class="flex items-center gap-1.5"><span class="text-slate-500">JobID:</span><span id="dm-jobId" class="font-bold text-blue-700"></span></div>
+                        <div class="flex items-center gap-1.5"><span class="text-slate-500">รุ่นรถ:</span><span id="dm-carModel" class="font-semibold text-slate-800"></span></div>
+                        <div class="flex items-center gap-1.5"><span class="text-slate-500">ทะเบียน:</span><span id="dm-plate" class="font-semibold text-slate-800"></span></div>
+                        <div class="flex items-center gap-1.5"><span class="text-slate-500">ลูกค้า:</span><span id="dm-customer" class="font-semibold text-slate-800"></span></div>
+                        <div class="flex items-center gap-1.5"><span class="text-slate-500">ฟิล์ม:</span><span id="dm-brandFilm" class="font-semibold text-indigo-700"></span></div>
+                        <div class="flex items-center gap-1.5"><span class="text-slate-500">ตำแหน่ง:</span><span id="dm-installType" class="font-semibold text-slate-800"></span></div>
+                        <div class="ml-auto flex items-center gap-1.5"><span class="text-slate-500">สถานะ:</span><span id="dm-customerStatus" class="inline-flex items-center rounded-lg px-2.5 py-0.5 text-sm font-bold shadow-sm">-</span></div>
+                    </div>
+                </div>
+
+                <div class="min-h-0 flex-1 overflow-auto px-6 py-4">
+                    <div class="overflow-visible rounded-xl border border-slate-300">
+                        <table class="min-w-full border-collapse text-left text-sm">
+                            <thead class="hidden md:table-header-group bg-gradient-to-r from-sky-100 to-blue-100 text-slate-800 text-xs uppercase tracking-wide">
+                                <tr>
+                                    <th class="w-[14%] border border-slate-300 px-2 py-2 align-middle font-bold">ตำแหน่งติดตั้ง</th>
+                                    <th class="w-[24%] border border-slate-300 px-2 py-2 align-middle font-bold">รุ่นฟิล์ม</th>
+                                    <th class="w-[7%] border border-slate-300 px-2 py-2 align-middle font-bold">กว้าง</th>
+                                    <th class="w-[7%] border border-slate-300 px-2 py-2 align-middle font-bold">ยาว</th>
+                                    <th class="w-[7%] border border-slate-300 px-2 py-2 align-middle font-bold">จำนวน</th>
+                                    <th class="w-[18%] border border-slate-300 px-2 py-2 align-middle font-bold">ทีมช่าง</th>
+                                    <th class="w-[23%] border border-slate-300 px-2 py-2 align-middle font-bold">เหตุผลขอตัดฟิล์ม</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dm-tableBody" class="bg-white"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-4">
+                        <label class="mb-1.5 block text-sm font-bold text-slate-900">หมายเหตุ :</label>
+                        <textarea id="dm-note" rows="2" class="w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-4 focus:ring-sky-100" placeholder="หมายเหตุรวมของรายการนี้"></textarea>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-200 bg-slate-50 px-6 py-4">
+                    <p id="dm-error" class="mb-3 hidden rounded-xl bg-red-50 px-3 py-2 text-center text-sm font-semibold text-red-600"></p>
+                    <p id="dm-success" class="mb-3 hidden rounded-xl bg-emerald-50 px-3 py-2 text-center text-sm font-semibold text-emerald-600"></p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button" onclick="closeDamageModal()" class="rounded-xl border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50">ยกเลิก</button>
+                        <button type="submit" id="dm-submitBtn" class="rounded-xl bg-slate-900 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-slate-200 transition hover:bg-slate-800">บันทึก</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // เริ่มต้นการใช้งาน Icons
+        lucide.createIcons();
+
+        const SHEET_ID = '1u__xYWoWZpmrnquc-Fpk19WtpcrckxSd0-_G35NWxXQ';
+        const BOOKING_SHEET_NAME = 'Bookings';
+        const CUSTOMER_SHEET_NAME = 'Customer';
+        const DATA_SHEET_NAME = 'data';
+        const DETAIL_FILM_SHEET_NAME = 'Detail_film';
+        const FILM_SERIES_SHEET_NAME = 'film_series';
+        const TEAM_SHEET_NAME = 'ทีมช่าง';
+        const REASON_SHEET_NAME = 'เหตุผลขอตัดฟิล์ม';
+        const sheetCsvUrl = sheetName => `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+        const BOOKING_CSV_URL = sheetCsvUrl(BOOKING_SHEET_NAME);
+        const CUSTOMER_CSV_URL = sheetCsvUrl(CUSTOMER_SHEET_NAME);
+        const DATA_CSV_URL = sheetCsvUrl(DATA_SHEET_NAME);
+        const DETAIL_FILM_CSV_URL = sheetCsvUrl(DETAIL_FILM_SHEET_NAME);
+        const FILM_SERIES_CSV_URL = sheetCsvUrl(FILM_SERIES_SHEET_NAME);
+        const TEAM_CSV_URL = sheetCsvUrl(TEAM_SHEET_NAME);
+        const REASON_CSV_URL = sheetCsvUrl(REASON_SHEET_NAME);
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwH0Vw5qzVO3YDsibqi_EF8KScpL5e0-wp8mYXxgqSj_3wjqH8QG5CyFOse4-Q18o3Rgg/exec';
+        const WRITE_TOKEN_KEY = 'carCrmWriteToken';
+
+        function readWriteToken() {
+            try {
+                return String(localStorage.getItem(WRITE_TOKEN_KEY) || '').trim();
+            } catch (error) {
+                return '';
+            }
+        }
+
+        function saveWriteToken(token) {
+            try {
+                localStorage.setItem(WRITE_TOKEN_KEY, token);
+            } catch (error) {
+                // ยังส่ง token ครั้งนี้ได้ แม้ browser จะไม่อนุญาต localStorage
+            }
+        }
+
+        function clearWriteToken() {
+            try {
+                localStorage.removeItem(WRITE_TOKEN_KEY);
+            } catch (error) {
+                // ไม่มีค่าที่ต้องล้างเมื่อ browser ปิดกั้น localStorage
+            }
+        }
+
+        function getWriteToken(forceNewToken = false) {
+            if (forceNewToken) clearWriteToken();
+
+            let token = forceNewToken ? '' : readWriteToken();
+            if (!token) {
+                token = String(window.prompt('กรุณาใส่ Write Token สำหรับบันทึกข้อมูล') || '').trim();
+                if (!token) throw new Error('ไม่พบ Write Token');
+                saveWriteToken(token);
+            }
+            return token;
+        }
+
+        function isWriteTokenError(message) {
+            return /write token/i.test(String(message || ''));
+        }
+
+        async function postWithWriteToken(payload) {
+            for (let attempt = 0; attempt < 2; attempt += 1) {
+                const token = getWriteToken(attempt > 0);
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ ...payload, token })
+                });
+                const result = await response.json();
+
+                if (!result.success && isWriteTokenError(result.error)) {
+                    clearWriteToken();
+                    if (attempt === 0) continue;
+                }
+                return result;
+            }
+            throw new Error('Write token ไม่ถูกต้อง');
+        }
+
+        const DAMAGE_POSITIONS = [
+            'บานหน้า', 'บานหลัง',
+            'ประตูหน้า-ซ้าย', 'ประตูหน้า-ขวา',
+            'ประตูหลัง-ซ้าย', 'ประตูหลัง-ขวา',
+            'บานฟิก-ซ้าย', 'บานฟิก-ขวา',
+            'ซันรูฟ-ช่อง1', 'ซันรูฟ-ช่อง2', 'ซันรูฟ-ช่อง3',
+            'แครี่บอย-ซ้าย', 'แครี่บอย-ขวา', 'แครี่บอย-หลัง'
+        ];
+        const CUSTOMER_TYPE_FILTER_ORDER = ['ลูกค้าใหม่', 'ลูกค้าเก่า', 'ลูกค้าเคลม', 'แก้ในวัน'];
+
+        const POSITION_ALIASES = {
+            'บานหน้า': ['บานหน้า', 'กระจกหน้า', 'หน้าเต็ม', 'หน้า'],
+            'บานหลัง': ['บานหลัง', 'กระจกหลัง', 'หลัง'],
+            'ประตูหน้า-ซ้าย': ['ประตูหน้า-ซ้าย', 'ประตูหน้าซ้าย', 'ประตู-หน้าซ้าย', 'ประตู-หน้า-ซ้าย'],
+            'ประตูหน้า-ขวา': ['ประตูหน้า-ขวา', 'ประตูหน้าขวา', 'ประตู-หน้าขวา', 'ประตู-หน้า-ขวา'],
+            'ประตูหลัง-ซ้าย': ['ประตูหลัง-ซ้าย', 'ประตูหลังซ้าย', 'ประตู-หลังซ้าย', 'ประตู-หลัง-ซ้าย'],
+            'ประตูหลัง-ขวา': ['ประตูหลัง-ขวา', 'ประตูหลังขวา', 'ประตู-หลังขวา', 'ประตู-หลัง-ขวา'],
+            'บานฟิก-ซ้าย': ['บานฟิก-ซ้าย', 'บานฟิกซ้าย', 'ฟิกซ้าย', 'หูช้างซ้าย'],
+            'บานฟิก-ขวา': ['บานฟิก-ขวา', 'บานฟิกขวา', 'ฟิกขวา', 'หูช้างขวา'],
+            'ซันรูฟ-ช่อง1': ['ซันรูฟ-ช่อง1', 'ซันรูฟช่อง1', 'ซันรูฟ1', 'sunroof1'],
+            'ซันรูฟ-ช่อง2': ['ซันรูฟ-ช่อง2', 'ซันรูฟช่อง2', 'ซันรูฟ2', 'sunroof2'],
+            'ซันรูฟ-ช่อง3': ['ซันรูฟ-ช่อง3', 'ซันรูฟช่อง3', 'ซันรูฟ3', 'sunroof3'],
+            'แครี่บอย-ซ้าย': ['แครี่บอย-ซ้าย', 'แครี่บอยซ้าย', 'แครี่บอยซ้าย'],
+            'แครี่บอย-ขวา': ['แครี่บอย-ขวา', 'แครี่บอยขวา', 'แครี่บอยขวา'],
+            'แครี่บอย-หลัง': ['แครี่บอย-หลัง', 'แครี่บอยหลัง']
+        };
+
+        const dom = {};
+        const DOM_IDS = [
+            'pageDateLabel', 'yesterdayCount', 'todayCount', 'tomorrowCount',
+            'loadingMessage', 'errorMessage', 'queueContent', 'monthSummary', 'monthTableBody', 'dateRangeFilter', 'monthFilter', 'customerTypeFilter', 'dataStatusFilter',
+            'yesterdayTitle', 'todayTitle', 'tomorrowTitle', 'yesterdayList', 'todayList', 'tomorrowList', 'lastUpdated',
+            'damageModal', 'damageForm', 'dm-customerStatus',
+            'dm-jobId', 'dm-carModel', 'dm-customer', 'dm-plate', 'dm-installType', 'dm-brandFilm',
+            'dm-tableBody', 'dm-note',
+            'dm-error', 'dm-success', 'dm-submitBtn'
+        ];
+
+        let queueRows = [];
+        let damageDataRows = [];
+        let detailFilmRows = [];
+        let filmSeriesOptions = [];
+        let teamOptions = [];
+        let reasonOptions = [];
+        let currentDamageJobId = null;
+
+        function cacheDom() {
+            DOM_IDS.forEach(id => {
+                dom[id] = document.getElementById(id);
+            });
+        }
+
+        function textValue(value, fallback = '-') {
+            if (value === null || value === undefined) return fallback;
+            const text = String(value).trim();
+            return text === '' ? fallback : text;
+        }
+
+        function escapeHtml(value) {
+            return textValue(value, '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[char]));
+        }
+
+        function normalizeHeader(value) {
+            return textValue(value, '')
+                .replace(/^\uFEFF/, '')
+                .replace(/[\s().（）_\-:：/\\]+/g, '')
+                .toLowerCase();
+        }
+
+        function normalizeLookupId(value) {
+            return textValue(value, '').replace(/\s+/g, '').toLowerCase();
+        }
+
+        function findKey(keys, candidates) {
+            const normalized = candidates.map(normalizeHeader);
+            return keys.find(key => normalized.includes(normalizeHeader(key))) ||
+                keys.find(key => normalized.some(candidate => {
+                    const item = normalizeHeader(key);
+                    return item.includes(candidate) || candidate.includes(item);
+                }));
+        }
+
+        function findValue(row, candidates, fallback = '-') {
+            const key = findKey(Object.keys(row || {}), candidates);
+            return key ? textValue(row[key], fallback) : fallback;
+        }
+
+        function parseCsv(csvText) {
+            return new Promise(resolve => {
+                Papa.parse(csvText, {
+                    header: true, skipEmptyLines: true,
+                    transformHeader: header => header.trim(),
+                    complete: results => resolve(results.data)
+                });
+            });
+        }
+
+        async function fetchOptionalRows(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) return [];
+                const text = await response.text();
+                if (!text || text.trim().toLowerCase().startsWith('<html')) return [];
+                return parseCsv(text);
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function optionHtml(options, selectedValue = '') {
+            const selected = textValue(selectedValue, '');
+            const list = selected && selected !== '-' && !options.includes(selected)
+                ? [selected, ...options]
+                : options;
+            return `<option value=""></option>` + list.map(value => {
+                const safe = escapeHtml(value);
+                const isSelected = value === selected ? ' selected' : '';
+                return `<option value="${safe}"${isSelected}>${safe}</option>`;
+            }).join('');
+        }
+
+        function splitMultiValue(value) {
+            const text = textValue(value, '');
+            if (!text || text === '-') return [];
+            return text
+                .split(/\s*(?:,|，|、|\/|\||และ)\s*/g)
+                .map(item => item.trim())
+                .filter(Boolean);
+        }
+
+        function multiOptionHtml(options, selectedValue = '') {
+            const selectedValues = splitMultiValue(selectedValue);
+            const selectedSet = new Set(selectedValues.map(normalizeHeader));
+            const list = [...selectedValues, ...options].filter((value, index, array) =>
+                array.findIndex(item => normalizeHeader(item) === normalizeHeader(value)) === index
+            );
+            return list.map(value => {
+                const safe = escapeHtml(value);
+                const isSelected = selectedSet.has(normalizeHeader(value)) ? ' selected' : '';
+                return `<option value="${safe}"${isSelected}>${safe}</option>`;
+            }).join('');
+        }
+
+        function teamCheckboxDropdown(options, selectedValue = '') {
+            const selectedValues = splitMultiValue(selectedValue);
+            const selectedSet = new Set(selectedValues.map(normalizeHeader));
+            const list = [...selectedValues, ...options].filter((value, index, array) =>
+                array.findIndex(item => normalizeHeader(item) === normalizeHeader(value)) === index
+            );
+            const value = selectedValues.join(' , ');
+            const label = value || '';
+            const items = list.map(team => {
+                const safe = escapeHtml(team);
+                const checked = selectedSet.has(normalizeHeader(team)) ? ' checked' : '';
+                return `
+                    <label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 hover:bg-sky-50">
+                        <input type="checkbox" value="${safe}"${checked} onchange="updateTeamSelection(this)" class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-400">
+                        <span>${safe}</span>
+                    </label>
+                `;
+            }).join('');
+            return `
+                <details class="team-check-dropdown relative" ontoggle="handleTeamDropdownToggle(this)">
+                    <summary class="flex min-h-[40px] cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                        <span class="team-label truncate">${escapeHtml(label)}</span>
+                        <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400"></i>
+                    </summary>
+                    <input type="hidden" data-field="ทีมช่าง" value="${escapeHtml(value)}" class="damage-cell team-value">
+                    <div class="team-check-menu absolute left-0 z-40 mt-1 hidden max-h-48 w-64 overflow-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
+                        ${items || '<div class="px-2 py-2 text-sm text-slate-400">ไม่มีรายชื่อทีมช่าง</div>'}
+                    </div>
+                </details>
+            `;
+        }
+
+        function updateTeamSelection(input) {
+            const dropdown = input.closest('.team-check-dropdown');
+            if (!dropdown) return;
+            const selected = Array.from(dropdown.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(item => textValue(item.value, ''))
+                .filter(Boolean);
+            dropdown.querySelector('.team-value').value = selected.join(' , ');
+            dropdown.querySelector('.team-label').textContent = selected.length ? selected.join(' , ') : '';
+        }
+
+        function closeTeamDropdowns(exceptDropdown = null) {
+            document.querySelectorAll('.team-check-dropdown[open]').forEach(dropdown => {
+                if (dropdown !== exceptDropdown) dropdown.removeAttribute('open');
+            });
+        }
+
+        function handleTeamDropdownToggle(dropdown) {
+            if (dropdown.open) closeTeamDropdowns(dropdown);
+        }
+
+        function buildReferenceLists(filmRows, teamRows, reasonRows) {
+            const filmMap = new Map();
+            filmRows.forEach(row => {
+                const keys = Object.keys(row);
+                const fullKey = findKey(keys, ['ยี่ห้อ/รุ่นฟิล์ม', 'รุ่นฟิล์ม', 'film_series', 'Film Series']);
+                const brandKey = findKey(keys, ['ยี่ห้อ', 'Brand', 'film_brand']);
+                const full = fullKey ? textValue(row[fullKey], '') : '';
+                const brand = brandKey ? textValue(row[brandKey], '') : '';
+                if (full) filmMap.set(full, { full, brand });
+            });
+            filmSeriesOptions = Array.from(filmMap.values());
+
+            teamOptions = [...new Set(teamRows.flatMap(row => {
+                const key = findKey(Object.keys(row), ['ทีมช่าง', 'ชื่อทีม', 'ชื่อ']);
+                return key ? splitMultiValue(row[key]) : [];
+            }).filter(Boolean))];
+
+            reasonOptions = [...new Set(reasonRows.map(row => {
+                const keys = Object.keys(row);
+                const reasonKey = findKey(keys, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล']);
+                return reasonKey ? textValue(row[reasonKey], '') : '';
+            }).filter(Boolean))];
+        }
+
+        function parseSheetDate(value) {
+            const text = textValue(value, '');
+            const match = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+            if (!match) return null;
+
+            const day = parseInt(match[1], 10);
+            const month = parseInt(match[2], 10) - 1;
+            let year = parseInt(match[3], 10);
+            if (year < 100) year += 2500;
+            if (year > 2400) year -= 543;
+
+            const date = new Date(year, month, day);
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        function dateKey(date) {
+            if (!date) return '';
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        function addDays(date, days) {
+            const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            result.setDate(result.getDate() + days);
+            return result;
+        }
+
+        function thaiDate(date) {
+            return date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        function thaiNumericDate(date) {
+            return date.toLocaleDateString('th-TH', { day: 'numeric', month: 'numeric', year: 'numeric' });
+        }
+
+        function dateGroupLabel(date) {
+            const today = new Date();
+            return dateKey(date) === dateKey(today) ? 'วันนี้' : thaiNumericDate(date);
+        }
+
+        function monthInputValue(date) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        function selectedMonthStart() {
+            const value = dom.monthFilter?.value || monthInputValue(new Date());
+            const match = value.match(/^(\d{4})-(\d{2})$/);
+            if (!match) {
+                const today = new Date();
+                return new Date(today.getFullYear(), today.getMonth(), 1);
+            }
+            return new Date(Number(match[1]), Number(match[2]) - 1, 1);
+        }
+
+        function setupQueueFilters() {
+            if (dom.monthFilter && !dom.monthFilter.value) {
+                dom.monthFilter.value = monthInputValue(new Date());
+            }
+            syncMonthFilterState();
+            [dom.dateRangeFilter, dom.monthFilter, dom.customerTypeFilter, dom.dataStatusFilter].forEach(input => {
+                input?.addEventListener('change', () => {
+                    syncMonthFilterState();
+                    renderMonthTable(queueRows);
+                    lucide.createIcons();
+                });
+            });
+        }
+
+        function syncMonthFilterState() {
+            if (!dom.monthFilter) return;
+            const range = dom.dateRangeFilter?.value || 'month';
+            dom.monthFilter.disabled = range === 'today' || range === 'yesterday';
+        }
+
+        function timeToNumber(value) {
+            const match = textValue(value, '').match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+            if (!match) return Number.MAX_SAFE_INTEGER;
+            return (parseInt(match[1], 10) * 3600) + (parseInt(match[2], 10) * 60) + (parseInt(match[3] || '0', 10));
+        }
+
+        function formatDisplayTime(value) {
+            const match = textValue(value, '').match(/(\d{1,2}):(\d{2})/);
+            return match ? `${parseInt(match[1], 10).toString().padStart(2, '0')}:${match[2]}` : textValue(value);
+        }
+
+        function isCancelledStatus(value) {
+            return normalizeHeader(value).includes(normalizeHeader('ยกเลิก'));
+        }
+
+        function customerMapFromRows(rows) {
+            const map = {};
+            rows.forEach(row => {
+                const id = findValue(row, ['CustID', 'CustomerID', 'รหัสลูกค้า'], '');
+                if (!id) return;
+                map[id] = row;
+                map[normalizeLookupId(id)] = row;
+            });
+            return map;
+        }
+
+        function getCardClass(status) {
+            const normalized = normalizeHeader(status);
+            if (normalized.includes(normalizeHeader('เสร็จสิ้น'))) return 'card-done';
+            if (normalized.includes(normalizeHeader('กำลังติดตั้ง'))) return 'card-installing';
+            return 'card-default';
+        }
+
+        function getStatusBadge(status) {
+            const value = textValue(status, '-');
+            const normalized = normalizeHeader(value);
+            if (normalized.includes(normalizeHeader('เสร็จสิ้น'))) return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+            if (normalized.includes(normalizeHeader('กำลังติดตั้ง'))) return 'bg-blue-100 text-blue-700 border-blue-200';
+            if (normalized.includes(normalizeHeader('คิวใหม่'))) return 'bg-orange-100 text-orange-700 border-orange-200';
+            return 'bg-slate-100 text-slate-600 border-slate-200';
+        }
+
+        function getCustomerTypeBadge(customerType) {
+            const value = textValue(customerType, '-');
+            const normalized = normalizeHeader(value);
+            if (normalized.includes(normalizeHeader('เคลม'))) return 'bg-rose-100 text-rose-700 border-rose-200';
+            if (normalized.includes(normalizeHeader('แก้'))) return 'bg-amber-100 text-amber-700 border-amber-200';
+            return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+        }
+
+        function customerStatusLabel(customerType) {
+            const value = textValue(customerType, 'ลูกค้าใหม่');
+            const normalized = normalizeHeader(value);
+            if (normalized.includes(normalizeHeader('เคลม'))) return 'ลูกค้าเคลม';
+            if (normalized.includes(normalizeHeader('แก้'))) return 'แก้ในวัน';
+            if (normalized.includes(normalizeHeader('เก่า'))) return 'ลูกค้าเก่า';
+            return 'ลูกค้าใหม่';
+        }
+
+        function getCustomerStatusPanelClass(customerType) {
+            const normalized = normalizeHeader(customerType);
+            if (normalized.includes(normalizeHeader('เคลม'))) return 'border border-rose-200 bg-rose-100 text-rose-700';
+            if (normalized.includes(normalizeHeader('แก้'))) return 'border border-amber-200 bg-amber-100 text-amber-800';
+            if (normalized.includes(normalizeHeader('เก่า'))) return 'border border-yellow-200 bg-yellow-100 text-yellow-800';
+            return 'border border-emerald-200 bg-emerald-100 text-emerald-700';
+        }
+
+        function buildQueueRows(bookingRows, customerRows) {
+            const customerMap = customerMapFromRows(customerRows);
+            return bookingRows.map(row => {
+                const jobId = findValue(row, ['JobID', 'Job ID'], '');
+                const custId = findValue(row, ['CustID'], '');
+                const customer = customerMap[custId] || customerMap[normalizeLookupId(custId)] || {};
+                const date = parseSheetDate(findValue(row, ['วันที่ติดตั้ง', 'วันที่'], ''));
+                const time = formatDisplayTime(findValue(row, ['เวลานัด', 'เวลา'], '-'));
+                const status = findValue(row, ['Status', 'สถานะ'], '-');
+
+                return {
+                    jobId, date, dateKey: dateKey(date), time, sortTime: timeToNumber(time),
+                    customerName: findValue(customer, ['ชื่อลูกค้า', 'ชื่อ'], '-'),
+                    sales: findValue(row, ['พนง.ขาย', 'เซลล์', 'พนักงานขาย'], '-'),
+                    customerType: findValue(row, ['ประเภทลูกค้า'], '-'),
+                    carModel: findValue(row, ['รุ่นรถยนต์', 'รุ่นรถ'], '-'),
+                    plate: findValue(row, ['ทะเบียนรถ', 'ทะเบียน'], '-'),
+                    plateType: findValue(row, ['ป้าย'], ''),
+                    film: findValue(row, ['ยี่ห้อฟิล์ม', 'ฟิล์ม'], '-'),
+                    installType: findValue(row, ['การติดตั้ง', 'ประเภทการติดตั้ง', 'ตำแหน่งติดตั้ง', 'ตำแหน่ง'], '-'),
+                    status, note: findValue(row, ['หมายเหตุ'], '')
+                };
+            })
+            .filter(row => row.jobId && row.dateKey && !isCancelledStatus(row.status))
+            .sort((a, b) => (a.date?.getTime() || 0) - (b.date?.getTime() || 0) || a.sortTime - b.sortTime);
+        }
+
+        function emptyStateHtml() {
+            return `
+                <div class="flex flex-col items-center justify-center py-10 opacity-60">
+                    <div class="bg-slate-100 p-4 rounded-full mb-3"><i data-lucide="check-circle-2" class="w-8 h-8 text-slate-400"></i></div>
+                    <p class="text-sm font-medium text-slate-500">ไม่มีคิวติดตั้ง</p>
+                </div>
+            `;
+        }
+
+        function renderQueueList(container, rows) {
+            if (!rows.length) {
+                container.innerHTML = emptyStateHtml();
+                return;
+            }
+
+            container.innerHTML = rows.map((row, index) => {
+                const isLast = index === rows.length - 1;
+                const isRedPlate = normalizeHeader(row.plateType).includes(normalizeHeader('แดง'));
+                const plateTypeText = row.plateType && row.plateType !== '-'
+                    ? `<span class="ml-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${isRedPlate ? 'border border-red-200 bg-red-50 text-red-700' : 'bg-slate-100 text-slate-500'}">${escapeHtml(row.plateType)}</span>`
+                    : '';
+                
+                return `
+                <div class="relative flex gap-3">
+                    <!-- เส้น Timeline (ซ่อนในอันสุดท้าย) -->
+                    ${!isLast ? `<div class="absolute left-7 top-10 bottom-[-1rem] w-px bg-slate-200 z-0"></div>` : ''}
+
+                    <!-- ฝั่งเวลา -->
+                    <div class="flex flex-col items-center z-10 pt-1 w-14 shrink-0">
+                        <div class="text-lg font-bold text-slate-900 leading-none">${escapeHtml(row.time)}</div>
+                        <div class="text-[10px] text-slate-400 mt-1">น.</div>
+                    </div>
+
+                    <!-- การ์ดข้อมูล (ดีไซน์กระชับ) -->
+                    <div class="queue-card flex-1 rounded-2xl p-4 transition-all ${getCardClass(row.status)}" data-job-id="${escapeHtml(row.jobId)}" role="button" tabindex="0" title="คลิกเพื่อบันทึกข้อมูลความเสียหาย">
+                        
+                        <!-- Header การ์ด -->
+                        <div class="flex flex-wrap justify-between items-start gap-2 border-b border-slate-50 pb-2 mb-2">
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900 leading-tight">${escapeHtml(row.customerName)}</h3>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">ID: ${escapeHtml(row.jobId)}</span>
+                                    <span class="text-[10px] text-slate-400"><i data-lucide="user" class="w-3 h-3 inline pb-0.5"></i> ${escapeHtml(row.sales)}</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end gap-1">
+                                <span class="px-2 py-0.5 text-[10px] font-semibold border rounded-md ${getStatusBadge(row.status)}">${escapeHtml(row.status)}</span>
+                                <span class="px-2 py-0.5 text-[10px] font-semibold border rounded-md ${getCustomerTypeBadge(row.customerType)}">${escapeHtml(row.customerType)}</span>
+                            </div>
+                        </div>
+
+                        <!-- รายละเอียดรถและงาน -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4">
+                            <div class="flex items-start gap-2">
+                                <div class="bg-slate-100 p-1.5 rounded-md text-slate-500 shrink-0 mt-0.5">
+                                    <i data-lucide="car" class="w-3.5 h-3.5"></i>
+                                </div>
+                                <div>
+                                    <p class="text-[13px] font-medium text-slate-800 leading-tight">${escapeHtml(row.carModel)}</p>
+                                    <p class="text-[11px] text-slate-500">${escapeHtml(row.plate)} ${plateTypeText}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start gap-2">
+                                <div class="bg-blue-50 p-1.5 rounded-md text-blue-500 shrink-0 mt-0.5">
+                                    <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
+                                </div>
+                                <div>
+                                    <p class="text-[13px] font-medium text-slate-800 leading-tight line-clamp-1">${escapeHtml(row.film)}</p>
+                                    <p class="mt-1 inline-flex rounded-lg bg-blue-50 px-2 py-1 text-sm font-extrabold leading-none text-blue-700 sm:mt-0 sm:bg-transparent sm:px-0 sm:py-0 sm:text-[11px] sm:font-normal sm:text-slate-500">${escapeHtml(row.installType)}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- หมายเหตุ (ถ้ามี) -->
+                        ${row.note && row.note !== '-' ? `
+                        <div class="mt-3 flex items-start gap-1.5 bg-amber-50 text-amber-800 p-2 rounded-lg border border-amber-100/50">
+                            <i data-lucide="alert-circle" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i>
+                            <p class="text-[11px] font-medium">${escapeHtml(row.note)}</p>
+                        </div>
+                        ` : ''}
+                        
+                    </div>
+                </div>`;
+            }).join('');
+
+            container.querySelectorAll('.queue-card').forEach(card => {
+                const open = () => openDamageModal(card.dataset.jobId);
+                card.addEventListener('click', open);
+                card.addEventListener('keydown', event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        open();
+                    }
+                });
+            });
+            
+            // เรนเดอร์ Icons ใหม่หลังจากสร้าง HTML
+            lucide.createIcons();
+        }
+
+        function dataStatusForJob(jobId) {
+            const rows = getExistingDamageRows(jobId);
+            return {
+                done: rows.length > 0,
+                count: rows.length
+            };
+        }
+
+        function isSameMonth(date, monthStart) {
+            return date &&
+                date.getFullYear() === monthStart.getFullYear() &&
+                date.getMonth() === monthStart.getMonth();
+        }
+
+        function isSameDay(date, targetDate) {
+            return date && dateKey(date) === dateKey(targetDate);
+        }
+
+        function selectedDateRangeContext() {
+            const range = dom.dateRangeFilter?.value || 'month';
+            const today = new Date();
+            const monthStart = selectedMonthStart();
+
+            if (range === 'today') {
+                return {
+                    label: `วันนี้ (${thaiNumericDate(today)})`,
+                    pageLabel: `ข้อมูลคิวติดตั้งวันนี้ (${thaiNumericDate(today)})`,
+                    includes: date => isSameDay(date, today)
+                };
+            }
+
+            if (range === 'yesterday') {
+                const yesterday = addDays(today, -1);
+                return {
+                    label: `เมื่อวาน (${thaiNumericDate(yesterday)})`,
+                    pageLabel: `ข้อมูลคิวติดตั้งเมื่อวาน (${thaiNumericDate(yesterday)})`,
+                    includes: date => isSameDay(date, yesterday)
+                };
+            }
+
+            if (range === 'year') {
+                const year = monthStart.getFullYear();
+                const yearLabel = new Date(year, 0, 1).toLocaleDateString('th-TH', { year: 'numeric' });
+                return {
+                    label: `ปี ${yearLabel}`,
+                    pageLabel: `ข้อมูลคิวติดตั้งปี ${yearLabel}`,
+                    includes: date => date && date.getFullYear() === year
+                };
+            }
+
+            const monthLabel = monthStart.toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+            return {
+                label: `เดือน ${monthLabel}`,
+                pageLabel: `ข้อมูลคิวติดตั้งเดือน ${monthLabel}`,
+                includes: date => isSameMonth(date, monthStart)
+            };
+        }
+
+        function syncCustomerTypeFilter(monthRows) {
+            if (!dom.customerTypeFilter) return 'all';
+
+            const currentValue = dom.customerTypeFilter.value || 'all';
+            const labels = [...new Set(monthRows.map(row => customerStatusLabel(row.customerType)).filter(Boolean))]
+                .sort((a, b) => {
+                    const aIndex = CUSTOMER_TYPE_FILTER_ORDER.indexOf(a);
+                    const bIndex = CUSTOMER_TYPE_FILTER_ORDER.indexOf(b);
+                    if (aIndex !== -1 || bIndex !== -1) {
+                        return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) - (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
+                    }
+                    return a.localeCompare(b, 'th');
+                });
+
+            dom.customerTypeFilter.innerHTML = `
+                <option value="all">ทั้งหมด</option>
+                ${labels.map(label => `<option value="${escapeHtml(label)}">${escapeHtml(label)}</option>`).join('')}
+            `;
+
+            dom.customerTypeFilter.value = currentValue === 'all' || labels.includes(currentValue) ? currentValue : 'all';
+            return dom.customerTypeFilter.value || 'all';
+        }
+
+        function renderMonthTable(rows) {
+            const rangeContext = selectedDateRangeContext();
+            const monthRows = rows
+                .filter(row => rangeContext.includes(row.date))
+                .sort((a, b) => (a.date?.getTime() || 0) - (b.date?.getTime() || 0) || a.sortTime - b.sortTime);
+            const typeFilter = syncCustomerTypeFilter(monthRows);
+            const dataFilter = dom.dataStatusFilter?.value || 'all';
+
+            const rowsWithStatus = monthRows.map(row => ({
+                ...row,
+                dataStatus: dataStatusForJob(row.jobId)
+            }));
+            const addedCount = rowsWithStatus.filter(row => row.dataStatus.done).length;
+            const missingCount = rowsWithStatus.length - addedCount;
+            const filteredRows = rowsWithStatus.filter(row => {
+                if (typeFilter !== 'all' && customerStatusLabel(row.customerType) !== typeFilter) return false;
+                if (dataFilter === 'added') return row.dataStatus.done;
+                if (dataFilter === 'missing') return !row.dataStatus.done;
+                return true;
+            });
+
+            dom.pageDateLabel.innerHTML = rangeContext.pageLabel;
+            dom.yesterdayCount.innerText = rowsWithStatus.length.toString();
+            dom.todayCount.innerText = addedCount.toString();
+            dom.tomorrowCount.innerText = missingCount.toString();
+            dom.monthSummary.innerText = '';
+
+            if (!filteredRows.length) {
+                dom.monthTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-5 py-12 text-center text-slate-500">
+                            <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
+                                <i data-lucide="calendar-x" class="h-6 w-6 text-slate-400"></i>
+                            </div>
+                            ไม่พบรายการตามตัวกรองนี้
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const groupedRows = filteredRows
+                .slice()
+                .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0) || a.sortTime - b.sortTime)
+                .reduce((groups, row) => {
+                    const key = row.dateKey;
+                    let group = groups.find(item => item.key === key);
+                    if (!group) {
+                        group = { key, date: row.date, rows: [] };
+                        groups.push(group);
+                    }
+                    group.rows.push(row);
+                    return groups;
+                }, []);
+
+            dom.monthTableBody.innerHTML = groupedRows.map(group => {
+                const header = `
+                    <tr class="border-t border-slate-200 bg-slate-50">
+                        <td colspan="8" class="px-5 py-3 text-lg font-extrabold text-blue-600">· ${escapeHtml(dateGroupLabel(group.date))}</td>
+                    </tr>
+                `;
+                const body = group.rows.map((row, rowIndex) => {
+                    const status = row.dataStatus;
+                    const rowClass = status.done ? 'bg-emerald-50/55' : 'bg-amber-50/45';
+                    const lineTop = rowIndex === 0 ? 'top-1/2' : 'top-0';
+                    const lineBottom = rowIndex === group.rows.length - 1 ? 'bottom-1/2' : 'bottom-0';
+                    const dataBadge = status.done
+                        ? `<span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-extrabold text-emerald-700 ring-1 ring-emerald-200"><i data-lucide="check-circle-2" class="h-3.5 w-3.5"></i> แอดแล้ว ${status.count} รายการ</span>`
+                        : `<span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-extrabold text-amber-800 ring-1 ring-amber-200"><i data-lucide="alert-circle" class="h-3.5 w-3.5"></i> ยังไม่แอด</span>`;
+
+                    return `
+                        <tr class="month-row ${rowClass}" data-job-id="${escapeHtml(row.jobId)}" tabindex="0" title="คลิกเพื่อบันทึก/ตรวจสอบข้อมูล data">
+                            <td class="whitespace-nowrap px-5 py-0">
+                                <div class="relative flex min-h-[56px] items-center pl-10">
+                                    <span class="absolute left-2 ${lineTop} ${lineBottom} w-px bg-blue-200"></span>
+                                    <span class="timeline-dot absolute left-[3px] top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border-2 border-white bg-blue-500"></span>
+                                    <span class="text-sm font-normal text-slate-600">${escapeHtml(row.time)} น.</span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-2">
+                                <div class="text-sm font-normal text-slate-800">${escapeHtml(row.customerName)}</div>
+                                <div class="mt-1 font-mono text-xs font-normal text-blue-600">${escapeHtml(row.jobId)}</div>
+                            </td>
+                            <td class="px-4 py-2">
+                                <span class="inline-flex rounded-lg border px-2.5 py-1 text-xs font-normal ${getCustomerTypeBadge(row.customerType)}">${escapeHtml(customerStatusLabel(row.customerType))}</span>
+                            </td>
+                            <td class="px-4 py-2">
+                                <div class="text-sm font-normal text-slate-700">${escapeHtml(row.carModel)}</div>
+                                <div class="mt-1 text-xs text-slate-500">${escapeHtml(row.plate)}${row.plateType && row.plateType !== '-' ? ` ${escapeHtml(row.plateType)}` : ''}</div>
+                            </td>
+                            <td class="px-3 py-2 text-sm font-normal text-slate-600">${escapeHtml(row.installType)}</td>
+                            <td class="px-4 py-2 text-sm font-normal text-slate-600">${escapeHtml(row.film)}</td>
+                            <td class="px-4 py-2">
+                                <span class="inline-flex rounded-lg border px-2.5 py-1 text-xs font-normal ${getStatusBadge(row.status)}">${escapeHtml(row.status)}</span>
+                            </td>
+                            <td class="px-5 py-2">${dataBadge}</td>
+                        </tr>
+                    `;
+                }).join('');
+                return header + body;
+            }).join('');
+
+            dom.monthTableBody.querySelectorAll('.month-row').forEach(row => {
+                const open = () => openDamageModal(row.dataset.jobId);
+                row.addEventListener('click', open);
+                row.addEventListener('keydown', event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        open();
+                    }
+                });
+            });
+        }
+
+        function renderQueues(rows) {
+            queueRows = rows;
+            renderMonthTable(rows);
+            lucide.createIcons();
+        }
+
+        function normalizePosition(value) {
+            return normalizeHeader(value).replace(/ซ้าย|ขวา|ช่อง\d+/g, match => match);
+        }
+
+        function getExistingDamageRows(jobId) {
+            const normalizedJobId = normalizeLookupId(jobId);
+            return damageDataRows.filter(row => normalizeLookupId(findValue(row, ['JobID', 'Job ID'], '')) === normalizedJobId);
+        }
+
+        function existingDamageMap(jobId) {
+            const map = {};
+            getExistingDamageRows(jobId).forEach(row => {
+                const position = findValue(row, ['ตำแหน่งติดตั้ง', 'ตำแหน่ง'], '');
+                if (position) map[normalizePosition(position)] = row;
+            });
+            return map;
+        }
+
+        function getDetailFilmRows(jobId) {
+            const normalizedJobId = normalizeLookupId(jobId);
+            return detailFilmRows.filter(row => normalizeLookupId(findValue(row, ['JobID', 'Job ID'], '')) === normalizedJobId);
+        }
+
+        function addFilmOption(map, position, film) {
+            const key = normalizePosition(position || '__all');
+            const value = textValue(film, '');
+            if (!key || !value || value === '-') return;
+            if (!map[key]) map[key] = [];
+            if (!map[key].includes(value)) map[key].push(value);
+        }
+
+        function positionAliases(position) {
+            return POSITION_ALIASES[position] || [position];
+        }
+
+        function positionValue(row, position) {
+            const keys = Object.keys(row || {});
+            const aliases = positionAliases(position);
+            const exactKey = keys.find(key => aliases.some(alias => normalizeHeader(key) === normalizeHeader(alias)));
+            if (exactKey) return textValue(row[exactKey], '');
+
+            const fuzzyKey = keys.find(key => aliases.some(alias => {
+                const header = normalizeHeader(key);
+                const target = normalizeHeader(alias);
+                return header && target && (header.includes(target) || target.includes(header));
+            }));
+            return fuzzyKey ? textValue(row[fuzzyKey], '') : '';
+        }
+
+        function matchingDamagePositions(positionText) {
+            const normalized = normalizePosition(positionText);
+            if (!normalized || normalized === '-') return [];
+            return DAMAGE_POSITIONS.filter(position => {
+                return positionAliases(position).some(alias => {
+                    const item = normalizePosition(alias);
+                    return normalized.includes(item) || item.includes(normalized);
+                });
+            });
+        }
+
+        function composeFilmLabel(baseFilm, detailFilm) {
+            const base = textValue(baseFilm, '');
+            const detail = textValue(detailFilm, '');
+            if (!detail || detail === '-') return '';
+            if (!base || base === '-' || base.split(',').filter(v => v.trim()).length > 1 || normalizeHeader(detail).includes(normalizeHeader(base))) return detail;
+            return `${base} - ${detail}`;
+        }
+
+        function detailFilmOptionsMap(job) {
+            const map = {};
+            getDetailFilmRows(job.jobId).forEach(row => {
+                const baseFilm = rowValue(row, ['ยี่ห้อฟิล์ม', 'แบรนด์ฟิล์ม', 'ยี่ห้อ / รุ่นฟิล์ม', 'ชื่อฟิล์ม'], '') || job.film || '';
+                const directPosition = rowValue(row, ['ตำแหน่งติดตั้ง', 'ตำแหน่ง'], '');
+                const directFilm = rowValue(row, ['รุ่นฟิล์ม', 'ยี่ห้อ/รุ่นฟิล์ม', 'ยี่ห้อ / รุ่นฟิล์ม', 'รหัสฟิล์ม'], '');
+                let hasPositionValue = false;
+
+                DAMAGE_POSITIONS.forEach(position => {
+                    const film = positionValue(row, position);
+                    if (film && film !== '-') {
+                        hasPositionValue = true;
+                        addFilmOption(map, position, composeFilmLabel(baseFilm, film));
+                    }
+                });
+
+                if (directPosition && directPosition !== '-' && (directFilm || baseFilm)) {
+                    const positions = matchingDamagePositions(directPosition);
+                    const filmLabel = directFilm ? composeFilmLabel(baseFilm, directFilm) : baseFilm;
+                    if (positions.length) {
+                        positions.forEach(position => addFilmOption(map, position, filmLabel));
+                    } else {
+                        addFilmOption(map, directPosition, filmLabel);
+                    }
+                } else if (!hasPositionValue && (directFilm || baseFilm)) {
+                    addFilmOption(map, '__all', directFilm ? composeFilmLabel(baseFilm, directFilm) : baseFilm);
+                }
+            });
+            return map;
+        }
+
+        function filmOptionsForJob(job) {
+            const filmText = normalizeHeader(job.film);
+            const filtered = filmSeriesOptions
+                .filter(item => {
+                    const brand = normalizeHeader(item.brand);
+                    const full = normalizeHeader(item.full);
+                    return !filmText || filmText === '-' || full.includes(filmText) || filmText.includes(brand) || brand.includes(filmText);
+                })
+                .map(item => item.full);
+
+            const options = filtered.length ? filtered : filmSeriesOptions.map(item => item.full);
+            if (job.film && job.film !== '-' && !options.includes(job.film)) options.unshift(job.film);
+            return [...new Set(options.filter(Boolean))].slice(0, 80);
+        }
+
+        function detailFilmsForPosition(position, detailMap) {
+            const positionOptions = detailMap[normalizePosition(position)] || [];
+            const allOptions = detailMap[normalizePosition('__all')] || [];
+            return [...new Set([...positionOptions, ...allOptions])];
+        }
+
+        function filmOptionsForPosition(job, position, detailMap) {
+            const detailOptions = detailFilmsForPosition(position, detailMap);
+            if (detailOptions.length) return detailOptions;
+            return filmOptionsForJob(job);
+        }
+
+        function rowValue(row, candidates, fallback = '') {
+            return findValue(row || {}, candidates, fallback);
+        }
+
+        function splitLegacySize(sizeText) {
+            const text = textValue(sizeText, '');
+            const match = text.match(/(\d+(?:\.\d+)?)\s*[xX×*]\s*(\d+(?:\.\d+)?)/);
+            return {
+                width: match ? match[1] : '',
+                length: match ? match[2] : ''
+            };
+        }
+
+        function renderDamageFormRows(job) {
+            const existingMap = existingDamageMap(job.jobId);
+            const detailMap = detailFilmOptionsMap(job);
+            const teams = teamOptions.length ? teamOptions : ['วัล', 'พลอย', 'เอ', 'พลอย'];
+            const reasons = reasonOptions.length ? reasonOptions : [
+                '🛠 (ช่าง) เป่าไหม้',
+                '🛠 (ช่าง) รีดขาด',
+                '🛠 (ช่าง) ตัดแหว่ง',
+                '🎞 (ฟิล์ม) ฟิล์มเป็นคลื่น',
+                '🎞 (ฟิล์ม) ฟิล์มร่อน',
+                'อื่นๆ'
+            ];
+
+            dom['dm-tableBody'].innerHTML = DAMAGE_POSITIONS.map(position => {
+                const existing = existingMap[normalizePosition(position)] || {};
+                const id = rowValue(existing, ['MIS_ID', 'ID'], '');
+                const detailFilms = detailFilmsForPosition(position, detailMap);
+                const films = filmOptionsForPosition(job, position, detailMap);
+                const savedFilm = rowValue(existing, ['รุ่นฟิล์ม', 'ยี่ห้อฟิล์ม'], '');
+                const film = savedFilm || (detailFilms.length ? detailFilms[0] : '');
+                const legacySize = splitLegacySize(rowValue(existing, ['ขนาด'], ''));
+                const width = rowValue(existing, ['กว้าง', 'W', 'Width'], '') || legacySize.width;
+                const length = rowValue(existing, ['ยาว', 'H', 'Length'], '') || legacySize.length;
+                const quantity = rowValue(existing, ['จำนวน'], '');
+                const team = rowValue(existing, ['ทีมช่าง'], '');
+                const reason = rowValue(existing, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล'], '');
+
+                return `
+                    <tr data-position="${escapeHtml(position)}" data-row-id="${escapeHtml(id)}" class="border-b border-slate-200 last:border-b-0">
+                        <td class="border border-slate-200 px-3 py-2 font-semibold text-slate-900">${escapeHtml(position)}</td>
+                        <td class="border border-slate-200 px-2 py-2">
+                            <select data-field="รุ่นฟิล์ม" class="damage-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                ${optionHtml(films, film)}
+                            </select>
+                        </td>
+                        <td class="border border-slate-200 px-2 py-2">
+                            <input data-field="กว้าง" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(width)}" class="damage-cell w-full rounded-lg border border-slate-300 px-2 py-2 text-sm text-center focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                        </td>
+                        <td class="border border-slate-200 px-2 py-2">
+                            <input data-field="ยาว" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(length)}" class="damage-cell w-full rounded-lg border border-slate-300 px-2 py-2 text-sm text-center focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                        </td>
+                        <td class="border border-slate-200 px-2 py-2">
+                            <input data-field="จำนวน" type="number" min="1" step="1" value="${escapeHtml(quantity)}" class="damage-cell w-full rounded-lg border border-slate-300 px-2 py-2 text-sm text-center focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                        </td>
+                        <td class="border border-slate-200 px-2 py-2">
+                            ${teamCheckboxDropdown(teams, team)}
+                        </td>
+                        <td class="border border-slate-200 px-2 py-2">
+                            <select data-field="เหตุผลขอตัดฟิล์ม" class="damage-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                                ${optionHtml(reasons, reason)}
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getDamageNote(jobId) {
+            const row = getExistingDamageRows(jobId).find(item => rowValue(item, ['หมายเหตุ'], ''));
+            return row ? rowValue(row, ['หมายเหตุ'], '') : '';
+        }
+
+        function resetDamageMessages() {
+            dom['dm-error'].classList.add('hidden');
+            dom['dm-success'].classList.add('hidden');
+            dom['dm-error'].textContent = '';
+            dom['dm-success'].textContent = '';
+        }
+
+        async function openDamageModal(jobId) {
+            const job = queueRows.find(row => row.jobId === jobId || normalizeLookupId(row.jobId) === normalizeLookupId(jobId));
+            if (!job) return;
+
+            currentDamageJobId = job.jobId;
+            [damageDataRows, detailFilmRows] = await Promise.all([
+                fetchOptionalRows(DATA_CSV_URL),
+                fetchOptionalRows(DETAIL_FILM_CSV_URL)
+            ]);
+            dom['dm-customerStatus'].textContent = customerStatusLabel(job.customerType);
+            dom['dm-customerStatus'].className = `inline-flex items-center rounded-lg px-2.5 py-0.5 text-sm font-bold shadow-sm ${getCustomerStatusPanelClass(job.customerType)}`;
+            dom['dm-jobId'].textContent = job.jobId;
+            dom['dm-carModel'].textContent = job.carModel;
+            dom['dm-customer'].textContent = job.customerName;
+            dom['dm-plate'].textContent = `${job.plate || '-'}${job.plateType ? ` ${job.plateType}` : ''}`;
+            dom['dm-installType'].textContent = job.installType || '-';
+            dom['dm-brandFilm'].textContent = job.film || '-';
+            dom['dm-note'].value = getDamageNote(job.jobId);
+            renderDamageFormRows(job);
+            resetDamageMessages();
+            dom['dm-submitBtn'].disabled = false;
+            dom['dm-submitBtn'].textContent = 'บันทึก';
+            dom.damageModal.classList.remove('hidden');
+            dom.damageModal.classList.add('flex');
+            setTimeout(() => dom['dm-tableBody'].querySelector('.damage-cell')?.focus(), 50);
+            lucide.createIcons();
+        }
+
+        function closeDamageModal() {
+            currentDamageJobId = null;
+            dom.damageModal.classList.add('hidden');
+            dom.damageModal.classList.remove('flex');
+        }
+
+        function collectDamageRows() {
+            const note = textValue(dom['dm-note'].value, '');
+            return Array.from(dom['dm-tableBody'].querySelectorAll('tr[data-position]'))
+                .map(row => {
+                    const item = {
+                        MIS_ID: row.dataset.rowId || '',
+                        'ตำแหน่งติดตั้ง': row.dataset.position || '',
+                        'หมายเหตุ': note
+                    };
+                    row.querySelectorAll('.damage-cell').forEach(input => {
+                        if (input.multiple) {
+                            item[input.dataset.field] = Array.from(input.selectedOptions)
+                                .map(option => textValue(option.value, ''))
+                                .filter(Boolean)
+                                .join(' , ');
+                        } else {
+                            item[input.dataset.field] = textValue(input.value, '');
+                        }
+                    });
+                    return item;
+                })
+                .filter(item => {
+                    // แถวที่เคยบันทึกไว้แล้ว (มี MIS_ID) → เก็บไว้เสมอ เพื่อให้แก้ไข/อัปเดตได้
+                    if (item.MIS_ID) return true;
+                    // แถวใหม่: รุ่นฟิล์มถูกเติมอัตโนมัติ จึงไม่นับเป็นการกรอกจริง
+                    // ต้องมีข้อมูลตัดจริงอย่างน้อย 1 อย่าง (กว้าง/ยาว/จำนวน/ทีมช่าง/เหตุผล)
+                    return ['กว้าง', 'ยาว', 'จำนวน', 'ทีมช่าง', 'เหตุผลขอตัดฟิล์ม']
+                        .some(field => item[field] && item[field] !== '-');
+                });
+        }
+
+        async function submitDamage(event) {
+            event.preventDefault();
+            resetDamageMessages();
+
+            const job = queueRows.find(row => row.jobId === currentDamageJobId);
+            if (!job) {
+                dom['dm-error'].textContent = 'ไม่พบคิวงานที่เลือก กรุณาปิดแล้วเลือกใหม่';
+                dom['dm-error'].classList.remove('hidden');
+                return;
+            }
+
+            const rows = collectDamageRows();
+            // หมายเหตุ: ถอดการบังคับกรอกครบทุกช่องออกแล้ว เพื่อให้ทำงานเหมือนหน้า index
+            // (อนุญาตให้เว้นว่างได้) — คงเหลือเฉพาะการตรวจตัวเลขพื้นฐานด้านล่าง
+
+            const invalidQuantity = rows.find(row => Number(row['จำนวน'] || 1) <= 0);
+            if (invalidQuantity) {
+                dom['dm-error'].textContent = `จำนวนของตำแหน่ง ${invalidQuantity['ตำแหน่งติดตั้ง']} ต้องมากกว่า 0`;
+                dom['dm-error'].classList.remove('hidden');
+                return;
+            }
+
+            const invalidNumber = rows.find(row => ['กว้าง', 'ยาว', 'จำนวน'].some(field => {
+                const value = textValue(row[field], '');
+                return value && (Number.isNaN(Number(value)) || Number(value) < 0);
+            }));
+            if (invalidNumber) {
+                dom['dm-error'].textContent = `กว้าง / ยาว / จำนวน ของตำแหน่ง ${invalidNumber['ตำแหน่งติดตั้ง']} ต้องเป็นตัวเลขเท่านั้น`;
+                dom['dm-error'].classList.remove('hidden');
+                return;
+            }
+
+            const payload = {
+                sheetName: 'data',
+                JobID: job.jobId,
+                rows
+            };
+
+            if (!rows.length) {
+                dom['dm-error'].textContent = 'กรุณากรอกอย่างน้อย 1 รายการก่อนบันทึก';
+                dom['dm-error'].classList.remove('hidden');
+                return;
+            }
+
+            dom['dm-submitBtn'].disabled = true;
+            dom['dm-submitBtn'].textContent = 'กำลังบันทึก...';
+
+            try {
+                const result = await postWithWriteToken(payload);
+                if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+
+                dom['dm-success'].textContent = `บันทึกสำเร็จ ${rows.length} รายการ`;
+                dom['dm-success'].classList.remove('hidden');
+                dom['dm-submitBtn'].textContent = '✓ บันทึกแล้ว';
+                damageDataRows = await fetchOptionalRows(DATA_CSV_URL);
+                renderMonthTable(queueRows);
+                lucide.createIcons();
+                setTimeout(closeDamageModal, 1100);
+            } catch (error) {
+                dom['dm-error'].textContent = `บันทึกไม่สำเร็จ: ${error.message}`;
+                dom['dm-error'].classList.remove('hidden');
+                dom['dm-submitBtn'].disabled = false;
+                dom['dm-submitBtn'].textContent = 'บันทึก';
+            }
+        }
+
+        async function fetchQueueData() {
+            dom.loadingMessage.classList.remove('hidden');
+            dom.errorMessage.classList.add('hidden');
+            dom.queueContent.classList.add('hidden');
+
+            try {
+                const [bookingRes, customerRes, dataRows, detailRows, filmRows, teamRows, reasonRows] = await Promise.all([
+                    fetch(BOOKING_CSV_URL),
+                    fetch(CUSTOMER_CSV_URL),
+                    fetchOptionalRows(DATA_CSV_URL),
+                    fetchOptionalRows(DETAIL_FILM_CSV_URL),
+                    fetchOptionalRows(FILM_SERIES_CSV_URL),
+                    fetchOptionalRows(TEAM_CSV_URL),
+                    fetchOptionalRows(REASON_CSV_URL)
+                ]);
+                if (!bookingRes.ok || !customerRes.ok) throw new Error('Network Error');
+
+                const [bookingCsv, customerCsv] = await Promise.all([bookingRes.text(), customerRes.text()]);
+                if ([bookingCsv, customerCsv].some(text => text.trim().toLowerCase().startsWith('<html'))) {
+                    throw new Error('Permission denied');
+                }
+
+                const [bookingRows, customerRows] = await Promise.all([parseCsv(bookingCsv), parseCsv(customerCsv)]);
+                damageDataRows = dataRows;
+                detailFilmRows = detailRows;
+                buildReferenceLists(filmRows, teamRows, reasonRows);
+                
+                renderQueues(buildQueueRows(bookingRows, customerRows));
+                
+                dom.loadingMessage.classList.add('hidden');
+                dom.queueContent.classList.remove('hidden');
+                dom.lastUpdated.innerHTML = `<i data-lucide="clock" class="w-3 h-3"></i> อัปเดต: ${new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
+                lucide.createIcons();
+            } catch (error) {
+                console.error(error);
+                dom.loadingMessage.classList.add('hidden');
+                dom.errorMessage.classList.remove('hidden');
+                dom.lastUpdated.innerHTML = '<span class="text-red-500">โหลดไม่สำเร็จ</span>';
+            }
+        }
+
+        window.addEventListener('load', () => {
+            cacheDom();
+            setupQueueFilters();
+            fetchQueueData();
+        });
+
+        window.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && dom.damageModal && !dom.damageModal.classList.contains('hidden')) {
+                closeDamageModal();
+            }
+        });
+
+        document.addEventListener('click', event => {
+            const activeDropdown = event.target.closest ? event.target.closest('.team-check-dropdown') : null;
+            closeTeamDropdowns(activeDropdown);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAR CRM Overview</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon-overview.svg">
+    <link rel="manifest" href="/app.webmanifest?v=20261002-2">
+    <link rel="apple-touch-icon" href="/images/car-crm-app-192.png?v=20261002-2">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="apple-style.css?v=20260520-4">
+    <link rel="stylesheet" href="overview-ui.css?v=20261003-memo-reader-2">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" defer></script>
+    <script src="overview-presentation.js?v=20261002-reference-1" defer></script>
+    <script src="overview-memo-manager.js?v=20261002-2" defer></script>
+    <script src="crm-auth.js?v=20261002-1" defer></script>
+    <script src="sidebar.js" defer></script>
+    <script>
+(function(root) {
+    'use strict';
+    function fromGoogleTable(table) {
+        if (!table || !Array.isArray(table.cols) || !Array.isArray(table.rows)) throw new Error('ชีต lead ไม่ได้ส่งข้อมูลตาราง');
+        const dateIndex = table.cols.findIndex(col => col.label === 'วันที่');
+        const channelIndex = table.cols.findIndex(col => col.label === 'ช่องทางติดต่อ');
+        if (dateIndex < 0 || channelIndex < 0) throw new Error('หัวคอลัมน์ชีต lead ไม่ตรงกับรายงานข้อมูลการติดต่อ');
+        return table.rows.filter(row => row.c.some(cell => cell && String(cell.v ?? cell.f ?? '').trim())).map(row => {
+            const cell = row.c[dateIndex];
+            const value = String(cell?.v ?? '');
+            let date = '';
+            const encoded = /^Date\((\d+),(\d+),(\d+)(?:,.*)?\)$/.exec(value);
+            if (encoded) date = encoded[1] + '-' + String(Number(encoded[2])+1).padStart(2,'0') + '-' + encoded[3].padStart(2,'0');
+            else {
+                const raw = String(cell?.f ?? value).split(',')[0].trim().split(' ')[0];
+                if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) date = raw;
+                else {
+                    const match = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(raw);
+                    if (match) {
+                        let year = Number(match[3]);
+                        if (year < 100) year = year >= 40 ? 2500+year-543 : 2000+year;
+                        else if (year > 2400) year -= 543;
+                        date = year + '-' + match[2].padStart(2,'0') + '-' + match[1].padStart(2,'0');
+                    }
+                }
+            }
+            return {sheetData:{date,channel:String(row.c[channelIndex]?.f ?? row.c[channelIndex]?.v ?? '')}};
+        });
+    }
+    function mergeDailyRows(reportRows, legacyRows) {
+        const channels = ['phone','line','fb','tiktok','walkin','other'];
+        const keyOf = row => row.dateRaw?.match(/^\d{4}-\d{2}-\d{2}$/) ? row.dateRaw : row.date ? row.date.getFullYear()+'-'+String(row.date.getMonth()+1).padStart(2,'0')+'-'+String(row.date.getDate()).padStart(2,'0') : '';
+        const days = new Map(reportRows.map(row => [keyOf(row),{...row,source:'report'}]));
+        const legacyDays = new Map();
+        for (const row of legacyRows) {
+            const key = keyOf(row);
+            if (!key) continue;
+            if (!legacyDays.has(key)) legacyDays.set(key,{...row,other:0,total:0,source:'legacy',...Object.fromEntries(channels.map(channel=>[channel,0]))});
+            const daily = legacyDays.get(key);
+            for (const channel of channels) daily[channel] += Number(row[channel]) || 0;
+            daily.total = channels.reduce((total,channel)=>total+daily[channel],0);
+        }
+        for (const [key,row] of legacyDays) days.set(key,row);
+        return [...days.values()].filter(row=>row.date).sort((a,b)=>b.date-a.date);
+    }
+    function summarize(leads) {
+        const groups = new Map();
+        const aliases = {tel:'phone',phone:'phone','โทร':'phone',line:'line',lineoa:'line',fb:'fb',facebook:'fb',tiktok:'tiktok',walkin:'walkin'};
+        for (const lead of leads) {
+            const data = lead.sheetData || {};
+            const raw = String(data.date || '').trim();
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) throw new Error('รายงานข้อมูลการติดต่อมีรายการที่ไม่ระบุวันที่หรือวันที่ไม่ถูกต้อง');
+            const date = new Date(raw + 'T12:00:00');
+            if (!Number.isFinite(date.getTime()) || date.getFullYear() !== Number(raw.slice(0,4)) || date.getMonth()+1 !== Number(raw.slice(5,7)) || date.getDate() !== Number(raw.slice(8,10))) throw new Error('วันที่ในรายงานข้อมูลการติดต่อไม่ถูกต้อง');
+            if (!groups.has(raw)) groups.set(raw,{date,dateRaw:raw,monthKey:raw.slice(0,7),phone:0,line:0,fb:0,tiktok:0,walkin:0,other:0,total:0});
+            const row = groups.get(raw);
+            const channel = String(data.channel || '').trim().toLowerCase().replace(/[\s._/-]+/g,'');
+            row[aliases[channel] || 'other']++;
+            row.total++;
+        }
+        return [...groups.values()].sort((a,b)=>b.date-a.date);
+    }
+    if (typeof module === 'object' && module.exports) module.exports = {summarize,fromGoogleTable,mergeDailyRows};
+    else root.CarContactReportSummary = {summarize,fromGoogleTable,mergeDailyRows};
+})(typeof window !== 'undefined' ? window : globalThis);
+
+    </script>
+    <link rel="stylesheet" href="page-heading.css?v=20261002-1">
+</head>
+<body class="overview-page antialiased auth-locked selection:bg-blue-100 selection:text-blue-900">
+
+    <!-- Minimal Login Screen -->
+    <div id="loginScreen" class="fixed inset-0 z-[9999] min-h-screen items-center justify-center bg-slate-100/90 px-4">
+        <form id="loginForm" class="w-full max-w-sm rounded-[2rem] border border-white bg-white/80 p-8 shadow-[0_8px_30px_rgb(59,130,246,0.08)] backdrop-blur-xl">
+            <div class="mb-8 text-center">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
+                    <i class="ph-fill ph-lock-key text-2xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-800 tracking-tight">เข้าสู่ระบบ CRM</h1>
+                <p class="mt-2 text-sm text-slate-500">กรุณายืนยันสิทธิ์การเข้าถึงข้อมูล</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="loginUser" class="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">User ID</label>
+                    <input id="loginUser" type="text" autocomplete="username" class="minimal-input w-full" required placeholder="Enter username">
+                </div>
+                <div>
+                    <label for="loginPass" class="mb-1.5 block text-xs font-bold text-slate-500 uppercase tracking-wider">Password</label>
+                    <input id="loginPass" type="password" autocomplete="current-password" class="minimal-input w-full" required placeholder="••••••••">
+                </div>
+            </div>
+            <p id="loginError" class="mt-4 hidden rounded-lg bg-rose-50 p-3 text-center text-xs font-bold text-rose-500">
+                ข้อมูลเข้าสู่ระบบไม่ถูกต้อง
+            </p>
+            <button type="submit" class="mt-6 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/20 active:scale-[0.98]">
+                ดำเนินการต่อ
+            </button>
+        </form>
+    </div>
+
+    <div data-car-crm-sidebar></div>
+
+    <main class="overview-main w-full px-4 py-6 sm:px-6 lg:ml-72 lg:w-[calc(100%-18rem)] lg:px-8">
+        <div class="overview-shell">
+            <header class="overview-header">
+                <img class="overview-hero-image" src="images/overview-city-sedan.webp" alt="" fetchpriority="high">
+                <div class="overview-heading">
+                    <p class="overview-greeting">สวัสดีค่ะ ทีมงาน CAR CRM</p>
+                    <div class="car-page-heading">
+                        <div class="car-page-heading-copy">
+                            <h1 class="car-page-heading-title" id="overviewTitle">ภาพรวมธุรกิจ</h1>
+                            <p class="car-page-heading-subtitle">สรุปผลการดำเนินงาน ติดตามยอดขาย และประสิทธิภาพทีมงาน</p>
+                        </div>
+                    </div>
+                    <p id="lastUpdated"><i class="ph ph-arrows-clockwise animate-spin" aria-hidden="true"></i> กำลังซิงค์ข้อมูล...</p>
+                </div>
+                <div class="overview-filters">
+                    <div class="overview-month-picker">
+                        <i class="ph ph-calendar-blank" aria-hidden="true"></i>
+                        <select id="monthFilter" class="minimal-input" aria-label="เดือนที่แสดง"><option value="">ทุกเดือน (ภาพรวม)</option></select>
+                        <i class="ph ph-caret-down" aria-hidden="true"></i>
+                    </div>
+                    <button type="button" onclick="fetchOverviewData()" class="overview-icon-button overview-refresh" title="รีเฟรชข้อมูล" aria-label="รีเฟรชข้อมูล"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i></button>
+                    <button id="overviewMemoBell" type="button" onclick="openOverviewMemoViewDialog()" class="overview-icon-button overview-bell" title="แจ้งเตือนทั้งหมด" aria-label="แจ้งเตือนทั้งหมด" aria-haspopup="dialog" aria-controls="overviewMemoViewDialog"><i class="ph ph-bell" aria-hidden="true"></i><span id="overviewMemoBadge" hidden>0</span></button>
+                    <details class="overview-account">
+                        <summary aria-label="เมนู CAR CRM"><span class="overview-avatar">C</span><span>CAR CRM<small>ทีมงาน</small></span><i class="ph ph-caret-down" aria-hidden="true"></i></summary>
+                        <nav aria-label="ทางลัด"><a href="index.html"><i class="ph ph-calendar-blank" aria-hidden="true"></i> ตารางนัดหมาย</a><a href="contact-stats.html"><i class="ph ph-phone" aria-hidden="true"></i> สถิติการติดต่อ</a><a href="sales-summary.html"><i class="ph ph-chart-bar" aria-hidden="true"></i> สรุปยอดขาย</a></nav>
+                    </details>
+                </div>
+            </header>
+
+            <div id="loadingMessage" class="overview-state">
+                <i class="ph ph-circle-notch animate-spin" aria-hidden="true"></i><h2>กำลังโหลดข้อมูล</h2><p>ระบบกำลังดึงข้อมูลล่าสุดจาก Google Sheets</p>
+            </div>
+            <div id="errorMessage" class="overview-state hidden">
+                <i class="ph ph-warning-circle" aria-hidden="true"></i><h2>ไม่สามารถเชื่อมต่อข้อมูลได้</h2><p>โปรดตรวจสอบการเชื่อมต่อและสิทธิ์อ่าน Google Sheets</p>
+                <button type="button" class="overview-text-button" onclick="fetchOverviewData()">ลองใหม่อีกครั้ง</button>
+            </div>
+
+            <section id="dashboardContent" class="hidden">
+                <div class="overview-summary">
+                    <article class="dashboard-card summary-kpi kpi-sales">
+                        <span class="summary-kpi__icon" aria-hidden="true">฿</span>
+                        <div class="kpi-heading"><h2>ยอดขายรวม (ถอด VAT 7%)</h2><p id="kpiRevenue" class="dashboard-value">฿0</p></div>
+                        <div class="kpi-footer"><p><span id="kpiTargetPercent">0%</span> <span>ของเป้ายอดขาย</span></p><p id="kpiTargetValue">เป้า ฿0</p></div>
+                        <i class="ph-fill ph-chart-bar kpi-illustration" aria-hidden="true"></i>
+                    </article>
+                    <article class="dashboard-card summary-kpi kpi-customers">
+                        <span class="summary-kpi__icon"><i class="ph-fill ph-user" aria-hidden="true"></i></span>
+                        <div class="kpi-heading"><h2>ลูกค้าที่นับยอดขาย</h2><p id="kpiBookings" class="dashboard-value">0</p></div>
+                        <div class="kpi-footer"><p class="kpi-customer-split">ลูกค้าใหม่ <span id="kpiNewCustomers">0</span><span class="kpi-divider">|</span>ลูกค้าเก่า <span id="kpiOldCustomers">0</span></p><p>เฉลี่ยต่อคิว <span id="kpiAvgTicket">฿0</span></p></div>
+                        <i class="ph-fill ph-users-three kpi-illustration" aria-hidden="true"></i>
+                    </article>
+                    <article class="dashboard-card summary-kpi kpi-today">
+                        <span class="summary-kpi__icon"><i class="ph-fill ph-receipt" aria-hidden="true"></i></span>
+                        <div class="kpi-heading"><h2>ผลงานวันนี้</h2><p id="snapshotTodaySales" class="dashboard-value">฿0</p></div>
+                        <div class="kpi-footer"><p><span id="snapshotTodayJobs">0 คิว</span><span class="kpi-divider">·</span>ถอด VAT 7%</p><p id="snapshotTodayPeriod">ข้อมูลวันนี้</p></div>
+                        <i class="ph-fill ph-chart-bar kpi-illustration" aria-hidden="true"></i>
+                    </article>
+                    <article class="dashboard-card summary-kpi kpi-conversion">
+                        <span class="summary-kpi__icon"><i class="ph-fill ph-chart-pie-slice" aria-hidden="true"></i></span>
+                        <div class="kpi-heading"><h2>อัตราปิดการขาย</h2><p id="kpiConversionRate" class="dashboard-value">0%</p></div>
+                        <div class="kpi-footer"><p>การติดต่อ <span id="kpiContacts">0</span> ครั้ง</p><p>ลูกค้าที่นับยอดขาย <span id="kpiContactBookings">0</span> คิว</p></div>
+                        <i class="ph ph-trend-up kpi-illustration" aria-hidden="true"></i>
+                    </article>
+                </div>
+
+                <div class="overview-insight-grid">
+                    <article class="dashboard-card overview-trend">
+                        <header class="panel-heading trend-heading">
+                            <h2><i class="ph-fill ph-chart-bar" aria-hidden="true"></i><span id="salesTrendTitle">ยอดขายรายเดือน <small>(ถอด VAT 7%)</small></span></h2>
+                            <div class="trend-modes" role="group" aria-label="ช่วงกราฟยอดขาย">
+                                <button type="button" data-trend-mode="daily" aria-pressed="false">รายวัน</button>
+                                <button type="button" data-trend-mode="monthly" aria-pressed="true">รายเดือน</button>
+                                <button type="button" data-trend-mode="yearly" aria-pressed="false">รายปี</button>
+                            </div>
+                        </header>
+                        <div class="trend-caption"><p id="salesTrendPeriod"></p><p id="salesTrendTotal"></p></div>
+                        <div class="sales-trend-canvas"><canvas id="salesTrendChart" role="img" aria-label="กราฟยอดขายถอด VAT 7%"></canvas><p id="salesTrendStatus" role="status" hidden></p></div>
+                    </article>
+                    <aside class="overview-brand-panel" aria-label="Premium film, premium journey">
+                        <img src="images/overview-premium-suv.webp" alt="รถยนต์สีดำพร้อมกระจกติดฟิล์ม" loading="lazy">
+                        <p>PREMIUM<br>FILM<br>PREMIUM<br>JOURNEY</p>
+                    </aside>
+                    <article id="overviewMemoCard" class="overview-notices dashboard-card" aria-labelledby="overviewMemoTitle">
+                        <header class="overview-memo-header"><h2 id="overviewMemoTitle"><i class="ph ph-bell" aria-hidden="true"></i> รายการแจ้งเตือน</h2><div class="memo-card-actions"><span id="overviewMemoCount" class="overview-memo-count" aria-live="polite">กำลังโหลด</span><button id="overviewMemoManage" class="memo-icon-button" type="button" onclick="openOverviewMemoDialog()" title="จัดการแจ้งเตือน" aria-label="จัดการแจ้งเตือน" aria-haspopup="dialog"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button></div></header>
+                        <div class="overview-memo-body">
+                            <p id="overviewMemoStatus" class="overview-memo-status" role="status">กำลังโหลดแจ้งเตือน...</p>
+                            <ul id="overviewMemoList" class="overview-memo-list"></ul>
+                            <button id="overviewMemoMore" class="overview-memo-more" type="button" aria-haspopup="dialog" aria-controls="overviewMemoViewDialog" hidden>ดูทั้งหมด <i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+                            <button id="overviewMemoRetry" class="overview-memo-more" type="button" hidden><i class="ph ph-arrows-clockwise" aria-hidden="true"></i> โหลดแจ้งเตือนอีกครั้ง</button>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="overview-analysis-grid">
+                    <article class="dashboard-card chart-card">
+                        <header class="panel-heading"><h2><i class="ph ph-chart-pie-slice" aria-hidden="true"></i> สัดส่วนประเภทงานติดตั้ง</h2></header>
+                        <div class="chart-content"><div id="customerDonutChart"></div><div id="customerMix" class="chart-legend"></div></div>
+                    </article>
+                    <article class="dashboard-card chart-card">
+                        <header class="panel-heading"><h2><i class="ph ph-device-mobile" aria-hidden="true"></i> ช่องทางติดต่อ (Lead)</h2></header>
+                        <div id="contactChannelsLayout" class="chart-content"><div id="contactDonutChart"></div><div id="contactChannels" class="chart-legend"></div></div>
+                    </article>
+                    <article class="dashboard-card overview-damage">
+                        <header class="panel-heading"><h2><i class="ph ph-warning-circle" aria-hidden="true"></i> ความเสียหาย</h2><a class="overview-view-all" href="damage.html">ดูทั้งหมด <i class="ph ph-arrow-right" aria-hidden="true"></i></a></header>
+                        <div class="damage-details">
+                            <div class="damage-item"><span class="damage-label"><span class="damage-dot is-claim"></span>ลูกค้าเคลม</span><span id="damageSummaryClaimCount">0 คัน</span><span id="damageSummaryClaimValue">฿0</span></div>
+                            <div class="damage-item"><span class="damage-label"><span class="damage-dot is-repair"></span>งานแก้ในวัน</span><span id="damageSummaryRepairCount">0 คัน</span><span id="damageSummaryRepairValue">฿0</span></div>
+                            <div class="damage-total"><div><p class="dashboard-label">มูลค่าความเสียหายรวม</p><p id="damageSummaryValue">฿0</p></div><p>เทียบยอดขาย <span id="damageSummaryRatio">0%</span></p></div>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="overview-rankings">
+                    <article class="dashboard-card ranking-card rank-cars">
+                        <header class="panel-heading"><h2><i class="ph ph-car" aria-hidden="true"></i> 10 อันดับรถยนต์</h2><button type="button" class="overview-view-all" data-rank-source="salesRanking" data-rank-title="10 อันดับรถยนต์" aria-haspopup="dialog" aria-controls="overviewRankingDialog">ดูทั้งหมด <i class="ph ph-arrow-right" aria-hidden="true"></i></button></header>
+                        <div id="salesRanking" class="rank-list"></div>
+                    </article>
+                    <article class="dashboard-card ranking-card rank-films">
+                        <header class="panel-heading"><h2><i class="ph ph-star" aria-hidden="true"></i> 10 อันดับฟิล์ม</h2><button type="button" class="overview-view-all" data-rank-source="filmRanking" data-rank-title="10 อันดับรุ่นฟิล์ม" aria-haspopup="dialog" aria-controls="overviewRankingDialog">ดูทั้งหมด <i class="ph ph-arrow-right" aria-hidden="true"></i></button></header>
+                        <div id="filmRanking" class="rank-list"></div>
+                    </article>
+                    <article class="dashboard-card ranking-card rank-packages">
+                        <header class="panel-heading"><h2><i class="ph ph-package" aria-hidden="true"></i> 10 อันดับแพ็กเกจติดตั้ง</h2><button type="button" class="overview-view-all" data-rank-source="installRanking" data-rank-title="10 อันดับแพ็กเกจติดตั้ง" aria-haspopup="dialog" aria-controls="overviewRankingDialog">ดูทั้งหมด <i class="ph ph-arrow-right" aria-hidden="true"></i></button></header>
+                        <div id="installRanking" class="rank-list"></div>
+                    </article>
+                </div>
+
+                <div class="overview-detail-grid">
+                    <article class="dashboard-card sales-report-card">
+                        <header class="panel-heading"><h2><i class="ph ph-chart-line-up" aria-hidden="true"></i> รายละเอียดรายได้</h2><span id="salesSummaryCount" class="metric-badge">0 คิว</span></header>
+                        <div class="sales-financial-grid">
+                            <div class="sales-total"><p class="dashboard-label">ยอดขายรวม (รวม VAT)</p><p id="salesSummaryGross" class="sales-total-value">฿0</p></div>
+                            <div class="sales-total"><p class="dashboard-label">ยอดขายถอด VAT 7%</p><p id="salesSummaryNet" class="sales-total-value">฿0</p></div>
+                        </div>
+                        <div class="sales-target-detail">
+                            <div class="kpi-meta"><span id="salesSummaryTargetValue">เป้า ฿0</span><span id="salesSummaryTargetPercent">0%</span></div>
+                            <div class="premium-progress"><div id="targetProgressBar" class="premium-progress-fill" style="width:0%"></div></div>
+                            <p id="kpiTargetGap">-</p>
+                        </div>
+                        <div class="sales-customer-row"><p><span class="customer-dot is-new"></span>ลูกค้าใหม่ <span id="salesSummaryNewCount">0 คัน</span></p><p><span class="customer-dot is-returning"></span>ลูกค้าเก่า <span id="salesSummaryOldCount">0 คัน</span></p></div>
+                        <div class="sales-channel-section"><h3>จำนวนการติดต่อแต่ละช่องทาง</h3><div id="salesSummaryContactChannels" class="sales-channel-grid"></div></div>
+                    </article>
+                    <article class="dashboard-card overview-daily">
+                        <header class="panel-heading"><h2><i class="ph ph-calendar-blank" aria-hidden="true"></i> สถิติยอดขายรายวัน</h2><a class="overview-view-all" href="index.html">ตารางนัดหมาย <i class="ph ph-arrow-right" aria-hidden="true"></i></a></header>
+                        <div class="daily-table-scroll custom-scrollbar">
+                            <table class="daily-table w-full text-left">
+                                <thead><tr><th>วันที่</th><th class="text-center">ติดต่อ</th><th class="text-center" title="ใหม่ = ลูกค้าใหม่+ลูกค้าเก่า / เคลม = ลูกค้าเคลม+งานแก้(ในวัน)">ใหม่/เคลม</th><th class="text-right">ยอดขาย <span class="table-unit">(Ex VAT)</span></th></tr></thead>
+                                <tbody id="dailySalesTableBody"></tbody>
+                            </table>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="hidden" aria-hidden="true">
+                    <span id="kpiRevenueExVat">฿0</span><span id="kpiExVatTargetValue"></span><span id="kpiExVatTargetPercent"></span><span id="exVatProgressBar"></span><span id="kpiExVatGap"></span>
+                    <span id="salesSummaryProgressBar"></span><span id="salesSummaryTargetGap"></span>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <dialog id="overviewRankingDialog" class="overview-memo-dialog overview-ranking-dialog" aria-labelledby="overviewRankingTitle">
+        <header class="overview-memo-header"><h2 id="overviewRankingTitle">10 อันดับ</h2><button id="overviewRankingClose" class="overview-memo-close" type="button" aria-label="ปิดอันดับ" title="ปิดอันดับ"><i class="ph ph-x" aria-hidden="true"></i></button></header>
+        <div id="overviewRankingList" class="rank-list"></div>
+    </dialog>
+
+    <dialog id="overviewMemoViewDialog" class="overview-memo-dialog overview-memo-reader" aria-labelledby="overviewMemoViewTitle">
+        <header class="overview-memo-header">
+            <div class="overview-memo-reader-heading"><h2 id="overviewMemoViewTitle"><i class="ph ph-bell-ringing" aria-hidden="true"></i> แจ้งเตือนทั้งหมด</h2><p id="overviewMemoViewCount" aria-live="polite"></p></div>
+            <button id="overviewMemoViewClose" class="overview-memo-close" type="button" aria-label="ปิดแจ้งเตือน" title="ปิดแจ้งเตือน"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </header>
+        <ol id="overviewMemoViewDetails" class="overview-memo-details"></ol>
+    </dialog>
+
+    <dialog id="overviewMemoDialog" class="overview-memo-dialog memo-manager" aria-labelledby="overviewMemoDialogTitle">
+        <header class="overview-memo-header">
+            <div><h2 id="overviewMemoDialogTitle">จัดการแจ้งเตือน</h2><p id="overviewMemoDialogCount"></p></div>
+            <button id="overviewMemoClose" class="overview-memo-close" type="button" aria-label="ปิดแจ้งเตือน" title="ปิดแจ้งเตือน"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </header>
+        <div id="memoManagerMessage" class="memo-manager-message" role="status" hidden></div>
+        <button id="memoVerify" class="memo-command" type="button" hidden><i class="ph ph-arrows-clockwise" aria-hidden="true"></i> ตรวจสอบการบันทึกอีกครั้ง</button>
+        <section id="memoManagerList">
+            <div class="memo-toolbar">
+                <label class="memo-search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="memoSearch" type="search" placeholder="ค้นหาแจ้งเตือน" aria-label="ค้นหาแจ้งเตือน"></label>
+                <button id="memoAdd" class="memo-command memo-primary" type="button"><i class="ph ph-plus" aria-hidden="true"></i> เพิ่มแจ้งเตือน</button>
+            </div>
+            <div class="memo-filter-row"><div class="memo-filters" role="group" aria-label="การแสดงแจ้งเตือน">
+                <button type="button" data-memo-filter="all" aria-pressed="true">ทั้งหมด <span></span></button>
+                <button type="button" data-memo-filter="shown" aria-pressed="false">แสดง <span></span></button>
+                <button type="button" data-memo-filter="hidden" aria-pressed="false">ซ่อน <span></span></button>
+            </div><button id="memoRefresh" class="memo-icon-button" type="button" aria-label="โหลดแจ้งเตือนใหม่" title="โหลดแจ้งเตือนใหม่"><i class="ph ph-arrows-clockwise" aria-hidden="true"></i></button></div>
+            <ol id="overviewMemoDetails" class="overview-memo-details"></ol>
+        </section>
+        <form id="memoEditor" class="memo-editor" hidden>
+            <h3 id="memoEditorHeading">เพิ่มแจ้งเตือน</h3>
+            <div class="memo-editor-meta"><label for="memoDate">วันที่แจ้งเตือน<input id="memoDate" type="date" required></label><label class="memo-switch-label"><input id="memoActive" type="checkbox" role="switch"><span>แสดงแจ้งเตือน</span></label></div>
+            <label for="memoText">รายละเอียด</label><textarea id="memoText" rows="7" maxlength="5000" required placeholder="รายละเอียดแจ้งเตือน"></textarea>
+            <p id="memoTextCount" class="memo-text-count">0 / 5,000</p>
+            <div class="memo-editor-footer"><button id="memoEditorCancel" class="memo-command" type="button">ยกเลิก</button><button id="memoSave" class="memo-command memo-primary" type="submit"><i class="ph ph-check" aria-hidden="true"></i> บันทึก</button></div>
+        </form>
+        <section id="memoDeletePanel" class="memo-delete-panel" hidden aria-labelledby="memoDeleteHeading">
+            <h3 id="memoDeleteHeading">ลบแจ้งเตือนนี้?</h3><p id="memoDeleteText"></p><p class="memo-delete-note">รายการนี้จะถูกลบออกจากชีต memo หากต้องการเก็บไว้ ให้เลือกซ่อนแทน</p>
+            <div class="memo-editor-footer"><button id="memoDeleteCancel" class="memo-command" type="button">ยกเลิก</button><button id="memoDeleteConfirm" class="memo-command memo-danger" type="button"><i class="ph ph-trash" aria-hidden="true"></i> ยืนยันลบ</button></div>
+        </section>
+        <form id="memoTokenForm" class="memo-editor" hidden>
+            <h3>ยืนยันสิทธิ์จัดการแจ้งเตือน</h3>
+            <label for="memoToken">Write Token</label><input id="memoToken" type="password" autocomplete="off" required aria-describedby="memoTokenNote">
+            <p id="memoTokenNote" class="memo-token-note">ใช้รหัสเดิมสำหรับบันทึกข้อมูล CAR CRM รหัสที่กรอกจะใช้เฉพาะหน้านี้</p>
+            <div class="memo-editor-footer"><button id="memoTokenCancel" class="memo-command" type="button">ยกเลิก</button><button id="memoTokenConfirm" class="memo-command memo-primary" type="submit">ยืนยันและบันทึก</button></div>
+        </form>
+    </dialog>
+
+    <script>
+        const SHEET_ID = '1u__xYWoWZpmrnquc-Fpk19WtpcrckxSd0-_G35NWxXQ';
+        const BOOKINGS_SHEET_NAME = 'Bookings';
+        const SALES_TARGET_SHEET_NAME = 'เป้ายอดขาย';
+        const CONTACT_SHEET_NAME = 'สถิตการติดต่อ';
+        const MEMO_SHEET_NAME = 'memo';
+        const CONTACT_CHANNELS = [
+            { key: 'phone', label: 'โทร', headers: ['โทร', 'โทรศัพท์', 'Tel', 'Phone'] },
+            { key: 'line', label: 'Line', headers: ['Line', 'ไลน์'] },
+            { key: 'fb', label: 'FB', headers: ['FB', 'Facebook', 'เฟซบุ๊ก'] },
+            { key: 'tiktok', label: 'Tiktok', headers: ['Tiktok', 'TikTok', 'ติ๊กตอก'] },
+            { key: 'walkin', label: 'WalkIn', headers: ['WalkIn', 'Walk In', 'Walk-in', 'หน้าร้าน'] },
+            { key: 'other', label: 'อื่น ๆ', headers: ['อื่น ๆ', 'อื่นๆ', 'Other'] }
+        ];
+
+        const dom = {};
+        const DOM_IDS = [
+            'loginForm', 'loginUser', 'loginPass', 'loginError',
+            'monthFilter', 'lastUpdated', 'loadingMessage', 'errorMessage', 'dashboardContent',
+            'kpiRevenue', 'kpiAvgTicket', 'kpiTargetValue', 'kpiTargetPercent', 'targetProgressBar', 'kpiTargetGap',
+            'kpiRevenueExVat', 'kpiExVatTargetValue', 'kpiExVatTargetPercent', 'exVatProgressBar', 'kpiExVatGap',
+            'kpiBookings', 'kpiNewCustomers', 'kpiOldCustomers', 'snapshotTodaySales', 'snapshotTodayJobs',
+            'kpiConversionRate', 'kpiContacts', 'kpiContactBookings',
+            'overviewTitle', 'snapshotTodayPeriod',
+            'salesSummaryCount', 'salesSummaryNet', 'salesSummaryGross',
+            'salesSummaryTargetValue', 'salesSummaryTargetPercent', 'salesSummaryProgressBar', 'salesSummaryTargetGap',
+            'salesSummaryNewCount', 'salesSummaryOldCount', 'salesSummaryContactChannels',
+            'damageSummaryClaimCount', 'damageSummaryClaimValue',
+            'damageSummaryRepairCount', 'damageSummaryRepairValue',
+            'damageSummaryValue', 'damageSummaryRatio',
+            'dailySalesTableBody', 'customerDonutChart', 'customerMix', 'contactDonutChart', 'contactChannels',
+            'salesRanking', 'filmRanking', 'installRanking',
+            'overviewMemoCount', 'overviewMemoBadge', 'overviewMemoBell', 'overviewMemoStatus', 'overviewMemoList', 'overviewMemoMore', 'overviewMemoRetry',
+            'overviewMemoDialog', 'overviewMemoDialogCount', 'overviewMemoDetails', 'overviewMemoClose',
+            'overviewMemoViewDialog', 'overviewMemoViewCount', 'overviewMemoViewDetails', 'overviewMemoViewClose'
+        ];
+
+        let bookings = [];
+        let contacts = [];
+        let contactStatsRows = [];
+        let salesTargets = {};
+        let appHasStarted = false;
+        let overviewMemos = [];
+        let overviewMemoRecords = [];
+        let memoLoaded = false;
+        let memoRequestId = 0;
+        let memoPreviousFocus = null;
+        let memoViewPreviousFocus = null;
+
+        function cacheDom() {
+            DOM_IDS.forEach(id => {
+                dom[id] = document.getElementById(id);
+            });
+        }
+
+        function textValue(value, fallback = '') {
+            if (value === null || value === undefined) return fallback;
+            const text = String(value).trim();
+            return text === '' ? fallback : text;
+        }
+
+        function escapeHtml(value) {
+            return textValue(value).replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function normalizeText(value) {
+            return textValue(value).replace(/[\s._\-()（）/\\]+/g, '').toLowerCase();
+        }
+
+        function findField(row, candidates) {
+            if (!row) return '';
+            const keys = Object.keys(row).filter(key => normalizeText(key));
+            const normalizedCandidates = candidates.map(normalizeText).filter(Boolean);
+            const key = keys.find(item => normalizedCandidates.includes(normalizeText(item))) ||
+                keys.find(item => normalizedCandidates.some(candidate => {
+                    const normalizedItem = normalizeText(item);
+                    return normalizedItem.includes(candidate) || candidate.includes(normalizedItem);
+                }));
+            return key ? textValue(row[key]) : '';
+        }
+
+        function findExactField(row, candidates) {
+            if (!row) return '';
+            const normalizedCandidates = candidates.map(normalizeText).filter(Boolean);
+            const key = Object.keys(row).find(item => normalizedCandidates.includes(normalizeText(item)));
+            return key ? textValue(row[key]) : '';
+        }
+
+        function sheetCsvUrl(sheetName) {
+            return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+        }
+
+        function parseOverviewMemoDate(value) {
+            const raw = textValue(value);
+            const iso = raw.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})(?:\D|$)/);
+            const local = raw.match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?(?:\D|$)/);
+            if (!iso && !local) return null;
+            const day = Number(iso ? iso[3] : local[1]);
+            const month = Number(iso ? iso[2] : local[2]);
+            let year = Number(iso ? iso[1] : local[3] || new Date().getFullYear());
+            if (year < 100) year += year > 40 ? 2500 : 2000;
+            if (year > 2400) year -= 543;
+            const date = new Date(year, month - 1, day);
+            return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+        }
+
+        function buildOverviewMemoRecords(rows) {
+            return rows.map((row, index) => {
+                const status = normalizeText(findExactField(row, ['สถานะงาน', 'สถานะ', 'Status']));
+                const dateText = findExactField(row, ['วันที่แจ้งเตือน', 'วันแจ้งเตือน', 'วันที่', 'กำหนด', 'กำหนดแจ้งเตือน', 'Due Date', 'Date']);
+                // The existing memo sheet stores the message in column D.
+                const title = textValue(Object.values(row)[3]) || findExactField(row, ['รายละเอียด', 'ข้อความ', 'หมายเหตุ', 'หัวข้อ', 'เรื่อง', 'รายการ', 'แจ้งเตือน', 'memo']);
+                const recordId = findExactField(row, ['Memo_ID', 'MemoID', 'ID']);
+                return { recordId, title, dateText, date: parseOverviewMemoDate(dateText), index, active: !status || ['on', 'active', 'enabled', 'true', '1', 'เปิดใช้งาน'].includes(status) };
+            }).filter(item => item.title)
+                .sort((a, b) => (b.date?.getTime() ?? -Infinity) - (a.date?.getTime() ?? -Infinity) || b.index - a.index);
+        }
+
+        function buildOverviewMemos(rows) {
+            return buildOverviewMemoRecords(rows).filter(item => item.active);
+        }
+
+        function renderOverviewMemoDate(item) {
+            const icon = '<i class="ph ph-calendar-blank" aria-hidden="true"></i>';
+            if (!item.date) return `<p class="overview-memo-detail-date overview-memo-date-unknown">${icon}<span>${escapeHtml(item.dateText || 'ไม่ระบุวันที่')}</span></p>`;
+            const date = item.date;
+            const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            const label = date.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+            return `<time class="overview-memo-detail-date" datetime="${iso}" aria-label="${escapeHtml(label)}">${icon}<span>${escapeHtml(date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }))}</span></time>`;
+        }
+
+        function renderOverviewMemos({ loading = false, failed = false } = {}) {
+            const count = overviewMemos.length;
+            dom.overviewMemoCount.textContent = memoLoaded ? `${count.toLocaleString('th-TH')} รายการ` : (loading ? 'กำลังโหลด' : 'ยังไม่พร้อม');
+            dom.overviewMemoBadge.textContent = count.toLocaleString('th-TH');
+            dom.overviewMemoBadge.hidden = !count;
+            dom.overviewMemoBell.disabled = !memoLoaded;
+            dom.overviewMemoStatus.textContent = failed
+                ? (memoLoaded ? 'อัปเดตแจ้งเตือนไม่สำเร็จ กำลังแสดงข้อมูลล่าสุดที่โหลดได้' : 'โหลดแจ้งเตือนไม่สำเร็จ กรุณาลองใหม่')
+                : loading ? 'กำลังอัปเดตแจ้งเตือน...' : count ? '' : 'ไม่มีรายการแจ้งเตือนที่เปิดใช้งาน';
+            dom.overviewMemoStatus.hidden = !dom.overviewMemoStatus.textContent;
+            dom.overviewMemoRetry.hidden = !failed;
+            dom.overviewMemoMore.hidden = !count;
+            dom.overviewMemoMore.innerHTML = `${count > 5 ? `+ อีก ${count - 5} รายการ · ดูทั้งหมด` : 'ดูทั้งหมด'} <i class="ph ph-arrow-right" aria-hidden="true"></i>`;
+            dom.overviewMemoList.innerHTML = overviewMemos.slice(0, 5).map(item => `
+                <li><button type="button" class="overview-memo-preview" aria-haspopup="dialog" aria-controls="overviewMemoViewDialog">
+                    <span class="overview-memo-date">${escapeHtml(item.date ? `${item.date.getDate()}/${item.date.getMonth() + 1}` : item.dateText || '-')}</span>
+                    <i class="ph ph-warning-circle" aria-hidden="true"></i><span class="overview-memo-text">${escapeHtml(item.title)}</span>
+                </button></li>`).join('');
+            dom.overviewMemoViewCount.textContent = `${count.toLocaleString('th-TH')} รายการ`;
+            dom.overviewMemoViewDetails.innerHTML = count ? overviewMemos.map(item => `
+                <li><span class="overview-memo-item-icon" aria-hidden="true"><i class="ph ph-megaphone"></i></span>
+                <div class="overview-memo-item-content">${renderOverviewMemoDate(item)}
+                <p class="overview-memo-detail-text">${escapeHtml(item.title)}</p></div></li>`).join('') : '<li class="overview-memo-reader-empty"><i class="ph ph-bell-slash" aria-hidden="true"></i><p>ไม่มีรายการแจ้งเตือนที่เปิดใช้งาน</p></li>';
+            window.OverviewMemoManager?.update(overviewMemoRecords, { ready: memoLoaded, loading, failed });
+        }
+
+        async function loadOverviewMemoRecords() {
+            const response = await fetch(`${sheetCsvUrl(MEMO_SHEET_NAME)}&headers=1&_memo=${Date.now()}`, { cache: 'no-store', signal: AbortSignal.timeout(30000) });
+            if (!response.ok) throw new Error('โหลดแจ้งเตือนไม่สำเร็จ');
+            const csvText = await response.text();
+            if (isHtmlResponseText(csvText)) throw new Error('อ่านข้อมูลแจ้งเตือนไม่สำเร็จ');
+            const rows = await new Promise((resolve, reject) => Papa.parse(csvText, {
+                header: true, skipEmptyLines: true, transformHeader: header => header.trim(),
+                complete: result => {
+                    const fields = result.meta?.fields || Object.keys(result.data[0] || {});
+                    const hasId = fields.some(field => ['memoid', 'id'].includes(normalizeText(field)));
+                    const hasTitle = fields.some(field => ['รายละเอียด', 'ข้อความ', 'หมายเหตุ', 'memo'].includes(normalizeText(field)));
+                    if (result.errors?.length || !hasId || !hasTitle) return reject(new Error('โครงสร้างชีต memo ไม่ถูกต้อง กรุณาตรวจสอบก่อนบันทึก'));
+                    resolve(result.data);
+                }, error: reject
+            }));
+            return buildOverviewMemoRecords(rows);
+        }
+
+        function applyOverviewMemoRecords(records) {
+            ++memoRequestId;
+            overviewMemoRecords = records;
+            overviewMemos = records.filter(item => item.active);
+            memoLoaded = true;
+            renderOverviewMemos();
+        }
+
+        async function fetchOverviewMemos() {
+            const requestId = ++memoRequestId;
+            renderOverviewMemos({ loading: true });
+            try {
+                const records = await loadOverviewMemoRecords();
+                if (requestId !== memoRequestId) return;
+                applyOverviewMemoRecords(records);
+            } catch (error) {
+                if (requestId !== memoRequestId) return;
+                console.warn('Overview memo:', error.message);
+                renderOverviewMemos({ failed: true });
+            }
+        }
+
+        function openOverviewMemoDialog() {
+            if (dom.overviewMemoDialog.open) return;
+            memoPreviousFocus = document.activeElement;
+            dom.overviewMemoDialog.showModal();
+            document.body.classList.add('overview-memo-open');
+            dom.overviewMemoClose.focus();
+        }
+
+        function openOverviewMemoViewDialog() {
+            if (dom.overviewMemoViewDialog.open) return;
+            memoViewPreviousFocus = document.activeElement;
+            dom.overviewMemoViewDialog.showModal();
+            dom.overviewMemoViewDetails.scrollTop = 0;
+            document.body.classList.add('overview-memo-open');
+            dom.overviewMemoViewClose.focus();
+        }
+
+        function isHtmlResponseText(text) {
+            const trimmedText = text.trim().toLowerCase();
+            return trimmedText.startsWith('<!doctype html>') ||
+                trimmedText.startsWith('<html') ||
+                trimmedText.includes('google.visualization.query.setresponse') ||
+                trimmedText.includes('invalid query');
+        }
+
+        async function fetchCsvText(sheetName) {
+            const response = await fetch(sheetCsvUrl(sheetName));
+            if (!response.ok) throw new Error(`Cannot load ${sheetName}`);
+            const text = await response.text();
+            if (isHtmlResponseText(text)) throw new Error(`Cannot parse ${sheetName}`);
+            return text;
+        }
+
+        async function fetchContactReport() {
+            const query = 'select A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q';
+            const url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:json&sheet=lead&tq=' + encodeURIComponent(query) + '&_=' + Date.now();
+            const response = await fetch(url, {cache:'no-store',signal:AbortSignal.timeout(30000)});
+            if (!response.ok) throw new Error('อ่านชีต lead ไม่สำเร็จ (HTTP ' + response.status + ')');
+            const text = await response.text();
+            if (!text.includes('google.visualization.Query.setResponse(')) throw new Error('ชีต lead ไม่ได้ส่งข้อมูลตาราง กรุณาตรวจสิทธิ์อ่าน');
+            const result = JSON.parse(text.slice(text.indexOf('{'),text.lastIndexOf('}')+1));
+            if (result.status !== 'ok') throw new Error('อ่านชีต lead ไม่สำเร็จ: ' + (result.errors?.[0]?.detailed_message || result.status));
+            return CarContactReportSummary.summarize(CarContactReportSummary.fromGoogleTable(result.table));
+        }
+
+        function parseCsv(csvText) {
+            return new Promise(resolve => {
+                Papa.parse(csvText, {
+                    header: true,
+                    skipEmptyLines: true,
+                    transformHeader: header => header.trim(),
+                    complete: results => resolve(results.data)
+                });
+            });
+        }
+
+        function parseContactStatsCsv(csvText) {
+            return new Promise(resolve => {
+                Papa.parse(csvText, {
+                    header: false,
+                    skipEmptyLines: true,
+                    complete: results => {
+                        const allRows = results.data;
+                        const headerIndex = allRows.findIndex(row =>
+                            row.some(cell => normalizeText(cell).includes(normalizeText('วันที่')))
+                        );
+
+                        if (headerIndex < 0) {
+                            resolve([]);
+                            return;
+                        }
+
+                        const headers = allRows[headerIndex].map(normalizeText);
+                        const dataRows = allRows.slice(headerIndex + 1);
+                        const getValue = (row, candidates) => {
+                            const normalizedCandidates = candidates.map(normalizeText);
+                            const index = headers.findIndex(header =>
+                                normalizedCandidates.includes(header) ||
+                                normalizedCandidates.some(candidate => header.includes(candidate))
+                            );
+                            return index >= 0 ? row[index] : '';
+                        };
+
+                        resolve(dataRows.map((row, index) => {
+                            const date = parseDate(getValue(row, ['วันที่', 'Date']));
+                            const phone = parseContactStatNumber(getValue(row, ['โทร', 'Tel']));
+                            const line = parseContactStatNumber(getValue(row, ['Line', 'ไลน์']));
+                            const fb = parseContactStatNumber(getValue(row, ['FB', 'เฟซ']));
+                            const tiktok = parseContactStatNumber(getValue(row, ['Tiktok', 'ติ๊ก']));
+                            const walkin = parseContactStatNumber(getValue(row, ['WalkIn', 'หน้าร้าน']));
+                            const total = phone + line + fb + tiktok + walkin;
+
+                            return {
+                                id: index,
+                                date,
+                                monthKey: monthKeyFromDate(date),
+                                phone,
+                                line,
+                                fb,
+                                tiktok,
+                                walkin,
+                                total
+                            };
+                        }).filter(item => item.date || item.total > 0));
+                    }
+                });
+            });
+        }
+
+        function parseDate(value) {
+            const raw = textValue(value);
+            let match = raw.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+            if (match) {
+                let year = parseInt(match[3], 10);
+                if (year < 100) {
+                    year = year > 40 ? year + 2500 : year + 2000;
+                }
+                if (year > 2400) year -= 543;
+                const date = new Date(year, parseInt(match[2], 10) - 1, parseInt(match[1], 10));
+                return Number.isNaN(date.getTime()) ? null : date;
+            }
+            match = raw.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+            if (!match) return null;
+            let year = parseInt(match[1], 10);
+            if (year > 2400) year -= 543;
+            const date = new Date(year, parseInt(match[2], 10) - 1, parseInt(match[3], 10));
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        function parseMoney(value) {
+            const number = parseFloat(textValue(value, '0').replace(/[^\d.-]/g, ''));
+            return Number.isFinite(number) ? number : 0;
+        }
+
+        function parseContactStatNumber(value) {
+            const raw = textValue(value, '0');
+            if (/[\/:]/.test(raw)) return 0;
+            return parseMoney(raw);
+        }
+
+        function monthKeyFromDate(date) {
+            if (!date) return 'ไม่ระบุเดือน';
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        function monthLabel(monthKey) {
+            if (!monthKey || monthKey === 'ไม่ระบุเดือน') return 'ไม่ระบุเดือน';
+            const [year, month] = monthKey.split('-').map(Number);
+            const date = new Date(year, month - 1, 1);
+            return date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }).replace('.', '');
+        }
+
+        function monthKeyFromText(value) {
+            const raw = textValue(value);
+            if (!raw) return '';
+            const date = parseDate(raw);
+            if (date) return monthKeyFromDate(date);
+
+            let match = raw.match(/(\d{4})[-\/](\d{1,2})/);
+            if (match) {
+                let year = parseInt(match[1], 10);
+                if (year > 2400) year -= 543;
+                return `${year}-${String(parseInt(match[2], 10)).padStart(2, '0')}`;
+            }
+
+            match = raw.match(/(\d{1,2})[-\/](\d{2,4})/);
+            if (match) {
+                let year = parseInt(match[2], 10);
+                if (year < 100) {
+                    year = year > 40 ? year + 2500 : year + 2000;
+                }
+                if (year > 2400) year -= 543;
+                return `${year}-${String(parseInt(match[1], 10)).padStart(2, '0')}`;
+            }
+
+            const monthNames = [
+                ['มกราคม', 'ม.ค.', 'jan', 'january'],
+                ['กุมภาพันธ์', 'ก.พ.', 'feb', 'february'],
+                ['มีนาคม', 'มี.ค.', 'mar', 'march'],
+                ['เมษายน', 'เม.ย.', 'apr', 'april'],
+                ['พฤษภาคม', 'พ.ค.', 'may'],
+                ['มิถุนายน', 'มิ.ย.', 'jun', 'june'],
+                ['กรกฎาคม', 'ก.ค.', 'jul', 'july'],
+                ['สิงหาคม', 'ส.ค.', 'aug', 'august'],
+                ['กันยายน', 'ก.ย.', 'sep', 'september'],
+                ['ตุลาคม', 'ต.ค.', 'oct', 'october'],
+                ['พฤศจิกายน', 'พ.ย.', 'nov', 'november'],
+                ['ธันวาคม', 'ธ.ค.', 'dec', 'december']
+            ];
+            const normalized = raw.toLowerCase();
+            const monthIndex = monthNames.findIndex(names => names.some(name => normalized.includes(name)));
+            if (monthIndex < 0) return '';
+            const yearMatch = normalized.match(/(25\d{2}|20\d{2}|\d{2})/);
+            let year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+            if (year < 100) {
+                year = year > 40 ? year + 2500 : year + 2000;
+            }
+            if (year > 2400) year -= 543;
+            return `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+        }
+
+        function formatMoney(value) {
+            return value.toLocaleString('th-TH', { maximumFractionDigits: 0 });
+        }
+
+        function removeVat(value) {
+            return Math.round((Number(value) || 0) / 1.07);
+        }
+
+        function classifyCustomerType(value) {
+            const normalized = normalizeText(value);
+            if (normalized.includes('เคลม') || normalized.includes('ปัญหา')) return 'งานเคลม';
+            if (normalized.includes('แก้') || normalized.includes('ในวัน')) return 'งานแก้';
+            if (normalized.includes('เก่า')) return 'ลูกค้าเก่า';
+            return 'ลูกค้าใหม่';
+        }
+
+        function buildBookings(rows) {
+            return rows.map(row => {
+                const date = parseDate(findField(row, ['วันที่ติดตั้ง', 'วันที่', 'Date']));
+                const bookingSales = parseMoney(findField(row, ['ยอดขาย', 'ยอดขาย (บาท)']));
+                const price = bookingSales;
+                const customerType = findField(row, ['ประเภทลูกค้า']);
+                return {
+                    jobId: findField(row, ['JobID', 'Job ID', 'รหัสงาน']),
+                    custId: findField(row, ['CustID']),
+                    date,
+                    monthKey: monthKeyFromDate(date),
+                    price,
+                    status: findField(row, ['Status', 'สถานะ']),
+                    promotion: findField(row, ['Pro_ID', 'โปรโมชั่น']),
+                    customerType,
+                    customerGroup: classifyCustomerType(customerType),
+                    sales: findField(row, ['พน.ขาย', 'พนง.ขาย', 'เซลล์', 'Sales']) || 'ไม่ระบุ',
+                    channel: findField(row, ['ช่องทาง', 'ช่องทางติดต่อ', 'แหล่งที่มา', 'Source', 'Channel']) || 'ไม่ระบุ',
+                    film: findField(row, ['ยี่ห้อฟิล์ม', 'รุ่นฟิล์มที่เลือก', 'Film']) || 'ไม่ระบุ',
+                    installType: findField(row, [
+                        'ตำแหน่งติดตั้ง',
+                        'ตำแหน่งติดตั้ง ใหม่',
+                        'ตำแหน่งติดตั้งใหม่',
+                        'การติดตั้ง',
+                        'ประเภทการติดตั้ง',
+                        'ตำแหน่ง'
+                    ]) || 'ไม่ระบุ',
+                    carModel: findField(row, ['รุ่นรถยนต์', 'รุ่นรถ', 'Model']) || '-',
+                    plate: findField(row, ['ทะเบียนรถ', 'ทะเบียน', 'Plate']) || '-'
+                };
+            }).filter(item => item.jobId);
+        }
+
+        function buildContacts(rows) {
+            const hasDailyContactStats = rows.some(row =>
+                CONTACT_CHANNELS.some(channel => Object.prototype.hasOwnProperty.call(row, channel.key))
+            );
+
+            if (hasDailyContactStats) {
+                return rows.flatMap((row, index) =>
+                    CONTACT_CHANNELS.map(channel => ({
+                        id: `${index}-${channel.key}`,
+                        date: row.date,
+                        monthKey: row.monthKey,
+                        channel: channel.label,
+                        owner: '-',
+                        count: parseMoney(row[channel.key]),
+                        booking: 0,
+                        note: ''
+                    })).filter(item => item.count > 0)
+                );
+            }
+
+            const hasWideContactColumns = rows.some(row =>
+                CONTACT_CHANNELS.some(channel => findExactField(row, channel.headers) !== '')
+            );
+
+            if (hasWideContactColumns) {
+                return rows.flatMap((row, index) => {
+                    const date = parseDate(findExactField(row, ['วันที่']));
+                    return CONTACT_CHANNELS.map(channel => {
+                        const rawCount = findExactField(row, channel.headers);
+                        const count = /[\/:]/.test(textValue(rawCount)) ? 0 : parseMoney(rawCount);
+                        return {
+                            id: `${index}-${channel.key}`,
+                            date,
+                            monthKey: monthKeyFromDate(date),
+                            channel: channel.label,
+                            owner: findField(row, ['ผู้บันทึก', 'ผู้รับผิดชอบ', 'เซลล์', 'พนักงาน', 'Owner']) || '-',
+                            count,
+                            booking: 0,
+                            note: ''
+                        };
+                    }).filter(item => item.count > 0);
+                });
+            }
+
+            return rows.map((row, index) => {
+                const date = parseDate(findField(row, ['วันที่', 'วันที่ติดต่อ', 'วันที่บันทึก', 'Date']));
+                const count = parseMoney(findField(row, ['จำนวน', 'จำนวนติดต่อ', 'ติดต่อ', 'Contacts', 'Lead', 'Leads'])) || 1;
+                const booking = parseMoney(findField(row, ['จอง', 'จองคิว', 'Booking', 'Bookings', 'ปิดการขาย']));
+                return {
+                    id: index,
+                    date,
+                    monthKey: monthKeyFromDate(date),
+                    channel: findField(row, ['ช่องทาง', 'ช่องทางติดต่อ', 'แหล่งที่มา', 'Source', 'Channel']) || 'ไม่ระบุช่องทาง',
+                    owner: findField(row, ['ผู้รับผิดชอบ', 'เซลล์', 'พนักงาน', 'Owner']) || '-',
+                    count,
+                    booking,
+                    note: findField(row, ['หมายเหตุ', 'รายละเอียด', 'Note']) || ''
+                };
+            });
+        }
+
+        function buildSalesTargets(rows) {
+            const result = {};
+            if (!rows || rows.length === 0) return result;
+            
+            rows.forEach(row => {
+                const values = Object.values(row);
+                const monthText = findField(row, ['เดือน', 'Month']) || values[0];
+                const targetText = findField(row, ['เป้ายอดขาย', 'เป้า', 'Target']) || values[1];
+                
+                const monthKey = monthKeyFromText(monthText);
+                const target = parseMoney(targetText);
+                
+                if (monthKey && target > 0) {
+                    result[monthKey] = target;
+                }
+            });
+            return result;
+        }
+
+        function selectedMonthRows() {
+            const month = dom.monthFilter.value;
+            return {
+                month,
+                bookingRows: month ? bookings.filter(item => item.monthKey === month) : bookings,
+                contactRows: month ? contacts.filter(item => item.monthKey === month) : contacts
+            };
+        }
+
+        function datePeriodLabel(date) {
+            return `ข้อมูลวันที่ ${date.toLocaleDateString('th-TH', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            }).replace('.', '')}`;
+        }
+
+        function renderPeriodLabels(month) {
+            dom.overviewTitle.innerText = month ? `ภาพรวมธุรกิจ เดือน ${monthLabel(month)}` : 'ภาพรวมธุรกิจ ทุกเดือน';
+            dom.snapshotTodayPeriod.innerText = datePeriodLabel(new Date());
+        }
+
+        function groupSum(rows, keyFn, valueFn) {
+            return rows.reduce((map, row) => {
+                const key = keyFn(row) || 'ไม่ระบุ';
+                if (!map[key]) map[key] = { label: key, count: 0, value: 0 };
+                map[key].count += 1;
+                map[key].value += valueFn ? valueFn(row) : 1;
+                return map;
+            }, {});
+        }
+
+        function topItems(grouped, limit = 5) {
+            return Object.values(grouped).sort((a, b) => b.value - a.value || b.count - a.count).slice(0, limit);
+        }
+
+        function renderRankList(element, items, valueFormatter, emptyText = 'ยังไม่มีข้อมูล') {
+            if (!items.length) {
+                element.innerHTML = `<div class="overview-empty">${escapeHtml(emptyText)}</div>`;
+                return;
+            }
+            const max = Math.max(...items.map(item => item.value), 1);
+            element.innerHTML = items.map((item, index) => `
+                <div class="group">
+                    <div class="mb-1.5 flex items-start justify-between gap-3 text-sm">
+                        <div class="flex min-w-0 items-start gap-2 font-normal text-slate-600">
+                            <span class="w-4 shrink-0 text-xs font-normal text-slate-400">${index + 1}.</span>
+                            <span class="break-words" title="${escapeHtml(item.label)}">${escapeHtml(item.label)}</span>
+                        </div>
+                        <div class="shrink-0 font-medium text-slate-800">${valueFormatter(item)}</div>
+                    </div>
+                    <div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, (item.value / max) * 100)}%"></div></div>
+                </div>
+            `).join('');
+        }
+
+        function chartEmptyHtml(text) {
+            return `<div class="overview-empty">${escapeHtml(text)}</div>`;
+        }
+
+        function compositionColor(label) {
+            const colors = { 'ลูกค้าใหม่': '#0877ff', 'ลูกค้าเก่า': '#00b99a', 'งานเคลม': '#ffae13', 'งานแก้': '#8557f5', Line: '#00b99a', FB: '#0877ff', 'โทร': '#ffae13', WalkIn: '#8557f5', Tiktok: '#37bfd5' };
+            return colors[label] || '#8298b6';
+        }
+
+        function renderCompositionLegend(element, items, valueSelector, unit) {
+            const total = items.reduce((sum, item) => sum + Math.max(0, valueSelector(item)), 0);
+            element.innerHTML = items.map(item => {
+                const value = Math.max(0, valueSelector(item));
+                return `<div class="composition-row"><span class="composition-dot" style="background:${compositionColor(item.label)}" aria-hidden="true"></span><span>${escapeHtml(item.label)}</span><span class="composition-count">${formatMoney(value)} ${escapeHtml(unit)}</span><span class="composition-percent">${total ? Math.round(value / total * 100) : 0}%</span></div>`;
+            }).join('');
+        }
+
+        function renderDonutChart(element, items, valueSelector, centerLabel, emptyText = 'ยังไม่มีข้อมูล') {
+            const values = items.map(item => Math.max(0, valueSelector(item)));
+            const total = values.reduce((sum, value) => sum + value, 0);
+            if (!items.length || !total) {
+                element.innerHTML = chartEmptyHtml(emptyText);
+                return;
+            }
+            let current = 0;
+            const gradient = items.map((item, index) => {
+                const start = current;
+                const end = current + (values[index] / total) * 100;
+                current = end;
+                return `${compositionColor(item.label)} ${start}% ${end}%`;
+            }).join(', ');
+
+            element.innerHTML = `
+                <div class="donut-chart mx-auto" style="background: conic-gradient(${gradient})">
+                    <div class="donut-center">
+                        <div class="text-[1.6rem] leading-none font-medium text-slate-800">${formatMoney(total)}</div>
+                        <div class="mt-1 text-[10px] font-normal text-slate-500">${escapeHtml(centerLabel)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function populateMonthFilter() {
+            const currentMonth = monthKeyFromDate(new Date());
+            const current = dom.monthFilter.value || currentMonth;
+            const monthMap = new Map();
+            [...bookings, ...contacts].forEach(item => {
+                if (item.monthKey) monthMap.set(item.monthKey, monthLabel(item.monthKey));
+            });
+            const months = [...monthMap.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+            dom.monthFilter.innerHTML = '<option value="">ทุกเดือน (ภาพรวม)</option>' + months
+                .map(([key, label]) => `<option value="${escapeHtml(key)}">${escapeHtml(label)}</option>`)
+                .join('');
+            dom.monthFilter.value = months.some(([key]) => key === current) ? current : (months[0]?.[0] || '');
+        }
+
+        function isCompletedBooking(item) {
+            return normalizeText(item.status).includes('เสร็จสิ้น');
+        }
+
+        function isActiveBooking(item) {
+            return !normalizeText(item.status).includes('ยกเลิก');
+        }
+
+        function isNewCustomerBooking(item) {
+            return item.customerGroup === 'ลูกค้าใหม่';
+        }
+
+        function isOverviewSalesBooking(item) {
+            return item.customerGroup === 'ลูกค้าใหม่' || item.customerGroup === 'ลูกค้าเก่า';
+        }
+
+        function isClaimBooking(item) {
+            return item.customerGroup === 'งานเคลม';
+        }
+
+        function isDailyNewOrOldBooking(item) {
+            return item.customerGroup === 'ลูกค้าใหม่' || item.customerGroup === 'ลูกค้าเก่า';
+        }
+
+        function isDailyClaimOrRepairBooking(item) {
+            return item.customerGroup === 'งานเคลม' || item.customerGroup === 'งานแก้';
+        }
+
+        function isDamageBooking(item) {
+            const normalized = normalizeText(item.promotion);
+            return normalized.includes('mistake') || normalized.includes('เสียหาย');
+        }
+
+        function dateKey(date) {
+            return date ? date.toLocaleDateString('en-CA') : '';
+        }
+
+        function renderDashboard() {
+            const { month, bookingRows, contactRows } = selectedMonthRows();
+            const activeBookingRows = bookingRows.filter(isActiveBooking);
+            renderPeriodLabels(month);
+            
+            // --- 1. การคำนวณข้อมูลหลัก ---
+            const revenueRows = activeBookingRows.filter(isOverviewSalesBooking);
+            const totalRevenueGross = revenueRows.reduce((sum, item) => sum + item.price, 0);
+            const totalRevenue = removeVat(totalRevenueGross);
+            const selectedTarget = month ? (salesTargets[month] || 0) : 0;
+            const targetPercent = selectedTarget ? Math.round((totalRevenue / selectedTarget) * 100) : 0;
+            const targetGap = totalRevenue - selectedTarget;
+            
+            const completed = activeBookingRows.filter(item => isCompletedBooking(item));
+            const pending = activeBookingRows.filter(item => !isCompletedBooking(item));
+            
+            const completedNew = completed.filter(item => isNewCustomerBooking(item));
+            const completedClaim = completed.filter(item => isClaimBooking(item));
+            const waitingNew = pending.filter(item => isNewCustomerBooking(item));
+            const waitingClaim = pending.filter(item => isClaimBooking(item));
+            
+            const claims = activeBookingRows.filter(item => isClaimBooking(item));
+            const repairs = activeBookingRows.filter(item => item.customerGroup === 'งานแก้');
+            const claimDamageValue = claims.reduce((sum, item) => sum + item.price, 0);
+            const repairDamageValue = repairs.reduce((sum, item) => sum + item.price, 0);
+            const damageValue = claimDamageValue + repairDamageValue;
+            const revenueCustomers = revenueRows;
+            const newRevenueCustomers = revenueRows.filter(isNewCustomerBooking);
+            const oldRevenueCustomers = revenueRows.filter(item => item.customerGroup === 'ลูกค้าเก่า');
+            
+            const todayKey = dateKey(new Date());
+            const todayRevenueCustomers = bookings.filter(item => isActiveBooking(item) && dateKey(item.date) === todayKey && isOverviewSalesBooking(item));
+            const todayRevenueSales = removeVat(todayRevenueCustomers.reduce((sum, item) => sum + item.price, 0));
+            
+            const contactCount = contactRows.reduce((sum, item) => sum + item.count, 0);
+            const conversionRate = contactCount ? Math.round((revenueCustomers.length / contactCount) * 100) : 0;
+            const contactChannelItems = topItems(groupSum(contactRows, item => item.channel, item => item.count), 6);
+
+            // --- 2. อัปเดต Hero KPIs (แถวบนสุด) ---
+            dom.kpiRevenue.innerText = `฿${formatMoney(totalRevenue)}`;
+            dom.kpiAvgTicket.innerText = `฿${formatMoney(revenueRows.length ? totalRevenue / revenueRows.length : 0)}`;
+            
+            dom.kpiTargetValue.innerText = selectedTarget ? `เป้า ฿${formatMoney(selectedTarget)}` : 'ไม่มีเป้าหมาย';
+            dom.kpiTargetPercent.innerText = selectedTarget ? `${targetPercent}%` : '-';
+            dom.targetProgressBar.style.width = selectedTarget ? `${Math.min(targetPercent, 100)}%` : '0%';
+            
+            if (selectedTarget) {
+                dom.kpiTargetGap.innerHTML = targetGap >= 0 
+                    ? `<span class="text-sky-500 font-normal"><i class="ph-bold ph-trend-up"></i> เกินเป้า ฿${formatMoney(targetGap)}</span>` 
+                    : `<span class="text-rose-400 font-normal"><i class="ph-bold ph-trend-down"></i> ขาดอีก ฿${formatMoney(Math.abs(targetGap))}</span>`;
+            } else {
+                dom.kpiTargetGap.innerText = 'โปรดระบุเป้ายอดขายใน Google Sheets';
+            }
+
+            // --- ยอดถอด VAT 7% เทียบเป้า ---
+            const revenueExVat = totalRevenue;
+            const exVatPercent = selectedTarget ? Math.round((revenueExVat / selectedTarget) * 100) : 0;
+            const exVatGap = revenueExVat - selectedTarget;
+
+            if (dom.kpiRevenueExVat) dom.kpiRevenueExVat.innerText = `฿${formatMoney(revenueExVat)}`;
+            if (dom.kpiExVatTargetValue) dom.kpiExVatTargetValue.innerText = selectedTarget ? `เป้า ฿${formatMoney(selectedTarget)}` : 'ไม่มีเป้าหมาย';
+            if (dom.kpiExVatTargetPercent) dom.kpiExVatTargetPercent.innerText = selectedTarget ? `${exVatPercent}%` : '-';
+            if (dom.exVatProgressBar) dom.exVatProgressBar.style.width = selectedTarget ? `${Math.min(exVatPercent, 100)}%` : '0%';
+            if (dom.kpiExVatGap) {
+                if (selectedTarget) {
+                    dom.kpiExVatGap.innerHTML = exVatGap >= 0
+                        ? `<span class="text-sky-500 font-normal"><i class="ph-bold ph-trend-up"></i> เกินเป้า ฿${formatMoney(exVatGap)}</span>`
+                        : `<span class="text-rose-400 font-normal"><i class="ph-bold ph-trend-down"></i> ขาดอีก ฿${formatMoney(Math.abs(exVatGap))}</span>`;
+                } else {
+                    dom.kpiExVatGap.innerText = '-';
+                }
+            }
+
+            dom.kpiBookings.innerText = revenueRows.length.toLocaleString('th-TH');
+            dom.kpiNewCustomers.innerText = newRevenueCustomers.length.toLocaleString('th-TH');
+            dom.kpiOldCustomers.innerText = oldRevenueCustomers.length.toLocaleString('th-TH');
+            
+            dom.snapshotTodaySales.innerText = `฿${formatMoney(todayRevenueSales)}`;
+            dom.snapshotTodayJobs.innerText = `${todayRevenueCustomers.length.toLocaleString('th-TH')} คิว`;
+
+            dom.kpiConversionRate.innerText = `${conversionRate}%`;
+            dom.kpiContacts.innerText = contactCount.toLocaleString('th-TH');
+            dom.kpiContactBookings.innerText = revenueCustomers.length.toLocaleString('th-TH');
+            // --- 3. อัปเดต ยอดขาย & ความเสียหาย ---
+            if (dom.salesSummaryCount) dom.salesSummaryCount.innerText = `${revenueRows.length.toLocaleString('th-TH')} คิว`;
+            if (dom.salesSummaryNet) dom.salesSummaryNet.innerText = `฿${formatMoney(totalRevenue)}`;
+            if (dom.salesSummaryGross) dom.salesSummaryGross.innerText = `฿${formatMoney(totalRevenueGross)}`;
+            if (dom.salesSummaryTargetValue) dom.salesSummaryTargetValue.innerText = selectedTarget ? `เป้า ฿${formatMoney(selectedTarget)}` : 'ไม่มีเป้าหมาย';
+            if (dom.salesSummaryTargetPercent) dom.salesSummaryTargetPercent.innerText = selectedTarget ? `${targetPercent}%` : '-';
+            if (dom.salesSummaryProgressBar) dom.salesSummaryProgressBar.style.width = selectedTarget ? `${Math.min(targetPercent, 100)}%` : '0%';
+            if (dom.salesSummaryTargetGap) {
+                if (selectedTarget) {
+                    dom.salesSummaryTargetGap.innerHTML = targetGap >= 0
+                        ? `<span class="text-sky-500 font-normal"><i class="ph-bold ph-trend-up"></i> เกินเป้า ฿${formatMoney(targetGap)}</span>`
+                        : `<span class="text-rose-400 font-normal"><i class="ph-bold ph-trend-down"></i> ขาดอีก ฿${formatMoney(Math.abs(targetGap))}</span>`;
+                } else {
+                    dom.salesSummaryTargetGap.innerText = 'โปรดระบุเป้ายอดขายใน Google Sheets';
+                }
+            }
+            if (dom.salesSummaryNewCount) dom.salesSummaryNewCount.innerText = `${newRevenueCustomers.length.toLocaleString('th-TH')} คัน`;
+            if (dom.salesSummaryOldCount) dom.salesSummaryOldCount.innerText = `${oldRevenueCustomers.length.toLocaleString('th-TH')} คัน`;
+            if (dom.salesSummaryContactChannels) {
+                const contactChannelTotals = groupSum(contactRows, item => item.channel, item => item.count);
+                const contactChannelIcons = {
+                    phone: 'ph-phone',
+                    line: 'ph-chat-teardrop-text',
+                    fb: 'ph-facebook-logo',
+                    tiktok: 'ph-music-notes',
+                    walkin: 'ph-storefront',
+                    other: 'ph-dots-three-circle'
+                };
+                dom.salesSummaryContactChannels.innerHTML = CONTACT_CHANNELS.map(channel => {
+                    const matched = Object.values(contactChannelTotals).find(item => normalizeText(item.label) === normalizeText(channel.label));
+                    const value = matched?.value || 0;
+                    const icon = contactChannelIcons[channel.key] || contactChannelIcons.other;
+                    return `<div class="sales-channel-item">
+                        <span class="sales-channel-icon" aria-hidden="true"><i class="ph ${icon}"></i></span>
+                        <span class="sales-channel-copy">
+                            <span class="sales-channel-name">${escapeHtml(channel.label)}</span>
+                            <strong class="sales-channel-value">${formatMoney(value)}</strong>
+                        </span>
+                    </div>`;
+                }).join('');
+            }
+
+            if (dom.damageSummaryClaimCount) dom.damageSummaryClaimCount.innerText = `${claims.length.toLocaleString('th-TH')} คัน`;
+            if (dom.damageSummaryClaimValue) dom.damageSummaryClaimValue.innerText = `฿${formatMoney(claimDamageValue)}`;
+            if (dom.damageSummaryRepairCount) dom.damageSummaryRepairCount.innerText = `${repairs.length.toLocaleString('th-TH')} คัน`;
+            if (dom.damageSummaryRepairValue) dom.damageSummaryRepairValue.innerText = `฿${formatMoney(repairDamageValue)}`;
+            if (dom.damageSummaryValue) dom.damageSummaryValue.innerText = `฿${formatMoney(damageValue)}`;
+            if (dom.damageSummaryRatio) dom.damageSummaryRatio.innerText = totalRevenue ? `${Math.round((damageValue / totalRevenue) * 100)}%` : '0%';
+
+            // --- 3.5 อัปเดต ตารางยอดขายรายวัน ---
+            const dailyData = {};
+            
+            // รวมข้อมูลยอดจอง/ยอดขาย
+            activeBookingRows.forEach(item => {
+                if (!item.date) return;
+                const dKey = dateKey(item.date);
+                if (!dailyData[dKey]) {
+                    dailyData[dKey] = {
+                        dateObj: item.date,
+                        newCount: 0,
+                        claimCount: 0,
+                        sales: 0,
+                        contactCount: 0
+                    };
+                }
+                if (isDailyNewOrOldBooking(item)) dailyData[dKey].newCount++;
+                if (isDailyClaimOrRepairBooking(item)) dailyData[dKey].claimCount++;
+                if (isOverviewSalesBooking(item)) dailyData[dKey].sales += item.price;
+            });
+
+            // รวมข้อมูลจำนวนการติดต่อ
+            contactRows.forEach(item => {
+                if (!item.date) return;
+                const dKey = dateKey(item.date);
+                if (!dailyData[dKey]) {
+                    dailyData[dKey] = {
+                        dateObj: item.date,
+                        newCount: 0,
+                        claimCount: 0,
+                        sales: 0,
+                        contactCount: 0
+                    };
+                }
+                dailyData[dKey].contactCount += item.count;
+            });
+
+            // เรียงลำดับจากวันที่ล่าสุดขึ้นก่อน
+            const sortedDays = Object.values(dailyData).sort((a, b) => b.dateObj - a.dateObj); 
+            const todayDateKey = dateKey(new Date());
+
+            if (sortedDays.length === 0) {
+                dom.dailySalesTableBody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-sm text-slate-400">ไม่มีข้อมูลยอดขายในเดือนนี้</td></tr>`;
+            } else {
+                dom.dailySalesTableBody.innerHTML = sortedDays.map(day => {
+                    const dStr = `${day.dateObj.getDate()}/${day.dateObj.getMonth() + 1}/${day.dateObj.getFullYear().toString().slice(-2)}`;
+                    const currentDayKey = dateKey(day.dateObj);
+                    const isToday = currentDayKey === todayDateKey;
+                    const queueUrl = `index.html?date=${encodeURIComponent(currentDayKey)}`;
+                    const dailySalesExVat = removeVat(day.sales);
+                    
+                    const trClass = isToday 
+                        ? "cursor-pointer bg-blue-50/80 hover:bg-blue-50 border-l-4 border-blue-700 ring-1 ring-inset ring-blue-100 transition-colors" 
+                        : "cursor-pointer hover:bg-slate-100/50 transition-colors";
+                    const dateTextClass = isToday ? "font-medium text-blue-800" : "font-normal text-slate-700";
+                    const todayBadge = isToday ? `
+                        <span class="ml-1.5 inline-flex h-5 w-5 items-center justify-center rounded-md bg-blue-700 text-white shadow-sm" title="วันนี้" aria-label="วันนี้">
+                            <i class="ph-fill ph-calendar-dot text-[12px]"></i>
+                        </span>
+                    ` : '';
+
+                    return `
+                        <tr class="${trClass}" onclick="window.location.href='${queueUrl}'" title="ดูคิววันที่ ${dStr}">
+                            <td class="py-3 px-3 ${dateTextClass} flex flex-row items-center gap-1">${dStr} ${todayBadge}</td>
+                            <td class="py-3 px-2 text-center whitespace-nowrap">
+                                <span class="font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md" title="จำนวนติดต่อ">${day.contactCount}</span>
+                            </td>
+                            <td class="py-3 px-2 text-center whitespace-nowrap">
+                                <span class="font-normal text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md" title="ลูกค้าใหม่ + ลูกค้าเก่า">${day.newCount}</span> 
+                                <span class="text-slate-300 mx-0.5 text-xs">/</span> 
+                                <span class="font-normal text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md" title="ลูกค้าเคลม + งานแก้(ในวัน)">${day.claimCount}</span>
+                            </td>
+                            <td class="py-3 px-3 text-right font-medium ${isToday ? 'text-blue-800' : 'text-blue-700'}">฿${formatMoney(dailySalesExVat)}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // --- 4. อัปเดต Charts & Rankings ---
+            const mix = topItems(groupSum(activeBookingRows, item => item.customerGroup, item => item.price), 5);
+            renderDonutChart(dom.customerDonutChart, mix, item => item.count, 'คิว', 'ไม่มีข้อมูล');
+            renderCompositionLegend(dom.customerMix, mix, item => item.count, 'คิว');
+
+            renderDonutChart(dom.contactDonutChart, contactChannelItems, item => item.value, 'ครั้ง', 'ไม่มีข้อมูล');
+            renderCompositionLegend(dom.contactChannels, contactChannelItems, item => item.value, 'ครั้ง');
+            const contactChannelsLayout = document.getElementById('contactChannelsLayout');
+            if (contactChannelsLayout) {
+                contactChannelsLayout.style.gridTemplateColumns = contactChannelItems.length ? '' : '1fr';
+                dom.contactChannels.classList.toggle('hidden', !contactChannelItems.length);
+            }
+
+            renderRankList(dom.salesRanking, topItems(groupSum(activeBookingRows, item => item.carModel), 10), item => `${item.count} คัน`);
+            renderRankList(dom.filmRanking, topItems(groupSum(activeBookingRows, item => item.film), 10), item => `${item.count} คัน`);
+            renderRankList(dom.installRanking, topItems(groupSum(activeBookingRows, item => item.installType, item => item.price), 10), item => `${item.count} คิว`);
+            window.OverviewPresentation?.update({ rows: bookings.filter(item => isActiveBooking(item) && isOverviewSalesBooking(item)), month });
+        }
+
+        async function fetchOverviewData() {
+            const memoRequest = fetchOverviewMemos();
+            dom.loadingMessage.classList.remove('hidden');
+            dom.errorMessage.classList.add('hidden');
+            dom.dashboardContent.classList.add('hidden');
+
+            try {
+                const [bookingText, targetText, legacyRows, reportRows] = await Promise.all([
+                    fetchCsvText(BOOKINGS_SHEET_NAME),
+                    fetchCsvText(SALES_TARGET_SHEET_NAME).catch(error => {
+                        console.warn(error.message);
+                        return '';
+                    }),
+                    fetchCsvText(CONTACT_SHEET_NAME).then(parseContactStatsCsv),
+                    fetchContactReport()
+                ]);
+                bookings = buildBookings(await parseCsv(bookingText));
+                salesTargets = targetText ? buildSalesTargets(await parseCsv(targetText)) : {};
+                contactStatsRows = CarContactReportSummary.mergeDailyRows(reportRows, legacyRows);
+                contacts = buildContacts(contactStatsRows);
+                populateMonthFilter();
+                renderDashboard();
+
+                dom.loadingMessage.classList.add('hidden');
+                dom.dashboardContent.classList.remove('hidden');
+                
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('th-TH', { hour: 'numeric', minute: '2-digit', hour12: false });
+                dom.lastUpdated.innerHTML = `<i class="ph-fill ph-check-circle text-sky-500"></i> อัปเดตล่าสุดเมื่อ ${timeString} น.`;
+            } catch (error) {
+                console.error(error);
+                dom.loadingMessage.classList.add('hidden');
+                dom.errorMessage.classList.remove('hidden');
+                dom.errorMessage.classList.add('flex');
+            } finally {
+                await memoRequest;
+            }
+        }
+
+        function initApp() {
+            cacheDom();
+            window.OverviewMemoManager?.init({ load: loadOverviewMemoRecords, publish: applyOverviewMemoRecords });
+            dom.monthFilter.addEventListener('change', renderDashboard);
+            dom.overviewMemoMore.addEventListener('click', openOverviewMemoViewDialog);
+            dom.overviewMemoList.addEventListener('click', event => {
+                if (event.target.closest('button')) openOverviewMemoViewDialog();
+            });
+            dom.overviewMemoRetry.addEventListener('click', fetchOverviewMemos);
+            dom.overviewMemoViewClose.addEventListener('click', () => dom.overviewMemoViewDialog.close());
+            dom.overviewMemoViewDialog.addEventListener('close', () => {
+                document.body.classList.remove('overview-memo-open');
+                if (memoViewPreviousFocus?.isConnected) memoViewPreviousFocus.focus();
+                memoViewPreviousFocus = null;
+            });
+            dom.overviewMemoViewDialog.addEventListener('click', event => {
+                if (event.target !== dom.overviewMemoViewDialog) return;
+                const rect = dom.overviewMemoViewDialog.getBoundingClientRect();
+                if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dom.overviewMemoViewDialog.close();
+            });
+            dom.overviewMemoClose.addEventListener('click', () => {
+                if (window.OverviewMemoManager?.canClose() !== false) dom.overviewMemoDialog.close();
+            });
+            dom.overviewMemoDialog.addEventListener('cancel', event => {
+                if (window.OverviewMemoManager?.canClose() === false) event.preventDefault();
+            });
+            dom.overviewMemoDialog.addEventListener('close', () => {
+                document.body.classList.remove('overview-memo-open');
+                if (memoPreviousFocus?.isConnected) memoPreviousFocus.focus();
+                memoPreviousFocus = null;
+            });
+            dom.overviewMemoDialog.addEventListener('click', event => {
+                if (event.target !== dom.overviewMemoDialog) return;
+                const rect = dom.overviewMemoDialog.getBoundingClientRect();
+                if ((event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) && window.OverviewMemoManager?.canClose() !== false) dom.overviewMemoDialog.close();
+            });
+            fetchOverviewData();
+        }
+
+        function startAppOnce() {
+            if (appHasStarted) return;
+            appHasStarted = true;
+            initApp();
+        }
+
+        function unlockPage() {
+            document.body.classList.remove('auth-locked');
+            startAppOnce();
+        }
+
+        function setupLogin() {
+            cacheDom();
+            window.CarCrmAuth.onLogin(unlockPage);
+            if (window.CarCrmAuth.isLoggedIn()) {
+                unlockPage();
+                return;
+            }
+
+            dom.loginForm.addEventListener('submit', async event => {
+                event.preventDefault();
+                if (await window.CarCrmAuth.login(dom.loginUser.value.trim(), dom.loginPass.value)) {
+                    dom.loginError.classList.add('hidden');
+                    unlockPage();
+                    return;
+                }
+
+                dom.loginError.classList.remove('hidden');
+                dom.loginPass.select();
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', setupLogin);
+    </script>
+</body>
+</html>
