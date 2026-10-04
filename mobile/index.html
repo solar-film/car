@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="color-scheme" content="light">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self' https://docs.google.com https://script.google.com https://script.googleusercontent.com;">
+  <title>ตารางนัดติดตั้งฟิล์ม</title>
+  <link rel="manifest" href="./manifest.webmanifest?v=6">
+  <link rel="icon" href="./icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="stylesheet" href="./styles.css?v=8">
+  <script src="./core.js?v=11" defer></script>
+  <script src="./app.js?v=13" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="CAR CRM Mobile">
+        <span class="brand-mark" aria-hidden="true">
+          <img src="./icon-192.png" alt="">
+        </span>
+        <span>
+          <strong>ตารางนัดติดตั้งฟิล์ม</strong>
+          <small id="connectionText">กำลังเชื่อมต่อข้อมูล…</small>
+        </span>
+      </div>
+      <button id="refreshButton" class="icon-button" type="button" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7l-1.4-1.4A6 6 0 1 1 18 11h-3l4 4 4-4h-3Z"/></svg>
+      </button>
+    </header>
+
+    <main>
+      <section class="filters" aria-label="ตัวกรองตารางนัดหมาย">
+        <div class="date-controls">
+          <div class="filter-heading">
+            <label for="dateFilter">วันที่ติดตั้ง</label>
+            <button id="todayButton" class="today-button" type="button">วันนี้</button>
+          </div>
+          <div class="date-row">
+          <button id="previousDateButton" class="date-nav" type="button" aria-label="วันก่อนหน้า">‹</button>
+          <div class="date-field">
+            <input id="dateFilter" type="date" autocomplete="off">
+          </div>
+          <button id="nextDateButton" class="date-nav" type="button" aria-label="วันถัดไป">›</button>
+          </div>
+        </div>
+        <label class="search-field">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20.7 19.3-4.1-4.1a7 7 0 1 0-1.4 1.4l4.1 4.1 1.4-1.4ZM5 11a6 6 0 1 1 12 0 6 6 0 0 1-12 0Z"/></svg>
+          <span class="sr-only">ค้นหานัดหมาย</span>
+          <input id="searchInput" type="search" placeholder="ค้นหาชื่อ ทะเบียน หรือ JobID" autocomplete="off">
+        </label>
+      </section>
+
+      <section class="summary-bar" aria-live="polite">
+        <div>
+          <strong id="selectedDateLabel">—</strong>
+          <span id="appointmentCount">0 คิว</span>
+        </div>
+        <small>ไม่รวมรายการที่ยกเลิก</small>
+      </section>
+
+      <section class="sales-summary" aria-live="polite">
+        <div>
+          <span>สรุปยอดขาย</span>
+          <small>รวมเฉพาะรายการที่แสดงและไม่ยกเลิก</small>
+        </div>
+        <strong id="salesTotal">0 บาท</strong>
+      </section>
+
+      <div id="messageBox" class="message hidden" role="status"></div>
+
+      <section class="schedule-panel" aria-labelledby="scheduleHeading">
+        <div class="panel-heading">
+          <h1 id="scheduleHeading">นัดหมายติดตั้ง</h1>
+          <span id="lastUpdated"></span>
+        </div>
+
+        <div id="loadingState" class="state-box">
+          <span class="spinner" aria-hidden="true"></span>
+          <p>กำลังโหลดตารางนัดหมาย…</p>
+        </div>
+
+        <div id="emptyState" class="state-box hidden">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h2v2h6V2h2v2h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V2Zm12 8H5v9h14v-9ZM5 8h14V6H5v2Z"/></svg>
+          <strong>ไม่พบนัดหมายในวันที่เลือก</strong>
+          <span>ลองเลือกวันอื่นหรือค้นหาด้วยข้อมูลอื่น</span>
+        </div>
+
+        <div id="tableWrap" class="table-wrap hidden">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">เวลา</th>
+                <th scope="col">รายละเอียดนัดหมาย</th>
+                <th class="pay-column" scope="col">PayIn</th>
+              </tr>
+            </thead>
+            <tbody id="scheduleBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="payInDialog" class="payin-dialog" aria-labelledby="payInTitle">
+    <div class="dialog-shell">
+      <header class="dialog-header">
+        <div>
+          <span class="eyebrow">การชำระเงิน</span>
+          <h2 id="payInTitle">บันทึก PayIn</h2>
+        </div>
+        <button id="closeDialogButton" class="icon-button muted" type="button" aria-label="ปิดหน้าต่าง">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.7 5.3-1.4 1.4 5.3 5.3-5.3 5.3 1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3-5.3-5.3Z"/></svg>
+        </button>
+      </header>
+
+      <form id="payInForm" novalidate>
+        <div class="dialog-scroll">
+          <section class="job-summary" aria-label="ข้อมูลงาน">
+            <div><span>JobID</span><strong id="formJobId">—</strong></div>
+            <div><span>ยอดงาน</span><strong id="formJobPrice">—</strong></div>
+            <div><span>ลูกค้า</span><strong id="formCustomer">—</strong></div>
+            <div><span>รถ / ทะเบียน</span><strong id="formCar">—</strong></div>
+          </section>
+
+          <div class="form-grid">
+            <label class="field full">
+              <span>สถานะ <b>*</b></span>
+              <select id="paymentStatus" name="สถานะ" required>
+                <option value="ชำระครบ">ชำระครบ</option>
+                <option value="มัดจำ">มัดจำ</option>
+                <option value="รอชำระ">รอชำระ</option>
+                <option value="ลค.เครดิต">ลค.เครดิต</option>
+                <option value="ยกเว้น">ยกเว้น</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>ประเภทการชำระ</span>
+              <select id="paymentType" name="ประเภทการชำระ">
+                <option value="">— เลือก —</option>
+                <option value="เงินสด">เงินสด</option>
+                <option value="เงินโอน">เงินโอน</option>
+                <option value="บัตรเครดิต">บัตรเครดิต</option>
+                <option value="เงินสด, เงินโอน">เงินสด, เงินโอน</option>
+                <option value="เงินสด, บัตรเครดิต">เงินสด, บัตรเครดิต</option>
+                <option value="เงินโอน, บัตรเครดิต">เงินโอน, บัตรเครดิต</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>ยอดเงิน (บาท) <b>*</b></span>
+              <input id="paymentAmount" name="ยอดเงิน(บาท)" type="number" min="0" step="0.01" inputmode="decimal" required placeholder="0">
+            </label>
+            <label class="field">
+              <span>เลขที่บิล/ใบเสร็จ</span>
+              <input id="billNumber" name="เลขที่บิล/ใบเสร็จ" type="text" autocomplete="off" placeholder="CV-…">
+            </label>
+            <label class="field">
+              <span>ใบเสนอราคา</span>
+              <input id="quotationNumber" name="ใบเสนอราคา" type="text" autocomplete="off" placeholder="QT-…">
+            </label>
+            <label class="field full">
+              <span>หมายเหตุ</span>
+              <textarea id="paymentNote" name="หมายเหตุ" rows="2" placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"></textarea>
+            </label>
+          </div>
+
+          <section class="proof-section" aria-labelledby="proofHeading">
+            <div class="proof-heading">
+              <div>
+                <h3 id="proofHeading">รูปสลิปการชำระเงิน</h3>
+                <p>ถ่ายจากกล้องหรือเลือกรูปในเครื่องได้สูงสุด 4 รูป</p>
+              </div>
+              <span>JPG / PNG / WebP</span>
+            </div>
+
+            <div class="proof-grid">
+              <article class="proof-card" data-proof-card="1">
+                <div class="proof-card-title"><strong>รูปหลัก</strong><button class="proof-remove hidden" type="button" data-remove-proof="1">ยกเลิกรูปใหม่</button></div>
+                <div id="proofPreview1" class="proof-preview"><span>ยังไม่มีรูป</span></div>
+                <div class="proof-actions">
+                  <label class="camera-button" for="proofCamera1">ถ่ายรูป</label>
+                  <label class="gallery-button" for="proofFile1">เลือกรูป</label>
+                </div>
+                <input id="proofCamera1" class="visually-hidden-file" type="file" accept="image/*" capture="environment" data-proof-input="1">
+                <input id="proofFile1" class="visually-hidden-file" type="file" accept="image/*" data-proof-input="1">
+                <p id="proofStatus1" class="proof-status"></p>
+              </article>
+
+              <article class="proof-card" data-proof-card="2">
+                <div class="proof-card-title"><strong>รูปเพิ่มเติม</strong><button class="proof-remove hidden" type="button" data-remove-proof="2">ยกเลิกรูปใหม่</button></div>
+                <div id="proofPreview2" class="proof-preview"><span>ยังไม่มีรูป</span></div>
+                <div class="proof-actions">
+                  <label class="camera-button" for="proofCamera2">ถ่ายรูป</label>
+                  <label class="gallery-button" for="proofFile2">เลือกรูป</label>
+                </div>
+                <input id="proofCamera2" class="visually-hidden-file" type="file" accept="image/*" capture="environment" data-proof-input="2">
+                <input id="proofFile2" class="visually-hidden-file" type="file" accept="image/*" data-proof-input="2">
+                <p id="proofStatus2" class="proof-status"></p>
+              </article>
+
+              <article class="proof-card" data-proof-card="3">
+                <div class="proof-card-title"><strong>รูปเพิ่มเติม 2</strong><button class="proof-remove hidden" type="button" data-remove-proof="3">ยกเลิกรูปใหม่</button></div>
+                <div id="proofPreview3" class="proof-preview"><span>ยังไม่มีรูป</span></div>
+                <div class="proof-actions">
+                  <label class="camera-button" for="proofCamera3">ถ่ายรูป</label>
+                  <label class="gallery-button" for="proofFile3">เลือกรูป</label>
+                </div>
+                <input id="proofCamera3" class="visually-hidden-file" type="file" accept="image/*" capture="environment" data-proof-input="3">
+                <input id="proofFile3" class="visually-hidden-file" type="file" accept="image/*" data-proof-input="3">
+                <p id="proofStatus3" class="proof-status"></p>
+              </article>
+
+              <article class="proof-card" data-proof-card="4">
+                <div class="proof-card-title"><strong>รูปเพิ่มเติม 3</strong><button class="proof-remove hidden" type="button" data-remove-proof="4">ยกเลิกรูปใหม่</button></div>
+                <div id="proofPreview4" class="proof-preview"><span>ยังไม่มีรูป</span></div>
+                <div class="proof-actions">
+                  <label class="camera-button" for="proofCamera4">ถ่ายรูป</label>
+                  <label class="gallery-button" for="proofFile4">เลือกรูป</label>
+                </div>
+                <input id="proofCamera4" class="visually-hidden-file" type="file" accept="image/*" capture="environment" data-proof-input="4">
+                <input id="proofFile4" class="visually-hidden-file" type="file" accept="image/*" data-proof-input="4">
+                <p id="proofStatus4" class="proof-status"></p>
+              </article>
+            </div>
+          </section>
+
+          <div id="formMessage" class="form-message hidden" role="alert"></div>
+          <p class="token-note">Write Token จะถามเฉพาะครั้งแรกบนอุปกรณ์นี้ และเก็บไว้ในเบราว์เซอร์เครื่องนี้</p>
+        </div>
+
+        <footer class="dialog-footer">
+          <button id="cancelPayInButton" class="secondary-button" type="button">ยกเลิก</button>
+          <button id="savePayInButton" class="primary-button" type="submit">บันทึก PayIn</button>
+        </footer>
+      </form>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <noscript>หน้านี้ต้องเปิดใช้งาน JavaScript เพื่ออ่านตารางนัดหมาย</noscript>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="CAR CRM">
+  <defs>
+    <linearGradient id="blue" x1="28" y1="18" x2="228" y2="242" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3b82f6"/>
+      <stop offset=".52" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#087fce"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="91" y1="88" x2="162" y2="129" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2459cb"/>
+      <stop offset="1" stop-color="#53bdf4"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(57 28) rotate(55) scale(170)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".24"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="58" fill="url(#blue)"/>
+  <rect x="8" y="8" width="240" height="240" rx="58" fill="url(#glow)"/>
+  <rect x="9" y="9" width="238" height="238" rx="57" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="2"/>
+  <path d="m58 133 18-45c3-8 11-13 20-13h64c9 0 17 5 20 13l18 45" fill="#f8fbff"/>
+  <path d="m80 120 12-29h72l12 29H80Z" fill="url(#glass)"/>
+  <path d="m101 91-12 29h18l12-29h-18Z" fill="#b7e8ff" opacity=".38"/>
+  <rect x="34" y="116" width="23" height="15" rx="7.5" fill="#f8fbff"/>
+  <rect x="199" y="116" width="23" height="15" rx="7.5" fill="#f8fbff"/>
+  <rect x="43" y="126" width="170" height="62" rx="23" fill="#f8fbff"/>
+  <rect x="61" y="181" width="24" height="22" rx="7" fill="#f8fbff"/>
+  <rect x="171" y="181" width="24" height="22" rx="7" fill="#f8fbff"/>
+  <rect x="62" y="146" width="33" height="14" rx="7" fill="#2865d6"/>
+  <rect x="161" y="146" width="33" height="14" rx="7" fill="#2865d6"/>
+  <rect x="112" y="150" width="32" height="7" rx="3.5" fill="#adcafa"/>
+  <path d="M96 174h64" stroke="#adcafa" stroke-width="6" stroke-linecap="round"/>
+</svg>
