@@ -32,6 +32,7 @@
         if (statuses.includes(previousStatus)) $('lead-status').value = previousStatus;
     }
     let records = { leads: [], installations: [] }, saveEditor, legacy = [], legacySources = null, request = 0, connection = 0;
+    let leadEditorSnapshot = '', leadEditorHistoryChanged = false;
     let savedLeadRevision = 0;
     let accessKey = sessionStorage.getItem('carLeadAccessKey') || '';
     let rangeMode = '7', rangeStart = '', rangeEnd = '';
@@ -518,12 +519,27 @@
     }
     function editor(title, html, save) {
         $('save-editor').hidden = false; $('editor').querySelector('.sheet-save-hint').hidden = false;
+        $('book-lead-installation').hidden = true;
+        $('book-lead-installation').onclick = null;
         $('editor-title').textContent = title; $('editor-fields').innerHTML = html; $('editor-error').textContent = '';
         const sheetForm = html.includes('sheet-form-section');
         $('editor').classList.toggle('sheet-editor', sheetForm);
         $('cancel-editor').textContent = save ? 'ยกเลิก' : 'ปิด';
         $('save-editor').textContent = sheetForm ? 'บันทึกข้อมูล' : 'บันทึก';
         saveEditor = save; $('editor').showModal();
+    }
+    function getLeadEditorSnapshot() {
+        return JSON.stringify(Array.from(new FormData($('editor-form'))));
+    }
+    function openBookingFromLead(lead) {
+        if ($('editor-form').getAttribute('aria-busy') === 'true') return;
+        const customerId = String(lead.customerId || '').trim();
+        if (!customerId) { $('editor-error').textContent = 'กรุณาเพิ่มข้อมูลลูกค้าก่อนนัดคิวติดตั้ง'; return; }
+        if (getLeadEditorSnapshot() !== leadEditorSnapshot || $('history-text').value.trim() || leadEditorHistoryChanged) {
+            $('editor-error').textContent = 'กรุณาบันทึกข้อมูลที่แก้ไขก่อนนัดคิวติดตั้ง';
+            return;
+        }
+        location.href = 'customer-data.html?bookingCustomer=' + encodeURIComponent(customerId);
     }
     async function editLead(lead = {}, contact = null) {
         requireSession();
@@ -701,8 +717,16 @@
             const now=Date.now(), at=new Date(now+7*3600000).toISOString().slice(0,19);
             updateDefaultReminder(now);
             contactHistory.push({id:crypto.randomUUID(),at,by,text});
+            leadEditorHistoryChanged = true;
             $('history-text').value=''; $('history-error').textContent='เพิ่มแล้ว · รอกดบันทึกข้อมูล'; renderHistory();
         };
+        const bookingButton = $('book-lead-installation');
+        bookingButton.hidden = false;
+        bookingButton.disabled = !String(lead.customerId || '').trim();
+        bookingButton.title = bookingButton.disabled ? 'เพิ่มข้อมูลลูกค้าก่อนนัดคิวติดตั้ง' : 'เปิดฟอร์มนัดคิวติดตั้งสำหรับลูกค้ารายนี้';
+        bookingButton.onclick = () => openBookingFromLead(lead);
+        leadEditorHistoryChanged = false;
+        leadEditorSnapshot = getLeadEditorSnapshot();
         if (platform === 'sheet-lead') {
             $('editor-title').textContent = 'แก้ไขข้อมูลจากชีต lead';
             $('save-editor').textContent = 'บันทึกการแก้ไข';
@@ -881,6 +905,8 @@
         $('save-editor').innerHTML = '<span class="save-spinner" aria-hidden="true"></span>กำลังบันทึก…';
         $('save-editor').setAttribute('aria-live','polite');
         $('editor-form').setAttribute('aria-busy','true');
+        const bookingDisabled = $('book-lead-installation').disabled;
+        $('book-lead-installation').disabled = true;
         $('close-editor').disabled = true; $('cancel-editor').disabled = true;
         $('editor-error').textContent = '';
         try {
@@ -906,6 +932,7 @@
         finally {
             $('save-editor').textContent = saveLabel; $('save-editor').disabled = false;
             $('editor-form').removeAttribute('aria-busy');
+            $('book-lead-installation').disabled = bookingDisabled;
             $('close-editor').disabled = false; $('cancel-editor').disabled = false;
         }
     });

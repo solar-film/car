@@ -151,6 +151,9 @@ input[type=search] { min-width:240px; flex:1; }
 .sheet-editor .sheet-save-hint { display:flex; align-items:center; gap:7px; margin-right:auto; color:#73849b; font-size:11px; }
 .sheet-save-dot { width:6px; height:6px; border-radius:50%; background:#20a47a; }
 .sheet-editor footer .lead-button { padding:8px 17px; border-radius:10px; font-size:12px; font-weight:600; }
+.sheet-editor footer .lead-button.booking { background:#ecfdf5; color:#047857; border-color:#a7f3d0; }
+.sheet-editor footer .lead-button.booking:hover:not(:disabled) { background:#d1fae5; border-color:#6ee7b7; }
+#editor.sheet-editor footer { flex-wrap:wrap; }
 .sheet-editor #save-editor { background:linear-gradient(120deg,#2563eb,#4f46e5); box-shadow:0 3px 8px #2563eb25; border-color:#2563eb; }
 .sheet-editor #save-editor:hover { background:#1d4ed8; }
 .sheet-editor #save-editor:disabled { opacity:.55; cursor:wait; }

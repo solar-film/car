@@ -1154,9 +1154,13 @@ document.addEventListener('DOMContentLoaded',()=>{
                 // Fetch booking counts (โหลดคู่ขนานกับลูกค้า)
                 fetchBookingCounts();
                 // Fetch dropdown options สำหรับฟอร์มเพิ่มคิวจอง
-                fetchBookingDropdowns();
+                const bookingDropdownsReady = fetchBookingDropdowns();
                 // Fetch existing customers
-                fetchExistingCustomers();
+                const customersReady = fetchExistingCustomers();
+                if (new URLSearchParams(window.location.search).has('bookingCustomer')) {
+                    const [, customersLoaded] = await Promise.all([bookingDropdownsReady, customersReady]);
+                    handleBookingCustomerParam(customersLoaded);
+                }
 
             } catch (err) {
                 console.error("Error loading dropdown:", err);
@@ -1784,13 +1788,12 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
 
         async function fetchBookingDropdowns() {
-            // โหลด dropdown แบบ select ปกติ
-            fetchDropdownColumn('Car_model', 'รุ่นรถยนต์', 'bk-carModelOptions', '');
-            fetchDropdownColumn('film_Brand', 'ยี่ห้อฟิล์ม', 'bk-filmBrand', '-- เลือกยี่ห้อฟิล์ม --');
-            // โหลดตำแหน่งติดตั้งเป็น multi-select checkbox
-            fetchInstallPosOptions();
-            // โหลดโปรโมชั่นจากชีต Promotion (เฉพาะ Status = ON)
-            fetchPromotions();
+            await Promise.all([
+                fetchDropdownColumn('Car_model', 'รุ่นรถยนต์', 'bk-carModelOptions', ''),
+                fetchDropdownColumn('film_Brand', 'ยี่ห้อฟิล์ม', 'bk-filmBrand', '-- เลือกยี่ห้อฟิล์ม --'),
+                fetchInstallPosOptions(),
+                fetchPromotions()
+            ]);
         }
 
         let promotionOptions = [];
@@ -2560,6 +2563,30 @@ document.addEventListener('DOMContentLoaded',()=>{
             } finally {
                 document.getElementById('loadingOverlay').classList.add('hidden');
                 document.getElementById('loadingText').innerText = 'กำลังบันทึกข้อมูล...';
+            }
+        }
+
+        function handleBookingCustomerParam(customersLoaded) {
+            const params = new URLSearchParams(window.location.search);
+            if (!params.has('bookingCustomer')) return;
+            const requestedIds = params.getAll('bookingCustomer');
+            const custId = requestedIds[0];
+            if (!customersLoaded) {
+                showAlert('ไม่สามารถนัดคิวติดตั้งได้', 'โหลดข้อมูลลูกค้าไม่สำเร็จ กรุณาลองใหม่', 'error');
+                return;
+            }
+            const matches = allCustomers.filter(customer => String(customer.id) === custId);
+            if (requestedIds.length !== 1 || !custId || custId === '-' || matches.length !== 1) {
+                showAlert('ไม่สามารถนัดคิวติดตั้งได้', matches.length > 1 || requestedIds.length > 1
+                    ? 'พบรหัสลูกค้าซ้ำ กรุณาตรวจสอบข้อมูลลูกค้า'
+                    : 'ไม่พบรหัสลูกค้าที่ต้องการ กรุณาตรวจสอบข้อมูลลูกค้า', 'error');
+                return;
+            }
+            openBookingModal(matches[0].id, matches[0].name);
+            if (window.history && window.history.replaceState) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('bookingCustomer');
+                window.history.replaceState(window.history.state, document.title, `${url.pathname}${url.search}${url.hash}`);
             }
         }
 

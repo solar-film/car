@@ -9,12 +9,12 @@
     <link rel="apple-touch-icon" href="images/car-crm-app-192.png?v=20261002-2">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="lead-data.css?v=20261005-history-2">
+    <link rel="stylesheet" href="lead-data.css?v=20261005-booking-1">
     <script src="sidebar.js" defer></script>
     <script src="lead-data-core.js" defer></script>
     <script src="crm-auth.js?v=20261004-lead-1" defer></script>
     <script src="lead-sheet.js?v=20261005-reminder-1"></script>
-    <script src="lead-data-app.js?v=20261005-history-2" defer></script>
+    <script src="lead-data-app.js?v=20261005-booking-1" defer></script>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
 </head>
 <body class="text-slate-800 min-h-screen flex flex-col">
@@ -71,7 +71,7 @@
             </section>
         </div>
     </main>
-    <dialog id="editor" class="lead-dialog"><form id="editor-form"><header><div class="editor-heading"><span class="editor-eyebrow">CAR CRM <span>•</span> LEAD</span><h2 id="editor-title"></h2></div><button type="button" id="close-editor" class="lead-button" aria-label="ปิดหน้าต่าง">ปิด</button></header><div id="editor-fields" class="lead-field-grid"></div><p id="editor-error" role="alert"></p><footer><span class="sheet-save-hint"><span class="sheet-save-dot"></span>บันทึกลงชีต lead</span><button type="button" id="cancel-editor" class="lead-button">ยกเลิก</button><button id="save-editor" class="lead-button primary">บันทึก</button></footer></form></dialog>
+    <dialog id="editor" class="lead-dialog"><form id="editor-form"><header><div class="editor-heading"><span class="editor-eyebrow">CAR CRM <span>•</span> LEAD</span><h2 id="editor-title"></h2></div><button type="button" id="close-editor" class="lead-button" aria-label="ปิดหน้าต่าง">ปิด</button></header><div id="editor-fields" class="lead-field-grid"></div><p id="editor-error" role="alert"></p><footer><span class="sheet-save-hint"><span class="sheet-save-dot"></span>บันทึกลงชีต lead</span><button type="button" id="cancel-editor" class="lead-button">ยกเลิก</button><button type="button" id="book-lead-installation" class="lead-button booking" hidden>นัดคิวติดตั้ง</button><button id="save-editor" class="lead-button primary">บันทึก</button></footer></form></dialog>
     <dialog id="legacy-dialog" class="lead-dialog"><header><h2>ตรวจประวัติก่อนนำเข้า</h2><button id="close-legacy" class="lead-button">ปิด</button></header><p id="legacy-count"></p><p class="lead-muted">เก็บทุกแถว รวมงานยกเลิก พร้อมข้อมูลต้นฉบับทุกคอลัมน์ · JobID เดิมจะไม่ถูกนำเข้าซ้ำ</p><div id="legacy-preview" class="lead-list"></div><p id="legacy-error" role="alert"></p><footer><button id="import-legacy" class="lead-button primary">นำเข้าประวัติทั้งหมด</button></footer></dialog>
 </body>
 </html>
