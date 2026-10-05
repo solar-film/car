@@ -572,6 +572,8 @@
         for (const entry of lead.contactHistory || []) {
             if (!contactHistory.some(item => entry.id && item.id === entry.id || item.at === entry.at && item.by === entry.by && item.text === entry.text)) contactHistory.push(entry);
         }
+        const savedHistory = new Map(contactHistory.filter(item => item.id).map(item => [String(item.id),{...item}]));
+        const removedHistory = [];
         const initialHistory = isNewLead && !contactHistory.length
             ? {id:crypto.randomUUID(),at:new Date(Date.now()+7*3600000).toISOString().slice(0,16),by:'ระบบ',text:'เริ่มต้นการติดต่อใหม่'} : null;
         if (initialHistory) contactHistory.push(initialHistory);
@@ -657,6 +659,7 @@
                 else { const item=contactHistory.find(item=>item.id===statusChangeId); item.text=text; }
             } else { const index=contactHistory.findIndex(item=>item.id===statusChangeId); if(index>=0)contactHistory.splice(index,1); }
             values.contactHistory = contactHistory;
+            values.deletedContactHistory = removedHistory.filter(item => savedHistory.has(String(item.id))).map(item => ({...savedHistory.get(String(item.id))}));
             const saved = await window.CarLeadSheet.save(key,values,platform === 'sheet-lead' || lead.sheetSavedAt ? originalSheetData : null);
             if (typeof saved.followUp === 'string') values.followUp = saved.followUp;
             if (Array.isArray(saved.contactHistory)) values.contactHistory = saved.contactHistory.map(item => ({...item}));
@@ -722,12 +725,29 @@
             })();
         }
         const renderHistory = () => {
-            $('contact-history-list').innerHTML = contactHistory.slice().sort((a,b) => b.at.localeCompare(a.at)).map(item => '<article class="contact-history-entry"><div class="contact-history-header"><time>' + esc(item.at.replace('T',' ')) + '</time><span>' + esc(item.by) + '</span></div><p>' + esc(item.text) + '</p></article>').join('') || '<p class="lead-muted">ยังไม่มีประวัติ</p>';
+            const entries = contactHistory.map((item,index) => ({item,index})).sort((a,b) => String(b.item.at).localeCompare(String(a.item.at))).map(({item,index}) => '<article class="contact-history-entry"><div class="contact-history-header"><time>' + esc(String(item.at).replace('T',' ')) + '</time><div class="contact-history-actions"><span>' + esc(item.by) + '</span><button type="button" class="contact-history-delete" data-delete-history="' + index + '" aria-label="ลบประวัติ ' + esc(String(item.at).replace('T',' ')) + '">ลบ</button></div></div><p>' + esc(item.text) + '</p></article>').join('');
+            const removed = removedHistory.map((item,index) => '<div class="contact-history-pending"><span>รอลบ: ' + esc(item.text) + '</span><button type="button" class="contact-history-undo" data-restore-history="' + index + '">คืนค่า</button></div>').join('');
+            $('contact-history-list').innerHTML = (entries || '<p class="lead-muted">ยังไม่มีประวัติ</p>') + removed;
         };
         let customReminder = window.CarLeadSheet.validReminderDate(storedReminderDate);
         $('history-reminder-date').addEventListener('input',() => { customReminder = true; });
         const updateDefaultReminder = now => {
             if (!customReminder) $('history-reminder-date').value = new Date(now + 7*3600000 + followUpAlertDays*86400000).toISOString().slice(0,10);
+        };
+        $('contact-history-list').onclick = event => {
+            if ($('editor-form').getAttribute('aria-busy') === 'true') return;
+            const remove = event.target.closest('[data-delete-history]');
+            const restore = event.target.closest('[data-restore-history]');
+            if (!remove && !restore) return;
+            const list = remove ? contactHistory : removedHistory;
+            const index = Number(remove ? remove.dataset.deleteHistory : restore.dataset.restoreHistory);
+            if (!Number.isInteger(index) || index < 0 || index >= list.length) return;
+            const [item] = list.splice(index,1);
+            (remove ? removedHistory : contactHistory).push(item);
+            leadEditorHistoryChanged = true;
+            if (!customReminder) $('history-reminder-date').value = defaultReminderDate({...lead,note:previous.note,sheetData:{...lead.sheetData,note:previous.note},contactHistory});
+            $('history-error').textContent = remove ? 'ลบแล้ว · รอกดบันทึกข้อมูล' : 'คืนค่าประวัติแล้ว · รอกดบันทึกข้อมูล';
+            renderHistory();
         };
         renderHistory();
         $('add-contact-history').onclick = () => {

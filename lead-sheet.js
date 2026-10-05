@@ -17,6 +17,19 @@ window.CarLeadSheet = (() => {
         const parsed = splitHistory(values.note);
         const reminder = splitReminder(parsed.note);
         const note = joinReminder(reminder.note, values.reminderDate ?? reminder.reminderDate);
+        const deleted = values.deletedContactHistory ?? [];
+        if (!Array.isArray(deleted) || deleted.some(item => !item || !String(item.id || '').trim() || typeof item.at !== 'string' || typeof item.by !== 'string' || typeof item.text !== 'string') || new Set(deleted.map(item => String(item.id))).size !== deleted.length) {
+            throw new Error('รายการประวัติที่ต้องการลบไม่ถูกต้อง');
+        }
+        if (deleted.length) {
+            let readiness;
+            try {
+                const response = await fetch(url + '?contactHistoryDeletionCheck=1&_=' + Date.now(), {cache:'no-store',signal:AbortSignal.timeout(15000)});
+                if (!response.ok) throw new Error();
+                readiness = await response.json();
+            } catch { throw new Error('ยังตรวจความพร้อมการลบประวัติไม่ได้ จึงยังไม่บันทึกข้อมูล กรุณาลองใหม่'); }
+            if (!(readiness.contactHistoryDeletion >= 1)) throw new Error('Apps Script ยังไม่รองรับการลบประวัติ กรุณาอัปเดตเวอร์ชันก่อนบันทึก');
+        }
         let token = sessionToken;
         try { if (!ignoreStoredToken) token ||= localStorage.getItem('carCrmWriteToken') || ''; } catch {}
         if (!token) token = (window.prompt('กรุณาใส่ Write Token ของ CAR CRM เพื่อบันทึกลงชีต lead') || '').trim();
@@ -24,6 +37,7 @@ window.CarLeadSheet = (() => {
         const data = Object.fromEntries(fields.map(([name,label]) => [label,String(values[name] || '')]));
         data['*หมายเหตุ'] = note;
         data.contactHistory = values.contactHistory || parsed.history;
+        if (deleted.length) data.deletedContactHistory = deleted.map(item => ({id:String(item.id),at:item.at,by:item.by,text:item.text}));
         let response;
         try {
             response = await fetch(url, {method:'POST',body:JSON.stringify({action:previous ? 'updateLeadSheet' : 'upsertLead',sheetName:'lead',leadKey:key,data,previous:previous ? Object.fromEntries(fields.map(([name,label]) => [label,String(previous[name] ?? '')])) : undefined,token}),signal:AbortSignal.timeout(60000)});
@@ -38,6 +52,13 @@ window.CarLeadSheet = (() => {
         }
         if (data.contactHistory.length && result.historyVerified !== true) {
             throw new Error('บันทึกลีดแล้ว แต่ยังยืนยันชีตประวัติการติดต่อไม่ได้ กรุณาลองบันทึกซ้ำ');
+        }
+        if (deleted.length) {
+            const ids = deleted.map(item => String(item.id));
+            const confirmed = result.deletedContactHistoryIds;
+            if (result.historyDeletionVerified !== true || result.historyVerified !== true || !Array.isArray(confirmed) || confirmed.length !== ids.length || new Set(confirmed).size !== ids.length || !ids.every(id => confirmed.includes(id)) || !Array.isArray(result.contactHistory) || result.contactHistory.some(item => ids.includes(String(item.id)))) {
+                throw new Error('ยังยืนยันการลบประวัติไม่ได้ กรุณาลองบันทึกซ้ำด้วยรายการเดิม');
+            }
         }
         sessionToken = token;
         try { localStorage.setItem('carCrmWriteToken', token); ignoreStoredToken = false; } catch {} 

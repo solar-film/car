@@ -1308,7 +1308,8 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.crmAuth === '1') return carCrmAuthStatus_();
   if (e && e.parameter && e.parameter.crmLead === '1') return carCrmAuthJson_({leadServiceVersion:1});
   const available = Object.keys(SCHEMA).join(', ');
-  const response = { status: 'API ready', backendVersion: BACKEND_VERSION, sheets: available, leadSheetApi: 3 };
+  const response = { status: 'API ready', backendVersion: BACKEND_VERSION, sheets: available, leadSheetApi: 3,
+    contactHistoryDeletion: typeof CAR_CONTACT_HISTORY_DELETE_VERSION_ === 'number' ? CAR_CONTACT_HISTORY_DELETE_VERSION_ : 0 };
   if (String(e && e.parameter && e.parameter.driveCheck || '') === '1') {
     try {
       const authorization = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL, [
