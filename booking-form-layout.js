@@ -59,6 +59,74 @@ function hideBookingReferenceModal(afterClose) {
 window.showBookingReferenceModal = showBookingReferenceModal;
 window.hideBookingReferenceModal = hideBookingReferenceModal;
 
+function setupBookingReferenceDropdowns(modal, form, footer) {
+    const dropdowns = [
+        ['bk-filmBrandOptions', 'bk-filmBrandPicker', 192],
+        ['bk-installPosPanel', 'bk-installPosWrap', 288],
+        ['bk-proIdPanel', 'bk-proIdWrap', 320],
+        ['bk-discountCodePanel', 'bk-discountCodeWrap', 288]
+    ].map(([panelId, wrapperId, height]) => {
+        const panel = document.getElementById(panelId);
+        const wrapper = document.getElementById(wrapperId);
+        if (!panel || !wrapper) return null;
+        panel.classList.add('br-dropdown-panel');
+        return { panel, wrapper, height, anchor: wrapper.querySelector('summary, button') };
+    }).filter(item => item && item.anchor);
+    let frame = null;
+    const isOpen = item => item.wrapper.tagName === 'DETAILS'
+        ? item.wrapper.open : !item.panel.classList.contains('hidden');
+    const update = () => {
+        frame = null;
+        if (modal.classList.contains('hidden')) return;
+        const formRect = form.getBoundingClientRect();
+        const footerRect = footer.getBoundingClientRect();
+        const viewport = window.visualViewport;
+        const viewportTop = viewport ? viewport.offsetTop : 0;
+        const viewportBottom = viewportTop + (viewport ? viewport.height : window.innerHeight);
+        const top = Math.max(formRect.top, viewportTop) + 5;
+        const bottom = Math.min(formRect.bottom, footerRect.top, viewportBottom) - 5;
+        for (const section of form.querySelectorAll('.br-section')) {
+            section.classList.toggle('br-dropdown-open', dropdowns.some(item => isOpen(item) && section.contains(item.wrapper)));
+        }
+        for (const item of dropdowns) {
+            if (!isOpen(item)) continue;
+            const rect = item.anchor.getBoundingClientRect();
+            const above = Math.max(0, rect.top - top - 5);
+            const below = Math.max(0, bottom - rect.bottom - 5);
+            // Measure at its normal height first, including after a resize or content update.
+            item.panel.style.maxHeight = item.height + 'px';
+            const wanted = Math.min(item.height, item.panel.scrollHeight + item.panel.offsetHeight - item.panel.clientHeight);
+            const upward = below < wanted && above > below;
+            item.panel.dataset.brPlacement = upward ? 'up' : 'down';
+            item.panel.style.top = upward ? 'auto' : 'calc(100% + 5px)';
+            item.panel.style.bottom = upward ? 'calc(100% + 5px)' : 'auto';
+            item.panel.style.marginTop = '0';
+            item.panel.style.maxHeight = Math.floor(Math.min(item.height, upward ? above : below)) + 'px';
+        }
+    };
+    const schedule = () => {
+        if (frame === null) frame = requestAnimationFrame(update);
+    };
+    for (const item of dropdowns) {
+        new MutationObserver(schedule).observe(item.panel, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true });
+        if (item.wrapper.tagName === 'DETAILS') {
+            new MutationObserver(schedule).observe(item.wrapper, { attributes: true, attributeFilter: ['open'] });
+        }
+    }
+    new MutationObserver(schedule).observe(modal, { attributes: true, attributeFilter: ['class'] });
+    if (typeof ResizeObserver !== 'undefined') {
+        const sizes = new ResizeObserver(schedule);
+        dropdowns.forEach(item => sizes.observe(item.anchor));
+        sizes.observe(form);
+        sizes.observe(footer);
+    }
+    form.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    window.visualViewport?.addEventListener('resize', schedule, { passive: true });
+    window.visualViewport?.addEventListener('scroll', schedule, { passive: true });
+    schedule();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('bookingModal');
     const form = document.getElementById('bookingForm');
@@ -160,5 +228,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ['bk-installPosPanel','bk-discountCodePanel','bk-proIdPanel'].forEach(id => document.getElementById(id).classList.add('hidden'));
     });
     footer.prepend(clear);
+    setupBookingReferenceDropdowns(modal, form, footer);
 
 });

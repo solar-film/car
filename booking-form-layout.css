@@ -83,6 +83,10 @@ body.booking-modal-open {overflow:hidden}
 #bookingModal #bk-filmBrandPicker {position:relative}
 #bookingModal #bk-filmBrandPicker[open] {z-index:70}
 #bookingModal #bk-filmBrandOptions {position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:70;max-height:192px;overflow-y:auto;background:#fff;border:1px solid #dce6f6;border-radius:9px;padding:4px;box-shadow:0 10px 25px #0f172a15}
+#bookingModal .br-section.br-dropdown-open {position:relative;z-index:80}
+#bookingModal :is(#bk-filmBrandOptions,#bk-installPosPanel,#bk-proIdPanel,#bk-discountCodePanel).br-dropdown-panel {z-index:80;overscroll-behavior:contain}
+#bookingModal #bk-installPosPanel.br-dropdown-panel {overflow:hidden}
+#bookingModal #bk-installPosPanel.br-dropdown-panel #bk-installPosList {min-height:0;max-height:none;flex:1;overflow-y:auto}
 #bookingModal #bk-discountCodePanel label,#bookingModal #bk-filmBrandOptions label,#bookingModal #bk-installPosList label {min-height:28px;padding:4px 10px;margin:0;line-height:20px;font-size:13px}
 #bookingModal #bk-discountCodePanel input[type=checkbox],#bookingModal #bk-filmBrandOptions input[type=checkbox],#bookingModal #bk-installPosList input[type=checkbox] {min-height:16px;height:16px;width:16px;padding:0}
 #bookingModal .br-footer {position:sticky;bottom:0;z-index:60;display:flex;gap:10px;margin:0 -18px!important;padding:10px 18px max(10px,env(safe-area-inset-bottom));background:#f8fbff;border-top:1px solid #dce6f6;align-items:center;flex-shrink:0}

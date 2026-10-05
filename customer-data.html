@@ -176,6 +176,7 @@
     </style>
     <script src="sidebar.js" defer></script>
     <script src="film-brands.js"></script>
+    <script src="first-known-options.js?v=20261005-1"></script>
     <script>
 /* Transfer a lead into the existing customer form; never submit automatically. */
 let customerFromLead = false;
@@ -240,10 +241,7 @@ window.applyLeadCustomerDraft = function () {
     const choice = [...document.querySelectorAll('#customerForm input[name="channel"]')].find(el => el.value === channel);
     if (choice) choice.checked = true;
     const known = document.getElementById('firstKnown');
-    if (known && channel === 'IG' && data.knownFrom === 'Instagram' && ![...known.options].some(option => option.value === 'Instagram')) {
-        const option = document.createElement('option'); option.value = 'Instagram'; option.textContent = 'Instagram'; known.append(option);
-    }
-    if (known && [...known.options].some(option => option.value === data.knownFrom)) known.value = data.knownFrom;
+    if (known) window.CarFirstKnownOptions.populate(known, data.knownFrom || '');
     document.getElementById('phone').dispatchEvent(new Event('input',{bubbles:true}));
     document.getElementById('customerLeadHint').hidden = false;
     sessionStorage.removeItem('carLeadCustomerDraft');
@@ -252,8 +250,8 @@ window.applyLeadCustomerDraft = function () {
 };
 
 </script>
-    <link rel="stylesheet" href="booking-form-layout.css?v=11">
-    <script src="booking-form-layout.js?v=5" defer></script>
+    <link rel="stylesheet" href="booking-form-layout.css?v=20261005-dropdown-1">
+    <script src="booking-form-layout.js?v=20261005-dropdown-1" defer></script>
 
 <style>
 .customer-database-page { height:100dvh; min-height:0; overflow:hidden; }
@@ -772,7 +770,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                                     <label class="block mb-1.5 text-sm font-semibold text-slate-700">รู้จักครั้งแรก <span class="text-rose-500">*</span></label>
                                     <div class="relative">
                                         <select id="firstKnown" required class="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-700">
-                                            <option value="">กำลังโหลด...</option>
+                                            <option value="">-- กรุณาเลือก --</option>
                                         </select>
                                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
                                             <i class="fas fa-chevron-down text-xs"></i>
@@ -970,7 +968,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     <script>
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwH0Vw5qzVO3YDsibqi_EF8KScpL5e0-wp8mYXxgqSj_3wjqH8QG5CyFOse4-Q18o3Rgg/exec';
         const SHEET_ID = '1u__xYWoWZpmrnquc-Fpk19WtpcrckxSd0-_G35NWxXQ';
-        const FIRST_KNOWN_SHEET_NAME = 'รู้จักครั้งแรก.รายการ';
         const CUSTOMER_SHEET_NAME = 'Customer';
         const WRITE_TOKEN_KEY = 'carCrmWriteToken';
 
@@ -1115,41 +1112,10 @@ document.addEventListener('DOMContentLoaded',()=>{
             return String(value || '').replace(/[\s._\-()（）/\\]+/g, '').toLowerCase().includes('ยกเลิก');
         }
 
-        // 1. Load Dropdown "รู้จักครั้งแรก" & Existing Customers
+        // 1. Set local first-known options and start independent customer/booking reads.
         async function loadInitialData() {
             try {
-                // Fetch First Known
-                const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(FIRST_KNOWN_SHEET_NAME)}`;
-                const response = await fetch(url);
-                const csvText = await response.text();
-
-                const rows = parseCSV(csvText).filter(r => r && r[0]);
-
-                const select = document.getElementById('firstKnown');
-                select.innerHTML = '<option value="">-- กรุณาเลือก --</option>';
-
-                let startIdx = (rows.length > 0 && rows[0][0].includes('รายการ')) ? 1 : 0;
-                for (let i = startIdx; i < rows.length; i++) {
-                    const val = rows[i][0];
-                    if (val && val.trim()) {
-                        const opt = document.createElement('option');
-                        opt.value = val.trim();
-                        opt.textContent = val.trim();
-                        select.appendChild(opt);
-                    }
-                }
-
-                // Additional discovery channels; avoid duplicates if added to the sheet later.
-                ['Chat GPT', 'Gemini', 'อื่นๆ'].forEach(value => {
-                    const exists = Array.from(select.options).some(option =>
-                        option.value.replace(/\s+/g, '').toLowerCase() === value.replace(/\s+/g, '').toLowerCase()
-                    );
-                    if (!exists) {
-                        const option = document.createElement('option');
-                        option.value = option.textContent = value;
-                        select.appendChild(option);
-                    }
-                });
+                window.CarFirstKnownOptions.populate(document.getElementById('firstKnown'));
 
                 // Fetch booking counts (โหลดคู่ขนานกับลูกค้า)
                 fetchBookingCounts();
@@ -1163,9 +1129,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                 }
 
             } catch (err) {
-                console.error("Error loading dropdown:", err);
-                const select = document.getElementById('firstKnown');
-                select.innerHTML = '<option value="">โหลดไม่สำเร็จ</option>';
+                console.error("Error loading initial customer data:", err);
             }
         }
 
@@ -1482,6 +1446,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         function resetForm() {
             customerFromLead = false;
             document.getElementById('customerLeadHint').hidden = true;
+            window.CarFirstKnownOptions.populate(document.getElementById('firstKnown'), '');
             currentEditingPhone = null;
             currentEditingId = null;
             renderCustomerEditorHistory();
@@ -1514,11 +1479,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             if (genderNode) genderNode.checked = true;
             
             const firstKnownSelect = document.getElementById('firstKnown');
-            if (Array.from(firstKnownSelect.options).some(opt => opt.value === cust.firstKnown)) {
-                firstKnownSelect.value = cust.firstKnown;
-            } else {
-                firstKnownSelect.value = "";
-            }
+            window.CarFirstKnownOptions.populate(firstKnownSelect, cust.firstKnown);
 
             const phoneInput = document.getElementById('phone');
             phoneInput.value = cust.phone;

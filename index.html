@@ -482,8 +482,8 @@
     <script src="sidebar.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="film-brands.js"></script>
-    <link rel="stylesheet" href="booking-form-layout.css?v=8">
-    <script src="booking-form-layout.js?v=3" defer></script>
+    <link rel="stylesheet" href="booking-form-layout.css?v=20261005-dropdown-1">
+    <script src="booking-form-layout.js?v=20261005-dropdown-1" defer></script>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
 </head>
 <body class="text-slate-800 auth-locked">
@@ -6129,7 +6129,11 @@
                             throw new Error('Apps Script Web App ยังเป็นเวอร์ชันเก่า กรุณา Deploy เป็น New version ก่อนบันทึกรูป PayIn');
                         }
                         if (!data.drive || data.drive.ready !== true) {
-                            throw new Error('ระบบรูป PayIn ยังเข้าถึงโฟลเดอร์ Google Drive ไม่ได้ กรุณาตรวจสิทธิ์ใน Apps Script ที่ตรงกับ PAYIN_SCRIPT_URL แล้วลองอีกครั้ง');
+                            const driveError = String(data.drive && data.drive.error || '');
+                            if (/permission to call|required permissions|authorization is required|insufficient authentication scopes|ไม่ได้รับอนุญาตให้เรียกใช้|สิทธิ์ที่จำเป็น|googleapis\.com\/auth\/drive/i.test(driveError)) {
+                                throw new Error('ระบบบันทึกรูปยังไม่ได้รับอนุญาตให้ใช้ Google Drive กรุณาให้ผู้ดูแลรัน authorizeOnce และอนุญาตสิทธิ์ใน Apps Script ของระบบชำระเงิน แล้วลองอีกครั้ง');
+                            }
+                            throw new Error('ระบบรูป PayIn ยังเข้าถึงโฟลเดอร์หลักฐานใน Google Drive ไม่ได้ กรุณาให้ผู้ดูแลตรวจโฟลเดอร์และสิทธิ์เข้าถึง แล้วลองอีกครั้ง');
                         }
                         return data;
                     })
