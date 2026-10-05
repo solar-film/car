@@ -212,22 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById(id).querySelector('button').insertAdjacentHTML('afterbegin', `<i aria-hidden="true" class="fas fa-${['layer-group','gift','tags'][index]} br-dropdown-icon"></i>`);
     });
     document.getElementById('bk-note').rows = 3;
-    const clear = document.createElement('button');
-    clear.type = 'button';
-    clear.className = 'br-clear';
-    clear.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i> ล้างข้อมูล';
-    clear.addEventListener('click', () => {
-        ['bk-carModel','bk-plate','bk-price','bk-discount','bk-note'].forEach(id => document.getElementById(id).value = '');
-        ['bk-custType','bk-plateColor','bk-warranty','bk-sales'].forEach(id => resetBtnGroup(id, ''));
-        FilmBrands.set('');
-        installPosSelected.clear(); updateInstallPosLabel();
-        discountCodeSelected.clear(); updateDiscountCodeLabel();
-        document.getElementById('bk-proId').value = ''; updatePromotionLabel();
-        calcSales();
-        form.querySelectorAll('#bk-installPosList input[type=checkbox], #bk-discountCodePanel input[type=checkbox]').forEach(input => input.checked = false);
-        ['bk-installPosPanel','bk-discountCodePanel','bk-proIdPanel'].forEach(id => document.getElementById(id).classList.add('hidden'));
-    });
-    footer.prepend(clear);
     setupBookingReferenceDropdowns(modal, form, footer);
 
 });
