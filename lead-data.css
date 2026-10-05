@@ -333,6 +333,9 @@ input[type=search] { min-width:240px; flex:1; }
 .history-meta-row input,.history-meta-row select { width:100%; min-width:0; box-sizing:border-box; font-size:12px; }
 
 .contact-column-labels,.contact-timeline-card { grid-template-columns:150px 180px 115px 130px 190px 100px minmax(180px,1fr) 140px; min-width:1279px; gap:10px; }
+.contact-report-scroll.followup-report .contact-column-header,.contact-report-scroll.followup-report .contact-timeline-item { grid-template-columns:72px minmax(1419px,1fr); min-width:1523px; }
+.contact-report-scroll.followup-report .contact-column-labels,.contact-report-scroll.followup-report .contact-timeline-card { grid-template-columns:150px 180px 115px 130px 190px 100px minmax(180px,1fr) 130px 140px; min-width:1419px; }
+.contact-report-field[aria-label="อัปเดตล่าสุด"] { color:#64748b; font-size:12px; font-variant-numeric:tabular-nums; }
 .contact-timeline-card > .lead-button { justify-self:end; width:140px; box-sizing:border-box; }
 .contact-report-field[aria-label="วันที่นัดติดตั้ง"] { color:#0f766e; white-space:nowrap; }
 .contact-installation-dates { gap:4px; padding:3px 0; }

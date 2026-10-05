@@ -9,12 +9,13 @@
     <link rel="apple-touch-icon" href="images/car-crm-app-192.png?v=20261002-2">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="lead-data.css?v=20261005-booking-1">
+    <link rel="stylesheet" href="lead-data.css?v=20261005-updated-1">
     <script src="sidebar.js" defer></script>
     <script src="lead-data-core.js" defer></script>
     <script src="crm-auth.js?v=20261004-lead-1" defer></script>
     <script src="lead-sheet.js?v=20261005-reminder-1"></script>
-    <script src="lead-data-app.js?v=20261005-booking-1" defer></script>
+    <script src="first-known-options.js?v=20261005-1" defer></script>
+    <script src="lead-data-app.js?v=20261005-updated-2" defer></script>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
 </head>
 <body class="text-slate-800 min-h-screen flex flex-col">
@@ -62,7 +63,7 @@
                     <div class="contact-column-header" aria-label="หัวคอลัมน์รายงานข้อมูลการติดต่อ">
                         <span>เวลา / ลำดับ</span>
                         <div class="contact-column-labels">
-                            <span>ชื่อลูกค้า</span><span>ช่องทาง / ชื่อช่องทางติดต่อ</span><span>เบอร์โทร</span><span>รุ่นรถยนต์</span><span>ประวัติ / สถานะการติดตาม</span><span>วันที่นัดติดตั้ง</span><span>ประวัติการติดต่อล่าสุด</span><span>ข้อมูลลูกค้า</span>
+                            <span>ชื่อลูกค้า</span><span>ช่องทาง / ชื่อช่องทางติดต่อ</span><span>เบอร์โทร</span><span>รุ่นรถยนต์</span><span>ประวัติ / สถานะการติดตาม</span><span>วันที่นัดติดตั้ง</span><span>ประวัติการติดต่อล่าสุด</span><span id="followup-updated-header" hidden>อัปเดตล่าสุด</span><span>ข้อมูลลูกค้า</span>
                         </div>
                     </div>
                     <div id="lead-list" class="lead-list"></div>

@@ -27,7 +27,8 @@
     const initialTab = () => location.hash === '#followups' ? 'followups' : location.hash === '#leads' ? 'leads' : INSTAGRAM_ENABLED && location.hash === '#instagram' ? 'instagram' : 'line';
     function renderStatusOptions() {
         const previousStatus = $('lead-status').value;
-        const statuses = [...new Set(sheetLeads.filter(lead => tab !== 'followups' || isFollowUp(lead)).map(lead => lead.status))];
+        const now=Date.now();
+        const statuses = [...new Set(sheetLeads.filter(lead => tab !== 'followups' || isFollowUp(lead) && !isFollowUpUpdatedToday(lead,now)).map(lead => lead.status))];
         $('lead-status').innerHTML = '<option value="">ทุกสถานะ</option>' + statuses.map(value => '<option value="' + esc(value) + '">' + esc(value) + '</option>').join('');
         if (statuses.includes(previousStatus)) $('lead-status').value = previousStatus;
     }
@@ -183,6 +184,8 @@
         request++; tab = next; instagramError = null;
         updatePageHeading();
         $('contact-report-title').textContent = next === 'followups' ? 'รายการติดตาม' : 'รายงานข้อมูลการติดต่อ';
+        document.querySelector('.contact-report-scroll').classList.toggle('followup-report', next === 'followups');
+        $('followup-updated-header').hidden = next !== 'followups';
         renderStatusOptions(); renderLeads();
         notice('');
         $('refresh-inbox').disabled = false;
@@ -368,6 +371,17 @@
         const fallback=contactTimestamp((lead.sheetData?.date || '') + (lead.sheetData?.time ? 'T'+lead.sheetData.time.padStart(8,'0') : ''));
         return {at:times.length ? Math.max(...times) : fallback,fromHistory:times.length > 0};
     }
+    function isFollowUpUpdatedToday(lead, now = Date.now()) {
+        const {at}=latestContactTimestamp(lead,now);
+        return Number.isFinite(at) && new Date(at+7*3600000).toISOString().slice(0,10) === new Date(now+7*3600000).toISOString().slice(0,10);
+    }
+    function renderFollowUpUpdated(lead) {
+        const {at,fromHistory}=latestContactTimestamp(lead);
+        const valid=Number.isFinite(at);
+        const value=valid ? new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',year:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(at)) : '—';
+        const title=valid ? (fromHistory ? 'วันที่บันทึกประวัติการติดต่อล่าสุด' : 'วันที่บันทึกลีดครั้งแรก · ยังไม่มีประวัติการอัปเดต') + ' · ' + value : 'ยังไม่มีวันที่อัปเดต';
+        return `<div class="contact-report-field" aria-label="อัปเดตล่าสุด"><span class="contact-inline-detail" title="${esc(title)}">${esc(value)}</span></div>`;
+    }
     function defaultReminderDate(lead, now = Date.now()) {
         const latest=latestContactTimestamp(lead,now).at;
         return new Date((Number.isFinite(latest) ? latest : now) + 7*3600000 + followUpAlertDays*86400000).toISOString().slice(0,10);
@@ -383,19 +397,20 @@
         const label=explicit ? 'วันที่แจ้งเตือน ' + new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'short'}).format(new Date(contactTimestamp(reminderDate))) + ' · ' + updated : updated;
         return {overdue,label};
     }
-    function updateFollowUpCount(leads) {
+    function updateFollowUpCount(leads, now = Date.now()) {
         const badge=$('followup-tab-count');
         if (!badge) return;
         if (!leads || !session) { badge.textContent='—'; badge.title='ยังโหลดจำนวนงานไม่สำเร็จ'; return; }
-        const count=leads.filter(lead => followUpAge(lead).overdue).length;
+        const count=leads.filter(lead => !isFollowUpUpdatedToday(lead,now) && followUpAge(lead,now).overdue).length;
         badge.textContent=count.toLocaleString('th-TH');
         badge.title='งานที่ถึงวันที่แจ้งเตือนแล้ว '+count+' รายการ';
         badge.setAttribute('aria-label',badge.title);
     }
     function renderLeads() {
-        updateFollowUpCount(sheetLeads);
+        const now=Date.now();
+        updateFollowUpCount(sheetLeads,now);
         const query = $('lead-search').value.trim().toLowerCase(), status = $('lead-status').value;
-        const list = sheetLeads.filter(l => (tab !== 'followups' || isFollowUp(l)) && (!status || l.status === status) && [l.name,l.phone,l.salesperson,l.sheetData?.contact,l.sheetData?.admin].join(' ').toLowerCase().includes(query))
+        const list = sheetLeads.filter(l => (tab !== 'followups' || isFollowUp(l) && !isFollowUpUpdatedToday(l,now)) && (!status || l.status === status) && [l.name,l.phone,l.salesperson,l.sheetData?.contact,l.sheetData?.admin].join(' ').toLowerCase().includes(query))
             .sort((a,b) => (tab === 'followups' ? -1 : 1) * (contactDate(b).localeCompare(contactDate(a))
                 || String(b.sheetData?.time || '00:00:00').padStart(8,'0').localeCompare(String(a.sheetData?.time || '00:00:00').padStart(8,'0'))
                 || (Date.parse(b.createdAt)||0)-(Date.parse(a.createdAt)||0)
@@ -444,7 +459,7 @@
                     ['วันที่นัดติดตั้ง',l.installationDate||'—'],
                     ['ประวัติการติดต่อล่าสุด',latestContact?.text || '—']
                 ];
-                return `<article class="contact-timeline-item${age.overdue ? ' followup-overdue' : ''}" title="${esc(age.overdue ? 'ต้องติดตาม · '+age.label : age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}></div>`).join('')}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck ? 'disabled' : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
+                return `<article class="contact-timeline-item${age.overdue ? ' followup-overdue' : ''}" title="${esc(age.overdue ? 'ต้องติดตาม · '+age.label : age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}></div>`).join('')}${tab === 'followups' ? renderFollowUpUpdated(l) : ''}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck ? 'disabled' : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
 
 
             }).join('')}</div></section>`;
@@ -590,7 +605,11 @@
                 return `<fieldset class="sheet-admin-field" data-sales-multiple><legend>ฝ่ายขาย <span class="sheet-required-star" aria-hidden="true">*</span></legend><div class="sheet-admin-options">${choices.map(value => `<label class="sheet-admin-choice"><input type="checkbox" name="admin" value="${esc(value)}" ${selected.includes(value) ? 'checked' : ''}><span>${esc(value)}</span></label>`).join('')}</div><small>เลือกได้มากกว่า 1 คน</small></fieldset>`;
             }
             const [,label,type = 'text',options] = window.CarLeadSheet.fields.find(item => item[0] === name);
-            const sheet = {carBrand:'Car_Brand',carModel:'Car_model',filmBrand:'film_Brand',filmModel:'film_series',knownFrom:'รู้จักครั้งแรก',followUp:'สถานะการติดตาม'}[name];
+            if (name === 'knownFrom') {
+                const value = previous[name] ?? defaults[name] ?? '';
+                return field(name,labels[name] || label,value,'text',[['','— เลือก —'],...window.CarFirstKnownOptions.choices(value)],true);
+            }
+            const sheet = {carBrand:'Car_Brand',carModel:'Car_model',filmBrand:'film_Brand',filmModel:'film_series',followUp:'สถานะการติดตาม'}[name];
             if (sheet) {
                 const storedValue = previous[name] ?? defaults[name] ?? '';
                 const value = name === 'followUp' ? followUpLabel(storedValue) : storedValue;
@@ -606,7 +625,7 @@
                     return `<div class="sheet-search-field" data-multiple="${multiple}"><span class="sheet-control-label">${esc(labels[name] || label)}</span><input type="hidden" name="${esc(name)}" value="${esc(value)}"><details class="sheet-search-menu"><summary><span class="sheet-search-value">${esc(value || '— เลือก —')}</span><span aria-hidden="true">⌄</span></summary><div class="sheet-search-panel"><input type="search" class="sheet-option-search" placeholder="พิมพ์ค้นหา..." aria-label="ค้นหา${esc(labels[name] || label)}" autocomplete="off"><div class="sheet-search-options">${['',...choices].map(option => `<button type="button" class="sheet-search-option" data-option-value="${esc(option)}" aria-pressed="${selected.includes(option)}">${multiple && option ? `<span aria-hidden="true">${selected.includes(option) ? '☑' : '☐'}</span> ` : ''}${esc(option || '— ไม่ระบุ —')}</button>`).join('')}</div><small class="sheet-search-empty" hidden>ไม่พบรายการที่ค้นหา</small></div></details></div>`;
                 }
                 const newLeadFollowUp = name === 'followUp' && isNewLead;
-                return field(name,labels[name] || label,value,'text',newLeadFollowUp ? choices : [['','— เลือก —'],...choices],name === 'knownFrom' || newLeadFollowUp) + (name === 'followUp' ? '<small class="sheet-status-hint">ปิดการขายอัตโนมัติเมื่อคิวติดตั้งเสร็จสิ้น</small>' : '');
+                return field(name,labels[name] || label,value,'text',newLeadFollowUp ? choices : [['','— เลือก —'],...choices],newLeadFollowUp) + (name === 'followUp' ? '<small class="sheet-status-hint">ปิดการขายอัตโนมัติเมื่อคิวติดตั้งเสร็จสิ้น</small>' : '');
             }
             let result = field(name,labels[name] || label,previous[name] ?? defaults[name] ?? '',type,options,['date','name','admin','channel'].includes(name));
             if (placeholders[name]) result = result.replace(type === 'textarea' ? '<textarea ' : '<input ', `${type === 'textarea' ? '<textarea' : '<input'} placeholder="${esc(placeholders[name])}" `);
