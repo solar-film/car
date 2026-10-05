@@ -357,14 +357,29 @@
     function customerFollowUp(lead) {
         return followUpLabel(lead.sheetData?.followUp || lead.status || 'ใหม่');
     }
-    function followUpAge(lead, now = Date.now()) {
-        const parse = value => { const text=String(value||'').trim().replace(' ','T'); return /^\d{4}-\d{2}-\d{2}$/.test(text) ? Date.parse(text+'T00:00:00+07:00') : Date.parse(text + (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(text) ? '+07:00' : '')); };
+    function contactTimestamp(value) {
+        const text=String(value||'').trim().replace(' ','T');
+        return /^\d{4}-\d{2}-\d{2}$/.test(text) ? Date.parse(text+'T00:00:00+07:00') : Date.parse(text + (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(text) ? '+07:00' : ''));
+    }
+    function latestContactTimestamp(lead, now = Date.now()) {
         const entries=[...(lead.contactHistory||[]),...window.CarLeadSheet.splitHistory(lead.sheetData?.note || lead.note || '').history];
-        const times=entries.map(item=>parse(item.at)).filter(at=>Number.isFinite(at)&&at<=now);
-        const fallback=parse((lead.sheetData?.date || '') + (lead.sheetData?.time ? 'T'+lead.sheetData.time.padStart(8,'0') : ''));
-        const latest=times.length ? Math.max(...times) : fallback;
-        const overdue=isFollowUp(lead)&&Number.isFinite(latest)&&now-latest>followUpAlertDays*86400000;
-        const label=Number.isFinite(latest) ? (times.length?'อัปเดตล่าสุด ':'อ้างอิงวันที่ลีด ') + new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'short',timeStyle:'short'}).format(new Date(latest)) : 'ไม่มีวันที่สำหรับตรวจการติดตาม';
+        const times=entries.map(item=>contactTimestamp(item.at)).filter(at=>Number.isFinite(at)&&at<=now);
+        const fallback=contactTimestamp((lead.sheetData?.date || '') + (lead.sheetData?.time ? 'T'+lead.sheetData.time.padStart(8,'0') : ''));
+        return {at:times.length ? Math.max(...times) : fallback,fromHistory:times.length > 0};
+    }
+    function defaultReminderDate(lead, now = Date.now()) {
+        const latest=latestContactTimestamp(lead,now).at;
+        return new Date((Number.isFinite(latest) ? latest : now) + 7*3600000 + followUpAlertDays*86400000).toISOString().slice(0,10);
+    }
+    function followUpAge(lead, now = Date.now()) {
+        const {at:latest,fromHistory}=latestContactTimestamp(lead,now);
+        const note=window.CarLeadSheet.splitHistory(lead.sheetData?.note || lead.note || '').note;
+        const reminderDate=lead.sheetData?.reminderDate || window.CarLeadSheet.splitReminder(note).reminderDate;
+        const explicit=window.CarLeadSheet.validReminderDate(reminderDate);
+        const overdue=isFollowUp(lead)&&(explicit ? now>=contactTimestamp(reminderDate) : Number.isFinite(latest)&&now-latest>followUpAlertDays*86400000);
+        const format=new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'short',timeStyle:'short'});
+        const updated=Number.isFinite(latest) ? (fromHistory?'อัปเดตล่าสุด ':'อ้างอิงวันที่ลีด ') + format.format(new Date(latest)) : 'ไม่มีวันที่สำหรับตรวจการติดตาม';
+        const label=explicit ? 'วันที่แจ้งเตือน ' + new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'short'}).format(new Date(contactTimestamp(reminderDate))) + ' · ' + updated : updated;
         return {overdue,label};
     }
     function updateFollowUpCount(leads) {
@@ -373,7 +388,7 @@
         if (!leads || !session) { badge.textContent='—'; badge.title='ยังโหลดจำนวนงานไม่สำเร็จ'; return; }
         const count=leads.filter(lead => followUpAge(lead).overdue).length;
         badge.textContent=count.toLocaleString('th-TH');
-        badge.title='งานที่ไม่มีอัปเดตเกิน '+followUpAlertDays+' วัน '+count+' รายการ';
+        badge.title='งานที่ถึงวันที่แจ้งเตือนแล้ว '+count+' รายการ';
         badge.setAttribute('aria-label',badge.title);
     }
     function renderLeads() {
@@ -428,7 +443,7 @@
                     ['วันที่นัดติดตั้ง',l.installationDate||'—'],
                     ['ประวัติการติดต่อล่าสุด',latestContact?.text || '—']
                 ];
-                return `<article class="contact-timeline-item${age.overdue ? ' followup-overdue' : ''}" title="${esc(age.overdue ? 'ต้องติดตาม: เกิน '+followUpAlertDays+' วัน · '+age.label : age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}></div>`).join('')}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck ? 'disabled' : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
+                return `<article class="contact-timeline-item${age.overdue ? ' followup-overdue' : ''}" title="${esc(age.overdue ? 'ต้องติดตาม · '+age.label : age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}></div>`).join('')}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck ? 'disabled' : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
 
 
             }).join('')}</div></section>`;
@@ -520,7 +535,8 @@
         const previous = {...lead.sheetData};
         const originalSheetData = {...previous};
         const historyData = window.CarLeadSheet.splitHistory(previous.note ?? lead.note ?? '');
-        previous.note = historyData.note;
+        const reminderData = window.CarLeadSheet.splitReminder(historyData.note);
+        previous.note = reminderData.note;
         const contactHistory = historyData.history.slice();
         for (const entry of lead.contactHistory || []) {
             if (!contactHistory.some(item => entry.id && item.id === entry.id || item.at === entry.at && item.by === entry.by && item.text === entry.text)) contactHistory.push(entry);
@@ -584,14 +600,18 @@
             return result;
         };
         const statusChangeId = crypto.randomUUID();
+        const storedReminderDate = previous.reminderDate || reminderData.reminderDate;
+        const reminderDate = window.CarLeadSheet.validReminderDate(storedReminderDate) ? storedReminderDate : defaultReminderDate({...lead,contactHistory});
+        const reminderField = '<label>วันที่แจ้งเตือน<input id="history-reminder-date" name="reminderDate" type="date" value="' + esc(reminderDate) + '" required aria-describedby="history-reminder-hint"></label>';
         const contactDetails = '<div class="sheet-main-column" role="region" aria-label="รายละเอียดข้อมูลผู้ติดต่อ" tabindex="0">' + sheetSections(renderField, lead.leadId || '', lead.customerId || '') + '</div>';
         const html = contactDetails +
-            '<div class="sheet-side-column" role="region" aria-label="สถานะและประวัติการติดต่อ" tabindex="0"><section class="sheet-status-card"><div class="sheet-section-grid">' + renderField('followUp') + '</div></section><aside class="sheet-history-card"><h3>ประวัติการติดต่อ</h3><div class="history-meta-row"><label>วันเวลา<input id="history-at" type="datetime-local"></label><label>ผู้บันทึก<select id="history-by"><option value="">— เลือก —</option>' + (lists['พนักงานขาย'] || []).map(value => '<option>' + esc(value) + '</option>').join('') + '</select></label></div><label>รายละเอียด<textarea id="history-text" rows="3" placeholder="บันทึกการติดต่อ..."></textarea></label><button type="button" class="lead-button primary" id="add-contact-history">+ เพิ่มประวัติ</button><small>บันทึกพร้อมข้อมูลลูกค้า</small><p id="history-error" role="alert"></p><div id="contact-history-list"></div></aside></div>';
+            '<div class="sheet-side-column" role="region" aria-label="สถานะและประวัติการติดต่อ" tabindex="0"><section class="sheet-status-card"><div class="sheet-section-grid">' + renderField('followUp') + '</div></section><aside class="sheet-history-card"><h3>ประวัติการติดต่อ</h3><div class="history-meta-row"><label>ผู้บันทึก<select id="history-by"><option value="">— เลือก —</option>' + (lists['พนักงานขาย'] || []).map(value => '<option>' + esc(value) + '</option>').join('') + '</select></label>' + reminderField + '</div><small id="history-reminder-hint">ค่าเริ่มต้น 2 วันหลังการติดต่อล่าสุด · เลือกวันเองได้</small><label>รายละเอียด<textarea id="history-text" rows="3" placeholder="บันทึกการติดต่อ..."></textarea></label><button type="button" class="lead-button primary" id="add-contact-history">+ เพิ่มประวัติ</button><small>บันทึกพร้อมข้อมูลลูกค้า</small><p id="history-error" role="alert"></p><div id="contact-history-list"></div></aside></div>';
         editor('เก็บข้อมูลผู้ติดต่อ', html, async values => {
             values.phone = formatLeadPhone(values.phone);
             if (values.phone && !/^\d{3}-\d{3}-\d{4}$/.test(values.phone)) throw new Error('กรุณากรอกเบอร์โทร 10 หลัก รูปแบบ xxx-xxx-xxxx');
             if ($('history-text').value.trim()) throw new Error('กรุณากดเพิ่มประวัติก่อนบันทึก หรือเคลียร์ข้อความประวัติที่ยังไม่ได้เพิ่ม');
             values.note = String(values.note || '');
+            if (values.reminderDate !== undefined) values.note = window.CarLeadSheet.joinReminder(values.note, values.reminderDate);
             if (isNewLead && !isNewLeadStatus(values.followUp)) throw new Error('ลีดใหม่เลือกสถานะได้เฉพาะ สอบถามใหม่, ส่งเสนอราคาแล้ว, ยกเลิก / ไม่สนใจ หรือ ยกเลิก / ไม่เกี่ยวข้อง');
             const originalStatus = originalSheetData?.followUp || previous.followUp || defaults.followUp;
             if (isAutomaticClosedStatus(originalStatus)) values.followUp = originalStatus;
@@ -669,11 +689,17 @@
         const renderHistory = () => {
             $('contact-history-list').innerHTML = contactHistory.slice().sort((a,b) => b.at.localeCompare(a.at)).map(item => '<article class="contact-history-entry"><div class="contact-history-header"><time>' + esc(item.at.replace('T',' ')) + '</time><span>' + esc(item.by) + '</span></div><p>' + esc(item.text) + '</p></article>').join('') || '<p class="lead-muted">ยังไม่มีประวัติ</p>';
         };
-        $('history-at').value = new Date(Date.now()+7*3600000).toISOString().slice(0,16);
+        let customReminder = window.CarLeadSheet.validReminderDate(storedReminderDate);
+        $('history-reminder-date').addEventListener('input',() => { customReminder = true; });
+        const updateDefaultReminder = now => {
+            if (!customReminder) $('history-reminder-date').value = new Date(now + 7*3600000 + followUpAlertDays*86400000).toISOString().slice(0,10);
+        };
         renderHistory();
         $('add-contact-history').onclick = () => {
-            const at=$('history-at').value, by=$('history-by').value, text=$('history-text').value.trim();
-            if (!at || !by || !text) { $('history-error').textContent='กรุณาระบุวันเวลา ผู้บันทึก และรายละเอียด'; return; }
+            const by=$('history-by').value, text=$('history-text').value.trim();
+            if (!by || !text) { $('history-error').textContent='กรุณาระบุผู้บันทึก และรายละเอียด'; return; }
+            const now=Date.now(), at=new Date(now+7*3600000).toISOString().slice(0,19);
+            updateDefaultReminder(now);
             contactHistory.push({id:crypto.randomUUID(),at,by,text});
             $('history-text').value=''; $('history-error').textContent='เพิ่มแล้ว · รอกดบันทึกข้อมูล'; renderHistory();
         };
@@ -787,7 +813,8 @@
         if (edit) {
             const lead=sheetLeads.find(l=>l.id===edit.dataset.lead);
             if (!lead || lead.isCustomer || lead.pendingCustomerCheck || edit.disabled) return;
-            sessionStorage.setItem('carLeadCustomerDraft',JSON.stringify({createdAt:Date.now(),data:lead.sheetData}));
+            const draft = {...lead.sheetData,note:window.CarLeadSheet.splitReminder(window.CarLeadSheet.splitHistory(lead.sheetData?.note).note).note};
+            sessionStorage.setItem('carLeadCustomerDraft',JSON.stringify({createdAt:Date.now(),data:draft}));
             location.href = 'customer-data.html?fromLead=1';
             return;
         }

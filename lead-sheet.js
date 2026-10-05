@@ -14,13 +14,15 @@ window.CarLeadSheet = (() => {
     let ignoreStoredToken = false;
     async function save(key, values, previous = null) {
         if (!String(values.knownFrom || '').trim()) throw new Error('กรุณาเลือกว่ารู้จักเราจากช่องทางใดก่อนบันทึก');
+        const parsed = splitHistory(values.note);
+        const reminder = splitReminder(parsed.note);
+        const note = joinReminder(reminder.note, values.reminderDate ?? reminder.reminderDate);
         let token = sessionToken;
         try { if (!ignoreStoredToken) token ||= localStorage.getItem('carCrmWriteToken') || ''; } catch {}
         if (!token) token = (window.prompt('กรุณาใส่ Write Token ของ CAR CRM เพื่อบันทึกลงชีต lead') || '').trim();
         if (!token) throw new Error('ยังไม่ได้ระบุ Write Token จึงยังไม่บันทึกข้อมูล');
         const data = Object.fromEntries(fields.map(([name,label]) => [label,String(values[name] || '')]));
-        const parsed = splitHistory(values.note);
-        data['*หมายเหตุ'] = parsed.note;
+        data['*หมายเหตุ'] = note;
         data.contactHistory = values.contactHistory || parsed.history;
         let response;
         try {
@@ -52,5 +54,27 @@ window.CarLeadSheet = (() => {
         } catch { return {note:text,history:[]}; }
     }
     function joinHistory(note,history) { return String(note || '') + (history.length ? historyMarker + JSON.stringify(history) : ''); }
-    return {fields,save,splitHistory,joinHistory};
+    const reminderMarker = '\n\n[CAR_FOLLOW_UP_V1]\n';
+    function validReminderDate(value) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return false;
+        const date = new Date(value + 'T00:00:00Z');
+        return Number.isFinite(date.getTime()) && date.toISOString().slice(0,10) === value;
+    }
+    function splitReminder(value) {
+        const text = String(value || ''), suffixIndex = text.lastIndexOf(reminderMarker);
+        const atStart = suffixIndex < 0 && text.startsWith(reminderMarker.slice(2));
+        const index = atStart ? 0 : suffixIndex;
+        if (index < 0) return {note:text,reminderDate:''};
+        try {
+            const reminder = JSON.parse(text.slice(index + reminderMarker.length - (atStart ? 2 : 0)));
+            if (!reminder || !validReminderDate(reminder.reminderDate)) throw Error('Invalid reminder');
+            return {note:text.slice(0,index),reminderDate:reminder.reminderDate};
+        } catch { return {note:text,reminderDate:''}; }
+    }
+    function joinReminder(note,reminderDate) {
+        if (reminderDate && !validReminderDate(reminderDate)) throw new Error('วันที่แจ้งเตือนไม่ถูกต้อง');
+        const plain = splitReminder(note).note;
+        return plain + (reminderDate ? (plain ? reminderMarker : reminderMarker.slice(2)) + JSON.stringify({reminderDate}) : '');
+    }
+    return {fields,save,splitHistory,joinHistory,validReminderDate,splitReminder,joinReminder};
 })();
