@@ -10,8 +10,53 @@
     $('instagram-connection').hidden = !INSTAGRAM_ENABLED;
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
     const empty = text => `<p class="lead-empty">${esc(text)}</p>`;
+    // Display labels never replace the channel's display_name or contact identity.
+    const unnamedProfile = (row, platform) => {
+        const channel = platform === 'instagram' ? 'Instagram' : platform === 'line' ? 'LINE' : 'Facebook';
+        const userId = String((platform === 'instagram' ? row?.instagram_user_id : platform === 'line' ? row?.line_user_id : row?.facebook_user_id) || '').trim();
+        if (platform === 'line') {
+            const hints = {
+                unavailable:'ขณะนี้ LINE API ไม่คืนชื่อโปรไฟล์ของผู้ติดต่อนี้',
+                'temporary-error':'ยังโหลดชื่อโปรไฟล์จาก LINE ไม่สำเร็จ กรุณากดอัปเดตข้อมูลล่าสุดเพื่อลองใหม่',
+                'not-configured':'ระบบยังไม่พร้อมอ่านชื่อโปรไฟล์จาก LINE',
+                'configuration-error':'ระบบเชื่อมต่อ LINE ยังอ่านชื่อโปรไฟล์ไม่ได้',
+                deferred:'ระบบยังไม่ได้อ่านชื่อโปรไฟล์ของผู้ติดต่อนี้ กรุณากดอัปเดตข้อมูลล่าสุด'
+            };
+            const hint = Object.hasOwn(hints,row?.profile_status) ? hints[row.profile_status] : 'ยังไม่มีชื่อโปรไฟล์ที่โหลดได้จาก LINE';
+            return {label:`LINE ยังโหลดชื่อไม่ได้${userId.length >= 6 ? ` · …${userId.slice(-6)}` : ''}`,
+                hint:`${hint}${userId ? ` · รหัส ${userId}` : ''}`};
+        }
+        return {label:`${channel} ไม่ส่งชื่อ${userId.length >= 6 ? ` · …${userId.slice(-6)}` : ''}`,
+            hint:`${channel} ไม่ส่งชื่อโปรไฟล์ของผู้ติดต่อนี้${userId ? ` · รหัส ${userId}` : ''}`};
+    };
+    function usableLineName(value, userId) {
+        const name = typeof value === 'string' ? value.trim() : '';
+        if (!name || name === userId || /^U[0-9a-f]{32}$/i.test(name) || /^[-—]$/.test(name) || /^(?:LINE|Facebook|Instagram)\s+(?:ไม่ส่งชื่อ|ยังโหลดชื่อไม่ได้)(?:\s*·.*)?$/i.test(name)) return '';
+        return name;
+    }
+    function lineContactProfile(row, lead) {
+        const userId = String(row?.line_user_id || '').trim();
+        const profile = usableLineName(row?.display_name, userId);
+        if (profile) return {name:profile,label:profile,hint:''};
+        const source = lead?.source;
+        const exact = userId && lead?.identity === core.identity('line', account, userId)
+            && (!source || source.platform === 'line' && source.account === account && source.userId === userId);
+        if (exact) {
+            const savedName = [lead.sheetData?.contact,source?.displayName,lead.name].map(value => usableLineName(value,userId)).find(Boolean);
+            if (savedName) return {name:savedName,label:savedName,hint:'ชื่อจากข้อมูล Lead ที่บันทึกไว้ของผู้ติดต่อ LINE คนนี้'};
+        }
+        return {name:'',...unnamedProfile(row,'line')};
+    }
+    function contactNameMarkup(row, platform, lead) {
+        if (platform === 'line') {
+            const profile = lineContactProfile(row,lead);
+            return `<strong class="lead-contact-name"${profile.hint ? ` title="${esc(profile.hint)}"` : ''}>${esc(profile.label)}</strong>`;
+        }
+        return String(row.display_name || '').trim() ? `<strong class="lead-contact-name">${esc(row.display_name)}</strong>`
+            : `<strong class="lead-contact-name" title="${esc(unnamedProfile(row,platform).hint)}">${esc(unnamedProfile(row,platform).label)}</strong>`;
+    }
     let session, settings, tab = 'line', page = 0, installationPage = 0, contacts = [], account = core.LINE_ACCOUNT, summary = {total:0,fresh:0,selected:0};
-    let contactPage = 0, sheetLeads = [];
+    let contactPage = 0, sheetLeads = [], leadsFromSnapshot = false;
     const followUpStatuses = ['สอบถามใหม่','เลื่อนติดตั้ง','ติดตามผล / รอตัดสินใจ'];
     const followUpAlertDays = 2;
     const normalizeFollowUp = value => {
@@ -37,7 +82,7 @@
     let savedLeadRevision = 0;
     let accessKey = sessionStorage.getItem('carLeadAccessKey') || '';
     let rangeMode = '7', rangeStart = '', rangeEnd = '';
-    let inboxSource = 'webhook', inboxLoading = false, inboxIncomplete = false;
+    let inboxSource = 'webhook', inboxLoading = false, inboxIncomplete = false, lineProfilesConfigured;
     let instagramError = null;
     let sheetContacts = [], sheetChecked = false, recordsLoaded = false;
     async function checkSheetContacts({refresh = false} = {}) {
@@ -68,6 +113,17 @@
     let editorOpenRequest = 0;
     function prefetchFormOptions() { void formOptions.get().catch(() => {}); }
     function notice(text, failure = false) { $('notice').hidden = !text; $('notice').textContent = text; $('notice').classList.toggle('error', failure); }
+    function renderLineProfileWarning() {
+        const warning = $('line-profile-warning');
+        if (!warning) return;
+        const configured = lineProfilesConfigured ?? settings?.lineProfilesConfigured;
+        warning.hidden = !(session && tab === 'line' && (configured === false || contacts.some(row => row.profile_status === 'configuration-error')));
+    }
+    function updateLineProfileConfiguration(value, fresh = false) {
+        if (tab !== 'line' || typeof value?.profilesConfigured !== 'boolean') return;
+        // A stored success must not dismiss a fresh config failure; a fresh success can recover it.
+        if (value.profilesConfigured === false || fresh) lineProfilesConfigured = value.profilesConfigured;
+    }
     async function api(action, input) {
         if (cloudLead) {
             const route = new URL(action,'https://car.invalid/');
@@ -90,8 +146,9 @@
     function resetRecords() {
         formOptions.clear(); sheetContactCache.clear(); inboxLoader.clear(); editorOpenRequest++;
         sheetContacts = []; sheetChecked = false; recordsLoaded = false; inboxLoading = false; inboxIncomplete = false;
+        lineProfilesConfigured = undefined;
         instagramError = null;
-        sheetLeads = []; request++; records = { leads: [], installations: [] }; contacts = []; legacy = []; legacySources = null; session = null;
+        sheetLeads = []; leadsFromSnapshot = false; request++; records = { leads: [], installations: [] }; contacts = []; legacy = []; legacySources = null; session = null;
         $('current-user').textContent = 'ยังไม่ได้เชื่อมต่อระบบลีด'; $('signout').hidden = true;
         $('editor').close(); $('legacy-dialog').close(); renderLeads(); renderInstallations(); renderInbox();
     }
@@ -148,9 +205,17 @@
     async function loadRecords(intake = ['line','facebook','instagram'].includes(tab), {reportErrors = false} = {}) {
         const currentSession = session, currentService = service, currentRevision = savedLeadRevision;
         const isCurrent = () => session === currentSession && service === currentService && currentRevision === savedLeadRevision;
+        const stored = !intake && !sheetLeads.length ? readLeadsSnapshot() : null;
+        if (stored && stored.length) {
+            // Paint the last complete list at once; it stays view-only until the fresh read replaces it.
+            leadsFromSnapshot = true;
+            sheetLeads = stored.map(lead => ({...lead,status:customerFollowUp(lead),installationDate:lead.customerId ? 'กำลังโหลด…' : '—'}));
+            renderStatusOptions(); renderLeads();
+            notice('แสดงรายการล่าสุดที่โหลดไว้ · กำลังอัปเดต…');
+        }
         let result;
         try { result = await api(intake ? 'records?scope=intake' : 'records'); }
-        catch (error) { if (!isCurrent()) return; throw error; }
+        catch (error) { if (!isCurrent()) return; dropLeadsSnapshotView(); throw error; }
         if (!isCurrent()) return;
         records = result; recordsLoaded = true; renderInstallations(); renderInbox();
         if (intake) {
@@ -160,13 +225,20 @@
             return;
         }
         try { const sheet = result.sheetLeads ? {leads:result.sheetLeads} : await api('sheet-leads'); if (!isCurrent()) return; sheetLeads=sheet.leads.map(lead => ({...lead,status:customerFollowUp(lead)}));
+            writeLeadsSnapshot(sheet.leads);
+            if (leadsFromSnapshot) { leadsFromSnapshot = false; notice(''); }
             renderStatusOptions();
             sheetLeads.forEach(lead => { lead.installationDate = lead.customerId ? 'กำลังโหลด…' : '—'; });
             renderLeads();
             try { const dates = await loadInstallationDates(); if(!isCurrent()) return; sheetLeads.forEach(lead => { lead.installationDate = dates.get(lead.customerId) || '—'; }); }
             catch { if(!isCurrent()) return; sheetLeads.forEach(lead => { lead.installationDate = lead.customerId ? 'โหลดไม่สำเร็จ' : '—'; }); }
             renderLeads(); }
-        catch(e) { if(!isCurrent()) return; if(reportErrors) throw e; sheetLeads=[]; renderLeads(); updateFollowUpCount(null); notice('โหลดชีต lead ไม่สำเร็จ: '+e.message,true); }
+        catch(e) { if(!isCurrent()) return; if (leadsFromSnapshot) dropLeadsSnapshotView(); if(reportErrors) throw e; sheetLeads=[]; renderLeads(); updateFollowUpCount(null); notice('โหลดชีต lead ไม่สำเร็จ: '+e.message,true); }
+    }
+    // A failed refresh returns to the previous behaviour: no unverified list is left on screen.
+    function dropLeadsSnapshotView() {
+        if (!leadsFromSnapshot) return;
+        leadsFromSnapshot = false; sheetLeads = []; renderLeads();
     }
     async function showTab(next) {
         if (next === 'instagram' && !INSTAGRAM_ENABLED) next = 'line';
@@ -194,6 +266,7 @@
         });
         const panel = ['line','facebook','instagram'].includes(next) ? 'inbox' : next === 'followups' ? 'leads' : next;
         document.querySelectorAll('[data-panel]').forEach(el => { el.hidden = el.dataset.panel !== panel; });
+        renderLineProfileWarning();
         if (['leads','followups'].includes(next) && session) await loadRecords(false);
         if (panel === 'inbox') {
             contacts = []; page = 0; summary = {total:0,fresh:0,selected:0};
@@ -220,9 +293,11 @@
         const stored = cached ? null : readInboxSnapshot(query);
         if (cached) {
             contacts = core.inboxActivities(cached); account = cached.account; inboxSource = cached.source || 'webhook';
+            updateLineProfileConfiguration(cached);
         } else if (stored) {
             // Show the last complete list from this tab at once, then replace it when the fresh read completes.
             contacts = core.inboxActivities(stored); account = stored.account; inboxSource = stored.source || 'webhook';
+            updateLineProfileConfiguration(stored);
         }
         page = 0; inboxLoading = !cached || refresh; inboxIncomplete = false;
         $('refresh-inbox').disabled = true;
@@ -230,7 +305,9 @@
         notice(inboxLoading ? (stored ? 'แสดงรายชื่อล่าสุดที่โหลดไว้ · กำลังอัปเดต…' : 'กำลังอ่านรายชื่อ CAR…') : '');
         const sheetStatus = checkSheetContacts({refresh}).then(() => null, error => error);
         try {
-            const result = await inboxLoader.load({...query,refresh,isCurrent,onPage:(value,{complete}) => {
+            const result = await inboxLoader.load({...query,refresh,isCurrent,onPage:(value,{complete,cached}) => {
+                updateLineProfileConfiguration(value,!cached);
+                renderLineProfileWarning();
                 if (stored && !complete) { notice(`แสดงรายชื่อล่าสุดที่โหลดไว้ · กำลังอัปเดต ${value.contacts.length} รายชื่อ…`); return; }
                 contacts = core.inboxActivities(value); account = value.account; summary = null;
                 inboxSource = value.source || 'webhook'; inboxIncomplete = !complete;
@@ -282,7 +359,24 @@
     }
     function clearInboxSnapshots() {
         if (!snapshotsEnabled()) return;
-        try { Object.keys(sessionStorage).filter(key => key.startsWith('carLeadInbox:')).forEach(key => sessionStorage.removeItem(key)); } catch {}
+        try { Object.keys(sessionStorage).filter(key => key.startsWith('carLeadInbox:') || key === LEADS_SNAPSHOT_KEY).forEach(key => sessionStorage.removeItem(key)); } catch {}
+    }
+    // The contact report list uses the same per-tab snapshot rules: shown only until the fresh read answers.
+    const LEADS_SNAPSHOT_KEY = 'carLeadRecords:sheetLeads';
+    function readLeadsSnapshot() {
+        if (!snapshotsEnabled()) return null;
+        try {
+            const saved = JSON.parse(sessionStorage.getItem(LEADS_SNAPSHOT_KEY) || 'null');
+            return saved && Date.now() - saved.savedAt < 15 * 60 * 1000 && Array.isArray(saved.leads) ? saved.leads : null;
+        } catch { return null; }
+    }
+    function writeLeadsSnapshot(leads) {
+        if (!snapshotsEnabled()) return;
+        try { sessionStorage.setItem(LEADS_SNAPSHOT_KEY, JSON.stringify({savedAt:Date.now(),leads})); } catch {}
+    }
+    function clearLeadsSnapshot() {
+        if (!snapshotsEnabled()) return;
+        try { sessionStorage.removeItem(LEADS_SNAPSHOT_KEY); } catch {}
     }
     function instagramConnection(error) {
         const waiting = error.code === 'INSTAGRAM_PERMISSION_REQUIRED';
@@ -295,6 +389,7 @@
     }
     const day = core.dayKey;
     function renderInbox() {
+        renderLineProfileWarning();
         if (!['line','facebook','instagram'].includes(tab)) return;
         if (!session) { $('inbox-list').innerHTML = empty('กำลังรอการเชื่อมต่อระบบรับข้อมูล CAR'); $('inbox-summary').textContent = ''; $('inbox-summary-scope').textContent = ''; return; }
         if (tab === 'instagram' && instagramError && !contacts.length) {
@@ -346,7 +441,7 @@
                 const type = direct ? row.customer_type : core.customerTag(row.first_seen_at, row.last_seen_at);
                 const customerTag = `<span class="lead-contact-badge ${type === 'new' ? 'fresh' : 'returning'}" title="อัตโนมัติจากประวัติข้อความลูกค้า เทียบกับวันที่ของรายการ ตามเวลาไทย">${type === 'new' ? 'ลูกค้าใหม่' : type === 'existing' ? 'ลูกค้าเก่า' : 'ยังตรวจประวัติไม่ได้'}</span>`;
                 const time = dateGroup ? new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date(row.last_seen_at)) : '—';
-                return `<article class="lead-timeline-row"><time class="lead-timeline-time" datetime="${esc(row.last_seen_at || '')}">${esc(time)}</time><div class="lead-contact-card">${daysBadge}<strong class="lead-contact-name">${esc(row.display_name || 'ยังไม่มีชื่อโปรไฟล์')}</strong>${badge}${row.legacy ? '<span class="lead-contact-badge returning">ประวัติเดิม · ไม่รวมสถิติ</span>' : customerTag}${firstDay ? `<span class="lead-contact-first">ทักครั้งแรก ${esc(core.dateTH(row.first_seen_at))}</span>` : ['facebook','instagram'].includes(tab) ? '<span class="lead-contact-first">ทักครั้งแรก: ยังตรวจสอบวันที่ไม่ได้</span>' : ''}<button class="lead-button ${savedInSheet ? 'saved' : 'select'}" data-contact="${esc(row.id)}" data-contact-day="${esc(day(row.last_seen_at))}" ${selectionReady ? '' : 'disabled'}>${!selectionReady ? 'กำลังตรวจข้อมูล…' : savedInSheet ? 'ดู / แก้ไขข้อมูล' : 'เก็บข้อมูล'}</button></div></article>`;
+                return `<article class="lead-timeline-row"><time class="lead-timeline-time" datetime="${esc(row.last_seen_at || '')}">${esc(time)}</time><div class="lead-contact-card">${daysBadge}${contactNameMarkup(row,tab,selected)}${badge}${row.legacy ? '<span class="lead-contact-badge returning">ประวัติเดิม · ไม่รวมสถิติ</span>' : customerTag}${firstDay ? `<span class="lead-contact-first">ทักครั้งแรก ${esc(core.dateTH(row.first_seen_at))}</span>` : ['facebook','instagram'].includes(tab) ? '<span class="lead-contact-first">ทักครั้งแรก: ยังตรวจสอบวันที่ไม่ได้</span>' : ''}<button class="lead-button ${savedInSheet ? 'saved' : 'select'}" data-contact="${esc(row.id)}" data-contact-day="${esc(day(row.last_seen_at))}" ${selectionReady ? '' : 'disabled'}>${!selectionReady ? 'กำลังตรวจข้อมูล…' : savedInSheet ? 'ดู / แก้ไขข้อมูล' : 'เก็บข้อมูล'}</button></div></article>`;
             }).join('')}</div></section>`;
         }).join('') || empty(inboxLoading ? 'กำลังโหลดรายชื่อในช่วงที่เลือก…' : 'ยังไม่มีรายชื่อในหน้านี้');
         $('page-label').textContent = `หน้า ${page+1} · ${dated.length} รายการรายวัน · คนเดิมนับหนึ่งครั้งต่อวัน${progressLabel}`;
@@ -501,6 +596,7 @@
     }
     function applyConfirmedLead(saved, values, previousLead, localLead = null) {
         savedLeadRevision++;
+        clearLeadsSnapshot();
         if (localLead) {
             records.leads = records.leads.filter(item => item.id !== localLead.id && item.sheetKey !== localLead.sheetKey);
             records.leads.push(localLead);
@@ -582,9 +678,17 @@
         const lists = await formOptions.get();
         if (openRequest !== editorOpenRequest) return false;
         notice('');
-        const profileName = contact?.display_name || source?.displayName || (lead.name !== source?.userId ? lead.name : '') || '';
-        if (source?.userId && previous.contact === source.userId) previous.contact = profileName || lead.phone || '';
-        const defaults = {date:day(new Date()),name:lead.name || contact?.display_name || '',admin:lead.salesperson || '',
+        const profileName = platform === 'line'
+            ? lineContactProfile(contact || {line_user_id:source?.userId},lead).name
+            : contact?.display_name || source?.displayName || (lead.name !== source?.userId ? lead.name : '') || '';
+        if (platform === 'line') {
+            if (Object.hasOwn(previous,'name') && !usableLineName(previous.name,source?.userId)) previous.name = profileName;
+            if (!usableLineName(previous.contact,source?.userId)) {
+                const legacyUserId = source?.userId && String(previous.contact ?? '').trim() === String(source.userId);
+                previous.contact = profileName || (legacyUserId ? lead.phone || '' : '');
+            }
+        } else if (source?.userId && previous.contact === source.userId) previous.contact = profileName || lead.phone || '';
+        const defaults = {date:day(new Date()),name:platform === 'line' ? profileName : lead.name || contact?.display_name || '',admin:lead.salesperson || '',
             channel:platform === 'instagram' ? 'IG' : platform === 'line' ? 'Line' : platform === 'facebook' ? 'FB' : 'Tel',
             ...(platform === 'instagram' ? {knownFrom:'Instagram'} : {}),
             contact:['line','facebook','instagram'].includes(platform) ? profileName : '',phone:lead.phone || '',note:lead.note || '',customerType:(contact?.customer_type || (contact ? core.customerTag(contact.first_seen_at,contact.last_seen_at) : 'new')) === 'existing' ? 'ลค.เก่า' : 'ลค.ใหม่',followUp:'🟡 สอบถามใหม่'};
@@ -867,11 +971,18 @@
         if (!lead) return;
         if (await editLead(lead)) $('editor-title').textContent = 'รายละเอียดข้อมูลผู้ติดต่อ';
     }
+    // While the list comes from the snapshot, opening, editing or booking waits for the fresh read.
+    function leadsSnapshotBusy() {
+        if (!leadsFromSnapshot) return false;
+        notice('กำลังอัปเดตรายการล่าสุด กรุณารอสักครู่แล้วลองอีกครั้ง');
+        return true;
+    }
     $('lead-list').addEventListener('keydown',guard(async event => {
         if (!event.target.matches('[data-lead-details]') || !['Enter',' '].includes(event.key)) return;
-        event.preventDefault(); await showLeadDetails(event.target.dataset.leadDetails);
+        event.preventDefault(); if (leadsSnapshotBusy()) return; await showLeadDetails(event.target.dataset.leadDetails);
     }));
     $('lead-list').addEventListener('click',guard(async event => {
+        if (event.target.closest('[data-lead],[data-install-lead],[data-lead-details]') && leadsSnapshotBusy()) return;
         const edit = event.target.closest('[data-lead]'), install = event.target.closest('[data-install-lead]');
         if (edit) {
             const lead=sheetLeads.find(l=>l.id===edit.dataset.lead);
