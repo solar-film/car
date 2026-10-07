@@ -9,13 +9,13 @@
     <link rel="apple-touch-icon" href="images/car-crm-app-192.png?v=20261002-2">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="lead-data.css?v=20261007-booking-lead-1">
+    <link rel="stylesheet" href="lead-data.css?v=20261007-history-edit-1">
     <script src="sidebar.js" defer></script>
     <script src="lead-data-core.js" defer></script>
     <script src="crm-auth.js?v=20261004-lead-1" defer></script>
-    <script src="lead-sheet.js?v=20261005-history-delete-1"></script>
+    <script src="lead-sheet.js?v=20261007-history-edit-1"></script>
     <script src="first-known-options.js?v=20261005-1" defer></script>
-    <script src="lead-data-app.js?v=20261007-leads-fast-1" defer></script>
+    <script src="lead-data-app.js?v=20261007-history-edit-1" defer></script>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
 </head>
 <body class="text-slate-800 min-h-screen flex flex-col">
@@ -44,7 +44,7 @@
             <p id="notice" role="status" aria-live="polite" class="lead-notice" hidden></p>
             <section data-panel="connection" hidden class="lead-card">
                 <h2>การเชื่อมต่อ CAR</h2><p class="lead-muted">รับข้อมูล LINE / Facebook เข้าระบบ CAR โดยตรง และเก็บลีดกับงานติดตั้งในฐานข้อมูลของเมนูนี้</p>
-                <form id="service-form" class="lead-form"><label>URL ระบบลีด<input name="service" type="url" placeholder="http://127.0.0.1:3092" required></label><label id="access-label">Access Key ของระบบลีด CAR<input name="accessKey" type="password" autocomplete="off"></label><button class="lead-button primary">เชื่อมต่อระบบลีด</button></form>
+                <form id="service-form" class="lead-form"><label>URL ระบบลีด<input name="service" type="url" placeholder="http://127.0.0.1:3093" required></label><label id="access-label">Access Key ของระบบลีด CAR<input name="accessKey" type="password" autocomplete="off"></label><button class="lead-button primary">เชื่อมต่อระบบลีด</button></form>
                 <div class="lead-connection-list"><p id="line-connection">LINE: รถยนต์ @maholan · รอตั้งค่า webhook CAR</p><p id="facebook-connection">Facebook: ยังไม่ได้ระบุเพจ CAR</p><p id="instagram-connection" hidden>Instagram: @mhlcarfilm · รอตรวจสิทธิ์อ่านแชต</p><p><strong>ประวัติเดิม:</strong> Customer / Bookings / data / Detail_film / PayIn ของ CAR CRM</p></div>
             </section>
             <section data-panel="inbox">

@@ -472,3 +472,10 @@ html[data-lead-embed] .lead-dialog::backdrop { background:transparent; backdrop-
     #editor.sheet-editor #editor-fields > :is(.sheet-main-column,.sheet-side-column) { overflow:visible; scrollbar-gutter:auto; }
 }
 @media(prefers-reduced-motion:reduce) { #editor.sheet-editor[open] { animation:none; } }
+
+.contact-history-edit { border:1px solid #c7d8fc; border-radius:6px; background:#fff; color:#245aca; padding:3px 8px; min-height:28px; font-family:inherit; font-size:11px; cursor:pointer; }
+.contact-history-edit:hover { background:#eef4ff; }
+.contact-history-editing { display:grid; gap:8px; margin-top:8px; }
+.contact-history-editing label { display:grid; gap:4px; font-size:11px; color:#64748b; }
+.contact-history-editing select,.contact-history-editing textarea { font-family:inherit; font-size:13px; }
+.contact-history-edit-actions { display:flex; gap:8px; justify-content:flex-end; }

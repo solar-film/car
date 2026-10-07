@@ -114,7 +114,7 @@
         const candidates = [row.display_name,tab === 'instagram' ? row.instagram_user_id : tab === 'line' ? row.line_user_id : row.facebook_user_id,lead?.sheetData?.contact].map(normalize).filter(Boolean);
         return sheetChecked && sheetContacts.some(entry => (normalize(entry.channel) === channel || channel === 'fb' && normalize(entry.channel) === 'facebook' || channel === 'ig' && normalize(entry.channel) === 'instagram') && candidates.includes(normalize(entry.contact)));
     }
-    let service = localStorage.getItem('carLeadServiceUrl') || (/^https?:$/.test(location.protocol) ? location.origin : 'http://127.0.0.1:3092');
+    let service = localStorage.getItem('carLeadServiceUrl') || (/^https?:$/.test(location.protocol) ? location.origin : 'http://127.0.0.1:3093');
     const formOptions = core.createOptionsCache(() => api('options'));
     const sheetContactCache = core.createOptionsCache(() => api('sheet-status'), {ttlMs:60000});
     const inboxLoader = core.createInboxLoader(({platform,page,start,date,cursor,refresh}) =>
@@ -794,6 +794,7 @@
             values.phone = formatLeadPhone(values.phone);
             if (values.phone && !/^\d{3}-\d{3}-\d{4}$/.test(values.phone)) throw new Error('กรุณากรอกเบอร์โทร 10 หลัก รูปแบบ xxx-xxx-xxxx');
             if ($('history-text').value.trim()) throw new Error('กรุณากดเพิ่มประวัติก่อนบันทึก หรือเคลียร์ข้อความประวัติที่ยังไม่ได้เพิ่ม');
+            if (contactHistory.some(item => item.editing)) throw new Error('กรุณากด ตกลง หรือ ยกเลิก ที่ประวัติที่กำลังแก้ไขก่อนบันทึก');
             values.note = String(values.note || '');
             if (values.reminderDate !== undefined) values.note = window.CarLeadSheet.joinReminder(values.note, values.reminderDate);
             if (isNewLead && !isNewLeadStatus(values.followUp)) throw new Error('ลีดใหม่เลือกสถานะได้เฉพาะ สอบถามใหม่, ส่งเสนอราคาแล้ว, ยกเลิก / ไม่สนใจ หรือ ยกเลิก / ไม่เกี่ยวข้อง');
@@ -806,6 +807,8 @@
                 else { const item=contactHistory.find(item=>item.id===statusChangeId); item.text=text; }
             } else { const index=contactHistory.findIndex(item=>item.id===statusChangeId); if(index>=0)contactHistory.splice(index,1); }
             values.contactHistory = contactHistory;
+            const editedHistory = contactHistory.flatMap(item => { const old = savedHistory.get(String(item.id)); return old && !String(old.id).startsWith('CAR-BOOKING:') && (old.by !== item.by || old.text !== item.text) ? [{id:String(item.id),previous:{at:old.at,by:old.by,text:old.text},current:{at:item.at,by:item.by,text:item.text}}] : []; });
+            if (editedHistory.length) values.editedContactHistory = editedHistory;
             values.deletedContactHistory = removedHistory.filter(item => savedHistory.has(String(item.id))).map(item => ({...savedHistory.get(String(item.id))}));
             const saved = await window.CarLeadSheet.save(key,values,platform === 'sheet-lead' || lead.sheetSavedAt ? originalSheetData : null);
             if (typeof saved.followUp === 'string') values.followUp = saved.followUp;
@@ -872,9 +875,15 @@
             })();
         }
         const renderHistory = () => {
-            const entries = contactHistory.map((item,index) => ({item,index})).sort((a,b) => String(b.item.at).localeCompare(String(a.item.at))).map(({item,index}) => '<article class="contact-history-entry"><div class="contact-history-header"><time>' + esc(String(item.at).replace('T',' ')) + '</time><div class="contact-history-actions"><span>' + esc(item.by) + '</span><button type="button" class="contact-history-delete" data-delete-history="' + index + '" aria-label="ลบประวัติ ' + esc(String(item.at).replace('T',' ')) + '">ลบ</button></div></div><p>' + esc(item.text) + '</p></article>').join('');
+            const entries = contactHistory.map((item,index) => ({item,index})).sort((a,b) => String(b.item.at).localeCompare(String(a.item.at))).map(({item,index}) => '<article class="contact-history-entry"><div class="contact-history-header"><time>' + esc(String(item.at).replace('T',' ')) + '</time><div class="contact-history-actions"><span>' + esc(item.by) + '</span>' + (editableHistory(item) && !item.editing ? '<button type="button" class="contact-history-edit" data-edit-history="' + index + '" aria-label="แก้ไขประวัติ ' + esc(String(item.at).replace('T',' ')) + '">แก้ไข</button>' : '') + '<button type="button" class="contact-history-delete" data-delete-history="' + index + '" aria-label="ลบประวัติ ' + esc(String(item.at).replace('T',' ')) + '">ลบ</button></div></div>' + (item.editing ? historyEditor(item) : '<p>' + esc(item.text) + '</p>') + '</article>').join('');
             const removed = removedHistory.map((item,index) => '<div class="contact-history-pending"><span>รอลบ: ' + esc(item.text) + '</span><button type="button" class="contact-history-undo" data-restore-history="' + index + '">คืนค่า</button></div>').join('');
             $('contact-history-list').innerHTML = (entries || '<p class="lead-muted">ยังไม่มีประวัติ</p>') + removed;
+        };
+        // A saved entry can be edited (recorder and text only); entries the installation queue creates stay fixed.
+        const editableHistory = item => Boolean(item.id) && !String(item.id).startsWith('CAR-BOOKING:');
+        const historyEditor = item => {
+            const names = [...new Set([...[...$('history-by').options].map(option => option.value).filter(Boolean), item.by])];
+            return '<div class="contact-history-editing"><label>ผู้บันทึก<select data-history-edit-by>' + names.map(name => '<option value="' + esc(name) + '"' + (name === item.by ? ' selected' : '') + '>' + esc(name) + '</option>').join('') + '</select></label><label>รายละเอียด<textarea data-history-edit-text rows="3">' + esc(item.text) + '</textarea></label><div class="contact-history-edit-actions"><button type="button" class="lead-button select" data-confirm-history-edit>ตกลง</button><button type="button" class="lead-button" data-cancel-history-edit>ยกเลิก</button></div></div>';
         };
         const storedReminder = window.CarLeadSheet.validReminderDate(storedReminderDate), addedHistoryIds = new Set();
         let reminderPicked = false;
@@ -888,9 +897,26 @@
         };
         $('contact-history-list').onclick = event => {
             if ($('editor-form').getAttribute('aria-busy') === 'true') return;
+            const edit = event.target.closest('[data-edit-history]');
+            if (edit) {
+                const index = Number(edit.dataset.editHistory);
+                if (!Number.isInteger(index) || index < 0 || index >= contactHistory.length || !editableHistory(contactHistory[index])) return;
+                contactHistory.forEach(item => { delete item.editing; });
+                contactHistory[index].editing = true; $('history-error').textContent = ''; renderHistory(); return;
+            }
+            if (event.target.closest('[data-cancel-history-edit]')) { contactHistory.forEach(item => { delete item.editing; }); $('history-error').textContent = ''; renderHistory(); return; }
+            if (event.target.closest('[data-confirm-history-edit]')) {
+                const entry = event.target.closest('.contact-history-entry'), item = contactHistory.find(entry => entry.editing);
+                const by = entry.querySelector('[data-history-edit-by]').value, text = entry.querySelector('[data-history-edit-text]').value.trim();
+                if (!item || !by || !text) { $('history-error').textContent = 'กรุณาระบุผู้บันทึก และรายละเอียด'; return; }
+                if (item.by !== by || item.text !== text) { item.by = by; item.text = text; leadEditorHistoryChanged = true; $('history-error').textContent = 'แก้ไขแล้ว · รอกดบันทึกข้อมูล'; }
+                else $('history-error').textContent = '';
+                delete item.editing; renderHistory(); return;
+            }
             const remove = event.target.closest('[data-delete-history]');
             const restore = event.target.closest('[data-restore-history]');
             if (!remove && !restore) return;
+            contactHistory.forEach(item => { delete item.editing; });
             const list = remove ? contactHistory : removedHistory;
             const index = Number(remove ? remove.dataset.deleteHistory : restore.dataset.restoreHistory);
             if (!Number.isInteger(index) || index < 0 || index >= list.length) return;

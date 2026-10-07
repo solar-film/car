@@ -21,14 +21,20 @@ window.CarLeadSheet = (() => {
         if (!Array.isArray(deleted) || deleted.some(item => !item || !String(item.id || '').trim() || typeof item.at !== 'string' || typeof item.by !== 'string' || typeof item.text !== 'string') || new Set(deleted.map(item => String(item.id))).size !== deleted.length) {
             throw new Error('รายการประวัติที่ต้องการลบไม่ถูกต้อง');
         }
-        if (deleted.length) {
+        const edited = values.editedContactHistory ?? [];
+        const validEntry = item => item && typeof item.at === 'string' && typeof item.by === 'string' && typeof item.text === 'string';
+        if (!Array.isArray(edited) || edited.some(item => !item || !String(item.id || '').trim() || !validEntry(item.previous) || !validEntry(item.current) || !item.current.by.trim() || !item.current.text.trim()) || new Set(edited.map(item => String(item.id))).size !== edited.length) {
+            throw new Error('รายการประวัติที่แก้ไขไม่ถูกต้อง');
+        }
+        if (deleted.length || edited.length) {
             let readiness;
             try {
                 const response = await fetch(url + '?contactHistoryDeletionCheck=1&_=' + Date.now(), {cache:'no-store',signal:AbortSignal.timeout(15000)});
                 if (!response.ok) throw new Error();
                 readiness = await response.json();
             } catch { throw new Error('ยังตรวจความพร้อมการลบประวัติไม่ได้ จึงยังไม่บันทึกข้อมูล กรุณาลองใหม่'); }
-            if (!(readiness.contactHistoryDeletion >= 1)) throw new Error('Apps Script ยังไม่รองรับการลบประวัติ กรุณาอัปเดตเวอร์ชันก่อนบันทึก');
+            if (deleted.length && !(readiness.contactHistoryDeletion >= 1)) throw new Error('Apps Script ยังไม่รองรับการลบประวัติ กรุณาอัปเดตเวอร์ชันก่อนบันทึก');
+            if (edited.length && !(readiness.contactHistoryEdit >= 1)) throw new Error('Apps Script ยังไม่รองรับการแก้ไขประวัติ กรุณาอัปเดตเวอร์ชันก่อนบันทึก');
         }
         let token = sessionToken;
         try { if (!ignoreStoredToken) token ||= localStorage.getItem('carCrmWriteToken') || ''; } catch {}
@@ -38,6 +44,7 @@ window.CarLeadSheet = (() => {
         data['*หมายเหตุ'] = note;
         data.contactHistory = values.contactHistory || parsed.history;
         if (deleted.length) data.deletedContactHistory = deleted.map(item => ({id:String(item.id),at:item.at,by:item.by,text:item.text}));
+        if (edited.length) data.editedContactHistory = edited.map(item => ({id:String(item.id),previous:{at:item.previous.at,by:item.previous.by,text:item.previous.text},current:{at:item.current.at,by:item.current.by,text:item.current.text}}));
         let response;
         try {
             response = await fetch(url, {method:'POST',body:JSON.stringify({action:previous ? 'updateLeadSheet' : 'upsertLead',sheetName:'lead',leadKey:key,data,previous:previous ? Object.fromEntries(fields.map(([name,label]) => [label,String(previous[name] ?? '')])) : undefined,token}),signal:AbortSignal.timeout(60000)});
@@ -58,6 +65,12 @@ window.CarLeadSheet = (() => {
             const confirmed = result.deletedContactHistoryIds;
             if (result.historyDeletionVerified !== true || result.historyVerified !== true || !Array.isArray(confirmed) || confirmed.length !== ids.length || new Set(confirmed).size !== ids.length || !ids.every(id => confirmed.includes(id)) || !Array.isArray(result.contactHistory) || result.contactHistory.some(item => ids.includes(String(item.id)))) {
                 throw new Error('ยังยืนยันการลบประวัติไม่ได้ กรุณาลองบันทึกซ้ำด้วยรายการเดิม');
+            }
+        }
+        if (edited.length) {
+            const ids = edited.map(item => String(item.id)), confirmed = result.editedContactHistoryIds;
+            if (result.historyEditVerified !== true || result.historyVerified !== true || !Array.isArray(confirmed) || confirmed.length !== ids.length || !ids.every(id => confirmed.includes(id)) || !Array.isArray(result.contactHistory) || !edited.every(item => result.contactHistory.some(entry => String(entry.id) === String(item.id) && entry.text === item.current.text && entry.by === item.current.by))) {
+                throw new Error('ยังยืนยันการแก้ไขประวัติไม่ได้ กรุณาลองบันทึกซ้ำด้วยรายการเดิม');
             }
         }
         sessionToken = token;
