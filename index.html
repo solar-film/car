@@ -476,6 +476,96 @@
             outline: 2px solid #2563eb;
             outline-offset: 3px;
         }
+        /* ฟอร์มเพิ่มข้อมูลผู้ติดต่อจากหน้า Lead: ค่าตาม .lead-dialog, .lead-button, .lead-notice และ .lead-save-toast */
+        body.booking-lead-editor-open { overflow: hidden; }
+        .booking-lead-editor {
+            position: fixed;
+            inset: 0;
+            z-index: 150;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            background: #0f172a55;
+            backdrop-filter: blur(3px);
+        }
+        .booking-lead-editor[hidden] { display: none; }
+        .booking-lead-editor-frame {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: transparent;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .booking-lead-editor.is-open .booking-lead-editor-frame { opacity: 1; pointer-events: auto; }
+        .booking-lead-editor.is-open .booking-lead-editor-status { display: none; }
+        .booking-lead-editor-status {
+            position: relative;
+            z-index: 1;
+            width: min(420px, 100%);
+            padding: 24px;
+            border-radius: 22px;
+            background: #fff;
+            box-shadow: 0 30px 100px #0f172a44;
+            color: #64748b;
+            font-size: 14px;
+            text-align: center;
+        }
+        .booking-lead-editor-status.error .booking-lead-editor-spinner { display: none; }
+        .booking-lead-editor-status.error p {
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: #fff1f2;
+            color: #be123c;
+            text-align: left;
+        }
+        .booking-lead-editor-spinner { width: 40px; height: 40px; margin: 0 auto 12px; color: #3b82f6; }
+        .booking-lead-editor-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 18px;
+        }
+        .booking-lead-editor-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 10px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fff;
+            color: #1e293b;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .booking-lead-editor-button.primary { border-color: #2563eb; background: #2563eb; color: #fff; }
+        .booking-lead-editor-button[hidden] { display: none; }
+        .booking-lead-editor-button:hover { filter: brightness(.97); }
+        .booking-lead-editor-button:focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: 3px;
+        }
+        .booking-lead-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            max-width: calc(100vw - 40px);
+            box-sizing: border-box;
+            padding: 12px 20px;
+            border: 1px solid #a7f3d0;
+            border-radius: 12px;
+            background: #ecfdf5;
+            color: #047857;
+            box-shadow: 0 6px 24px #0f172a20;
+            font-size: 14px;
+        }
     </style>
     <link rel="stylesheet" href="apple-style.css?v=20260520-4">
     <script src="crm-auth.js?v=20261002-1" defer></script>
@@ -632,6 +722,20 @@
             </footer>
         </div>
     </div>
+    <div id="bookingLeadEditor" class="booking-lead-editor" hidden>
+        <div class="booking-lead-editor-status" role="status" aria-live="polite">
+            <svg class="booking-lead-editor-spinner animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p id="bookingLeadEditorMessage">กำลังเปิดฟอร์มเพิ่มข้อมูลผู้ติดต่อ…</p>
+            <div class="booking-lead-editor-actions">
+                <button type="button" id="bookingLeadEditorRetry" class="booking-lead-editor-button primary" hidden>ลองอีกครั้ง</button>
+                <a id="bookingLeadEditorFallback" class="booking-lead-editor-button" href="lead-data.html?newLead=1#leads" hidden>เปิดหน้าข้อมูลการติดต่อ Lead</a>
+                <button type="button" id="bookingLeadEditorCancel" class="booking-lead-editor-button">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
     <div class="booking-page w-full px-4 py-8 sm:px-6 lg:ml-72 lg:w-[calc(100%-18rem)] lg:px-8">
         <div class="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
             <div class="booking-toolbar px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:justify-between sm:items-center bg-slate-50 gap-4">
@@ -643,7 +747,7 @@
                             <p class="car-page-heading-subtitle">ระบบ CRM & รายการคิวจอง</p>
                         </div>
                     </div>
-                    <a class="booking-add-lead" href="lead-data.html?newLead=1#leads">
+                    <a class="booking-add-lead" href="lead-data.html?newLead=1#leads" aria-haspopup="dialog" aria-controls="bookingLeadEditor">
                         <i class="fas fa-plus" aria-hidden="true"></i>
                         เพิ่มข้อมูลลีด
                     </a>
@@ -6315,6 +6419,96 @@
                 showAlert('เกิดข้อผิดพลาด', 'ไม่สามารถส่งออกข้อมูลได้', 'error');
             }
         }
+    </script>
+    <script>
+        // เพิ่มข้อมูลลีดในหน้านี้: เปิดฟอร์มเดิมของหน้า Lead ในกรอบซ้อน โดยไม่โหลดรายการลีดทั้งหมด
+        (() => {
+            const trigger = document.querySelector('.booking-add-lead');
+            const overlay = document.getElementById('bookingLeadEditor');
+            const status = overlay.querySelector('.booking-lead-editor-status');
+            const message = document.getElementById('bookingLeadEditorMessage');
+            const retry = document.getElementById('bookingLeadEditorRetry');
+            const fallback = document.getElementById('bookingLeadEditorFallback');
+            const cancel = document.getElementById('bookingLeadEditorCancel');
+            let frame = null, reusable = false;
+
+            function setStatus(text, failed = false) {
+                status.classList.toggle('error', failed);
+                status.setAttribute('role', failed ? 'alert' : 'status');
+                message.textContent = text;
+                retry.hidden = !failed;
+                fallback.hidden = !failed;
+            }
+            function removeFrame() {
+                frame?.remove();
+                frame = null;
+                reusable = false;
+            }
+            function hide() {
+                overlay.hidden = true;
+                overlay.classList.remove('is-open');
+                document.body.classList.remove('booking-lead-editor-open');
+            }
+            function open() {
+                overlay.classList.remove('is-open');
+                setStatus('กำลังเปิดฟอร์มเพิ่มข้อมูลผู้ติดต่อ…');
+                overlay.hidden = false;
+                document.body.classList.add('booking-lead-editor-open');
+                cancel.focus();
+                if (frame && reusable) {
+                    reusable = false;
+                    frame.contentWindow.postMessage({type: 'car-lead-embed', state: 'open'}, location.origin);
+                    return;
+                }
+                removeFrame();
+                frame = document.createElement('iframe');
+                frame.className = 'booking-lead-editor-frame';
+                frame.title = 'เพิ่มข้อมูลผู้ติดต่อ';
+                frame.src = 'lead-data.html?embed=new-lead';
+                overlay.append(frame);
+            }
+            function showSavedToast() {
+                document.querySelector('.booking-lead-toast')?.remove();
+                const toast = document.createElement('div');
+                toast.className = 'booking-lead-toast';
+                toast.setAttribute('role', 'status');
+                toast.textContent = '✓ บันทึกข้อมูลลีดเรียบร้อยแล้ว';
+                document.body.append(toast);
+                setTimeout(() => toast.remove(), 4000);
+            }
+
+            trigger.addEventListener('click', event => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                open();
+            });
+            retry.addEventListener('click', open);
+            // ยกเลิกระหว่างโหลดจะทิ้งกรอบนั้น เพื่อไม่ให้ฟอร์มเปิดค้างไว้เบื้องหลัง
+            cancel.addEventListener('click', () => { removeFrame(); hide(); trigger.focus(); });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && !overlay.hidden && !overlay.classList.contains('is-open')) cancel.click();
+            });
+            window.addEventListener('message', event => {
+                if (!frame || event.source !== frame.contentWindow || event.origin !== location.origin || event.data?.type !== 'car-lead-embed') return;
+                const {state} = event.data;
+                if (state === 'opened') {
+                    if (overlay.hidden) return;
+                    overlay.classList.add('is-open');
+                    frame.focus();
+                } else if (state === 'closed') {
+                    reusable = true;
+                    hide();
+                    trigger.focus();
+                    if (event.data.saved === true) showSavedToast();
+                } else if (state === 'error') {
+                    removeFrame();
+                    if (overlay.hidden) return;
+                    overlay.classList.remove('is-open');
+                    setStatus('เปิดฟอร์มไม่สำเร็จ: ' + (event.data.message || 'กรุณาลองใหม่'), true);
+                    retry.focus();
+                }
+            });
+        })();
     </script>
 </body>
 </html>

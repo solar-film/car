@@ -8,6 +8,16 @@
     const INSTAGRAM_ENABLED = false;
     document.querySelector('[data-tab="instagram"]').hidden = !INSTAGRAM_ENABLED;
     $('instagram-connection').hidden = !INSTAGRAM_ENABLED;
+    // Booking page "add lead": this page runs in its frame and shows only the new-lead editor.
+    const embeddedNewLead = window.parent !== window && new URLSearchParams(location.search).get('embed') === 'new-lead';
+    let embeddedLeadSaved = false;
+    if (embeddedNewLead) {
+        document.documentElement.dataset.leadEmbed = 'new-lead';
+        document.querySelector('[data-car-crm-sidebar]')?.remove();
+    }
+    function postToBooking(state, detail = {}) {
+        if (embeddedNewLead) window.parent.postMessage({type:'car-lead-embed',state,...detail},location.origin);
+    }
     const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
     const empty = text => `<p class="lead-empty">${esc(text)}</p>`;
     // Display labels never replace the channel's display_name or contact identity.
@@ -157,6 +167,8 @@
         // Both reads are independent: start the session check while configuration loads.
         const sessionRequest = api('session');
         sessionRequest.catch(() => {});
+        // The embedded form needs only the sheet options; read them alongside the start-up checks.
+        if (embeddedNewLead) prefetchFormOptions();
         settings = await api('config');
         if (attempt !== connection) return;
         $('instagram-connection').textContent = settings.instagramConfigured ? `Instagram: @${settings.instagramUsername} · ตรวจสิทธิ์อ่านแชตเมื่อเปิดแท็บ` : 'Instagram: รอตั้งค่าเชื่อมต่อบัญชี CAR';
@@ -167,6 +179,7 @@
         session = await sessionRequest;
         if (attempt !== connection) return;
         $('current-user').textContent = session.name; $('signout').hidden = session.mode === 'local';
+        if (embeddedNewLead) { await openEmbeddedLead(); return; }
         const entryUrl = new URL(location.href);
         if (entryUrl.searchParams.get('newLead') === '1' && initialTab() === 'leads') {
             entryUrl.searchParams.delete('newLead');
@@ -625,6 +638,8 @@
         renderStatusOptions(); renderLeads(); renderInbox();
     }
     function refreshAfterLeadSave(saved) {
+        // The embedded form closes after saving and shows no lists to refresh.
+        if (embeddedNewLead) return;
         const currentSession = session, currentService = service, currentRevision = savedLeadRevision;
         // These reads update the lists; they are not part of confirming the write.
         void Promise.allSettled([loadRecords(undefined,{reportErrors:true}),checkSheetContacts({refresh:true})]).then(results => {
@@ -754,7 +769,7 @@
         const contactDetails = '<div class="sheet-main-column" role="region" aria-label="รายละเอียดข้อมูลผู้ติดต่อ" tabindex="0">' + sheetSections(renderField, lead.leadId || '', lead.customerId || '') + '</div>';
         const html = contactDetails +
             '<div class="sheet-side-column" role="region" aria-label="สถานะและประวัติการติดต่อ" tabindex="0"><section class="sheet-status-card"><div class="sheet-section-grid">' + renderField('followUp') + '</div></section><aside class="sheet-history-card"><h3>ประวัติการติดต่อ</h3><div class="history-meta-row"><label>ผู้บันทึก<select id="history-by"><option value="">— เลือก —</option>' + (lists['พนักงานขาย'] || []).map(value => '<option>' + esc(value) + '</option>').join('') + '</select></label>' + reminderField + '</div><small id="history-reminder-hint">ค่าเริ่มต้น วันนี้ + 2 วัน · เลือกวันเองได้</small><label>รายละเอียด<textarea id="history-text" rows="3" placeholder="บันทึกการติดต่อ..."></textarea></label><button type="button" class="lead-button primary" id="add-contact-history">+ เพิ่มประวัติ</button><small>บันทึกพร้อมข้อมูลลูกค้า</small><p id="history-error" role="alert"></p><div id="contact-history-list"></div></aside></div>';
-        editor('เก็บข้อมูลผู้ติดต่อ', html, async values => {
+        editor('เพิ่มข้อมูลผู้ติดต่อ', html, async values => {
             values.phone = formatLeadPhone(values.phone);
             if (values.phone && !/^\d{3}-\d{3}-\d{4}$/.test(values.phone)) throw new Error('กรุณากรอกเบอร์โทร 10 หลัก รูปแบบ xxx-xxx-xxxx');
             if ($('history-text').value.trim()) throw new Error('กรุณากดเพิ่มประวัติก่อนบันทึก หรือเคลียร์ข้อความประวัติที่ยังไม่ได้เพิ่ม');
@@ -889,6 +904,14 @@
         }
         return true;
     }
+    async function openEmbeddedLead() {
+        embeddedLeadSaved = false;
+        try {
+            if (!await editLead()) return;
+            // Report after the editor has painted, so the booking page never swaps in an empty frame.
+            requestAnimationFrame(() => requestAnimationFrame(() => postToBooking('opened')));
+        } catch (error) { postToBooking('error',{message:error.message}); }
+    }
     function inputDate(value) {
         if (/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return value;
         const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value || '');
@@ -1012,6 +1035,18 @@
     $('installation-list').addEventListener('click',guard(event => { const button = event.target.closest('[data-installation]'); if (button) editInstallation(records.installations.find(i => i.id === button.dataset.installation)); }));
     $('editor').addEventListener('cancel',event => { if ($('editor-form').getAttribute('aria-busy') === 'true') event.preventDefault(); });
     for (const id of ['close-editor','cancel-editor']) $(id).addEventListener('click',() => $('editor').close());
+    if (embeddedNewLead) {
+        $('editor').addEventListener('close',() => postToBooking('closed',{saved:embeddedLeadSaved}));
+        // The booking page keeps this frame after closing and asks it to open a blank form again.
+        window.addEventListener('message',event => {
+            if (event.source !== window.parent || event.origin !== location.origin || event.data?.type !== 'car-lead-embed' || event.data.state !== 'open') return;
+            if (session && !$('editor').open) void openEmbeddedLead();
+        });
+        // The editor opens before the booking page shows and focuses this frame; then focus its first control as on the lead page.
+        window.addEventListener('focus',() => {
+            if ($('editor').open && !$('editor').contains(document.activeElement)) $('editor').querySelector('button,input,select,textarea')?.focus();
+        });
+    }
     document.addEventListener('click',event => {
         for (const menu of document.querySelectorAll('.sheet-position-menu[open], .sheet-search-menu[open]')) {
             if (!menu.contains(event.target)) menu.open = false;
@@ -1081,6 +1116,7 @@
                 values.admin = sales.join(', ');
             }
             await saveEditor(values);
+            embeddedLeadSaved = true;
             $('editor').close();
             notice('บันทึกเรียบร้อยแล้ว');
             document.querySelector('.lead-save-toast')?.remove();
@@ -1127,13 +1163,17 @@
             $('signout').textContent = 'ออกจากระบบ';
             $('current-user').textContent = 'กำลังตรวจสอบการเข้าสู่ระบบ…';
             if (!await window.CarCrmAuth.refresh()) {
+                if (embeddedNewLead) throw new Error('กรุณาเข้าสู่ระบบ CAR CRM ใหม่ แล้วกดเพิ่มข้อมูลลีดอีกครั้ง');
                 location.replace('crm-login.html?next=' + encodeURIComponent('lead-data.html' + location.search + location.hash));
                 return;
             }
         }
         await connect();
     }
-    startLead().catch(e => { void showTab('connection'); notice(e.message,true); });
+    startLead().catch(e => {
+        if (embeddedNewLead) { postToBooking('error',{message:e.message}); return; }
+        void showTab('connection'); notice(e.message,true);
+    });
 })();
 
 
