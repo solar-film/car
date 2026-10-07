@@ -72,8 +72,7 @@
     const initialTab = () => location.hash === '#followups' ? 'followups' : location.hash === '#leads' ? 'leads' : INSTAGRAM_ENABLED && location.hash === '#instagram' ? 'instagram' : 'line';
     function renderStatusOptions() {
         const previousStatus = $('lead-status').value;
-        const now=Date.now();
-        const statuses = [...new Set(sheetLeads.filter(lead => tab !== 'followups' || isFollowUp(lead) && !isFollowUpUpdatedToday(lead,now)).map(lead => lead.status))];
+        const statuses = [...new Set(sheetLeads.filter(lead => tab !== 'followups' || isFollowUp(lead)).map(lead => lead.status))];
         $('lead-status').innerHTML = '<option value="">ทุกสถานะ</option>' + statuses.map(value => '<option value="' + esc(value) + '">' + esc(value) + '</option>').join('');
         if (statuses.includes(previousStatus)) $('lead-status').value = previousStatus;
     }
@@ -466,10 +465,6 @@
         const fallback=contactTimestamp((lead.sheetData?.date || '') + (lead.sheetData?.time ? 'T'+lead.sheetData.time.padStart(8,'0') : ''));
         return {at:times.length ? Math.max(...times) : fallback,fromHistory:times.length > 0};
     }
-    function isFollowUpUpdatedToday(lead, now = Date.now()) {
-        const {at}=latestContactTimestamp(lead,now);
-        return Number.isFinite(at) && new Date(at+7*3600000).toISOString().slice(0,10) === new Date(now+7*3600000).toISOString().slice(0,10);
-    }
     function renderFollowUpUpdated(lead) {
         const {at,fromHistory}=latestContactTimestamp(lead);
         const valid=Number.isFinite(at);
@@ -477,45 +472,53 @@
         const title=valid ? (fromHistory ? 'วันที่บันทึกประวัติการติดต่อล่าสุด' : 'วันที่บันทึกลีดครั้งแรก · ยังไม่มีประวัติการอัปเดต') + ' · ' + value : 'ยังไม่มีวันที่อัปเดต';
         return `<div class="contact-report-field" aria-label="อัปเดตล่าสุด"><span class="contact-inline-detail" title="${esc(title)}">${esc(value)}</span></div>`;
     }
-    function defaultReminderDate(lead, now = Date.now()) {
-        const latest=latestContactTimestamp(lead,now).at;
-        return new Date((Number.isFinite(latest) ? latest : now) + 7*3600000 + followUpAlertDays*86400000).toISOString().slice(0,10);
+    // A reminder date two Bangkok calendar days after the given time.
+    function twoDaysAfter(at) {
+        return new Date(at + 7*3600000 + followUpAlertDays*86400000).toISOString().slice(0,10);
     }
     function followUpAge(lead, now = Date.now()) {
         const {at:latest,fromHistory}=latestContactTimestamp(lead,now);
         const note=window.CarLeadSheet.splitHistory(lead.sheetData?.note || lead.note || '').note;
         const reminderDate=lead.sheetData?.reminderDate || window.CarLeadSheet.splitReminder(note).reminderDate;
         const explicit=window.CarLeadSheet.validReminderDate(reminderDate);
-        const overdue=isFollowUp(lead)&&(explicit ? now>=contactTimestamp(reminderDate) : Number.isFinite(latest)&&now-latest>followUpAlertDays*86400000);
+        // Without a saved reminder the due date is two Bangkok days after the latest contact.
+        const dueDate=explicit ? reminderDate : Number.isFinite(latest) ? twoDaysAfter(latest) : '';
+        const today=new Date(now+7*3600000).toISOString().slice(0,10), tomorrow=new Date(now+7*3600000+86400000).toISOString().slice(0,10);
+        // Due today or already overdue is strong, due tomorrow is light, and later dates are not highlighted.
+        const highlight=!isFollowUp(lead) || !dueDate ? '' : dueDate <= today ? 'today' : dueDate === tomorrow ? 'tomorrow' : '';
         const format=new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'short',timeStyle:'short'});
         const updated=Number.isFinite(latest) ? (fromHistory?'อัปเดตล่าสุด ':'อ้างอิงวันที่ลีด ') + format.format(new Date(latest)) : 'ไม่มีวันที่สำหรับตรวจการติดตาม';
         const label=explicit ? 'วันที่แจ้งเตือน ' + new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'short'}).format(new Date(contactTimestamp(reminderDate))) + ' · ' + updated : updated;
-        return {overdue,label};
+        return {highlight,label};
     }
     function updateFollowUpCount(leads, now = Date.now()) {
         const badge=$('followup-tab-count');
         if (!badge) return;
         if (!leads || !session) { badge.textContent='—'; badge.title='ยังโหลดจำนวนงานไม่สำเร็จ'; return; }
-        const count=leads.filter(lead => !isFollowUpUpdatedToday(lead,now) && followUpAge(lead,now).overdue).length;
+        const count=leads.filter(lead => followUpAge(lead,now).highlight).length;
         badge.textContent=count.toLocaleString('th-TH');
-        badge.title='งานที่ถึงวันที่แจ้งเตือนแล้ว '+count+' รายการ';
+        badge.title='งานที่ต้องติดตามวันนี้ (รวมที่เลยกำหนด) และพรุ่งนี้ '+count+' รายการ';
         badge.setAttribute('aria-label',badge.title);
     }
     function renderLeads() {
         const now=Date.now();
         updateFollowUpCount(sheetLeads,now);
+        const followUps = tab === 'followups';
         const query = $('lead-search').value.trim().toLowerCase(), status = $('lead-status').value;
-        const list = sheetLeads.filter(l => (tab !== 'followups' || isFollowUp(l) && !isFollowUpUpdatedToday(l,now)) && (!status || l.status === status) && [l.name,l.phone,l.salesperson,l.sheetData?.contact,l.sheetData?.admin].join(' ').toLowerCase().includes(query))
-            .sort((a,b) => (tab === 'followups' ? -1 : 1) * (contactDate(b).localeCompare(contactDate(a))
-                || String(b.sheetData?.time || '00:00:00').padStart(8,'0').localeCompare(String(a.sheetData?.time || '00:00:00').padStart(8,'0'))
-                || (Date.parse(b.createdAt)||0)-(Date.parse(a.createdAt)||0)
-                || Number(String(b.id).replace('sheet-lead:',''))-Number(String(a.id).replace('sheet-lead:',''))
-                || String(b.id).localeCompare(String(a.id))));
+        const newestLeadFirst = (a,b) => contactDate(b).localeCompare(contactDate(a))
+            || String(b.sheetData?.time || '00:00:00').padStart(8,'0').localeCompare(String(a.sheetData?.time || '00:00:00').padStart(8,'0'))
+            || (Date.parse(b.createdAt)||0)-(Date.parse(a.createdAt)||0)
+            || Number(String(b.id).replace('sheet-lead:',''))-Number(String(a.id).replace('sheet-lead:',''))
+            || String(b.id).localeCompare(String(a.id));
+        const list = sheetLeads.filter(l => (!followUps || isFollowUp(l)) && (!status || l.status === status) && [l.name,l.phone,l.salesperson,l.sheetData?.contact,l.sheetData?.admin].join(' ').toLowerCase().includes(query));
+        // Follow-ups run from the oldest update to the latest and are grouped by Bangkok update date; leads without a usable date stay on top.
+        const updatedAt = new Map(followUps ? sheetLeads.map(l => { const {at}=latestContactTimestamp(l,now); return [l,Number.isFinite(at) ? at : -Infinity]; }) : []);
+        const groupDate = l => followUps ? (Number.isFinite(updatedAt.get(l)) ? new Date(updatedAt.get(l)+7*3600000).toISOString().slice(0,10) : '') : contactDate(l);
+        list.sort((a,b) => followUps ? updatedAt.get(a)-updatedAt.get(b) || newestLeadFirst(b,a) : newestLeadFirst(a,b));
         const pageSize = 50, dailySummary = new Map();
-        // Cancelled leads are absent from the follow-up list; its summary covers the entire day.
-        const summaryLeads = tab === 'followups' ? sheetLeads : list;
-        summaryLeads.forEach(lead => {
-            const date = contactDate(lead);
+        // Cancelled leads are absent from the follow-up list; its summary covers every lead last updated that day.
+        (followUps ? sheetLeads : list).forEach(lead => {
+            const date = groupDate(lead);
             if (!dailySummary.has(date)) dailySummary.set(date,{total:0,successful:0,unsuccessful:0});
             const summary = dailySummary.get(date);
             summary.total++;
@@ -530,34 +533,37 @@
         $('contact-page-label').textContent = list.length ? `หน้า ${contactPage+1} / ${totalPages} · รายการ ${offset+1}–${offset+visible.length} จาก ${list.length.toLocaleString('th-TH')} · แสดง ${pageSize} รายการต่อหน้า` : '0 รายการ';
         $('contact-previous').disabled = contactPage === 0;
         $('contact-next').disabled = contactPage+1 >= totalPages;
+        const renderLead = ({l,index}) => {
+            const data=l.sheetData||{}, createdDay=day(l.createdAt);
+            const age=followUpAge(l,now), date=contactDate(l);
+            // Only the follow-up list highlights due leads; the contact report stays plain.
+            const highlight=followUps ? age.highlight : '';
+            const time = data.time || (date && date === createdDay ? new Date(l.createdAt).toLocaleTimeString('th-TH',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit'}) : '—');
+            const latestContact = [...(l.contactHistory || []),...window.CarLeadSheet.splitHistory(data.note || l.note || '').history]
+                .sort((a,b) => String(b.at).localeCompare(String(a.at)))[0];
+            const columns = [
+                ['ชื่อลูกค้า',l.name||data.name||'ยังไม่มีชื่อ'],
+                ['ช่องทางติดต่อ / ชื่อช่องทางติดต่อ',`${data.channel||sourceLabel(l)} : ${data.contact||'—'}`],
+                ['เบอร์โทร',formatLeadPhone(data.phone||l.phone)||'—'],
+                ['รุ่นรถยนต์',data.carModel||l.carModel||'—'],
+                ['สถานะการติดตาม',l.status||data.followUp||'—'],
+                ['วันที่นัดติดตั้ง',l.installationDate||'—'],
+                ['ประวัติการติดต่อล่าสุด',latestContact?.text || '—']
+            ];
+            return `<article class="contact-timeline-item${{today:' followup-overdue',tomorrow:' followup-due-tomorrow'}[highlight] || ''}" title="${esc(({today:'ต้องติดตามวันนี้ · ',tomorrow:'ต้องติดตามพรุ่งนี้ · '}[highlight] || '') + age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}></div>`).join('')}${tab === 'followups' ? renderFollowUpUpdated(l) : ''}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck ? 'disabled' : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
+        };
+        const track = items => `<div class="contact-day-track">${items.map(renderLead).join('')}</div>`;
         const groups = new Map();
-        visible.forEach((l,index) => { const date=contactDate(l); if (!groups.has(date)) groups.set(date,[]); groups.get(date).push({l,index:offset+index+1}); });
-        $('lead-list').innerHTML = [...groups].map(([date,items]) => {
+        visible.forEach((l,index) => { const date=groupDate(l); if (!groups.has(date)) groups.set(date,[]); groups.get(date).push({l,index:offset+index+1}); });
+        $('lead-list').innerHTML = [...groups].map(([date,dayItems]) => {
             const label = date ? new Date(date+'T12:00:00+07:00').toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'long',year:'numeric'}) : 'ไม่ระบุวันที่';
             const {total,successful,unsuccessful} = dailySummary.get(date);
-            const outcomeLabel = tab === 'followups' ? 'ไม่สำเร็จ' : 'สำเร็จ';
-            const outcomeCount = tab === 'followups' ? unsuccessful : successful;
+            const outcomeLabel = followUps ? 'ไม่สำเร็จ' : 'สำเร็จ';
+            const outcomeCount = followUps ? unsuccessful : successful;
             const outcomeRate = (total ? outcomeCount/total*100 : 0).toLocaleString('th-TH',{maximumFractionDigits:1});
-            const summaryTitle = tab === 'followups' ? 'สถานะยกเลิกทุกประเภท ÷ Lead ทั้งหมดของวัน × 100 รวมรายการที่ไม่ได้แสดงในหน้าติดตาม' : 'ปิดการขายสำเร็จและมัดจำ/นัดติดตั้งแล้ว ÷ Lead ทั้งหมดของวันตามตัวกรอง × 100';
-            return `<section class="contact-day-group"><h3 class="contact-day-heading"><span class="contact-day-dot"></span><time datetime="${esc(date)}">${esc(label)}</time><span title="${esc(summaryTitle)}">${date ? 'วันนี้' : 'ไม่ระบุวันที่'} ${total.toLocaleString('th-TH')} รายการ · ${outcomeLabel} ${outcomeCount.toLocaleString('th-TH')} รายการ · คิดเป็น ${outcomeRate}%</span></h3><div class="contact-day-track">${items.map(({l,index}) => {
-                const data=l.sheetData||{}, createdDay=day(l.createdAt);
-                const age=followUpAge(l);
-                const time = data.time || (date && date === createdDay ? new Date(l.createdAt).toLocaleTimeString('th-TH',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit'}) : '—');
-                const latestContact = [...(l.contactHistory || []),...window.CarLeadSheet.splitHistory(data.note || l.note || '').history]
-                    .sort((a,b) => String(b.at).localeCompare(String(a.at)))[0];
-                const columns = [
-                    ['ชื่อลูกค้า',l.name||data.name||'ยังไม่มีชื่อ'],
-                    ['ช่องทางติดต่อ / ชื่อช่องทางติดต่อ',`${data.channel||sourceLabel(l)} : ${data.contact||'—'}`],
-                    ['เบอร์โทร',formatLeadPhone(data.phone||l.phone)||'—'],
-                    ['รุ่นรถยนต์',data.carModel||l.carModel||'—'],
-                    ['สถานะการติดตาม',l.status||data.followUp||'—'],
-                    ['วันที่นัดติดตั้ง',l.installationDate||'—'],
-                    ['ประวัติการติดต่อล่าสุด',latestContact?.text || '—']
-                ];
-                return `<article class="contact-timeline-item${age.overdue ? ' followup-overdue' : ''}" title="${esc(age.overdue ? 'ต้องติดตาม · '+age.label : age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}></div>`).join('')}${tab === 'followups' ? renderFollowUpUpdated(l) : ''}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck ? 'disabled' : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
-
-
-            }).join('')}</div></section>`;
+            const summaryTitle = followUps ? 'สถานะยกเลิกทุกประเภท ÷ Lead ทั้งหมดที่อัปเดตล่าสุดในวันนั้น × 100 รวมรายการที่ไม่ได้แสดงในหน้าติดตาม' : 'ปิดการขายสำเร็จและมัดจำ/นัดติดตั้งแล้ว ÷ Lead ทั้งหมดของวันตามตัวกรอง × 100';
+            const prefix = followUps ? '' : (date ? 'วันนี้ ' : 'ไม่ระบุวันที่ ');
+            return `<section class="contact-day-group"><h3 class="contact-day-heading"><span class="contact-day-dot"></span><time datetime="${esc(date)}">${esc(label)}</time><span title="${esc(summaryTitle)}">${prefix}${total.toLocaleString('th-TH')} รายการ · ${outcomeLabel} ${outcomeCount.toLocaleString('th-TH')} รายการ · คิดเป็น ${outcomeRate}%</span></h3>${track(dayItems)}</section>`;
         }).join('') || empty(session ? 'ยังไม่มีผู้ติดต่อที่ตรงกับรายการค้นหา' : 'กำลังเชื่อมต่อเพื่อโหลดรายชื่อผู้ติดต่อ');
     }
     function renderInstallations() {
@@ -742,11 +748,12 @@
         };
         const statusChangeId = crypto.randomUUID();
         const storedReminderDate = previous.reminderDate || reminderData.reminderDate;
-        const reminderDate = window.CarLeadSheet.validReminderDate(storedReminderDate) ? storedReminderDate : defaultReminderDate({...lead,contactHistory});
+        // A lead without a saved reminder starts two days from today, so a past date is never offered.
+        const reminderDate = window.CarLeadSheet.validReminderDate(storedReminderDate) ? storedReminderDate : twoDaysAfter(Date.now());
         const reminderField = '<label>วันที่แจ้งเตือน<input id="history-reminder-date" name="reminderDate" type="date" value="' + esc(reminderDate) + '" required aria-describedby="history-reminder-hint"></label>';
         const contactDetails = '<div class="sheet-main-column" role="region" aria-label="รายละเอียดข้อมูลผู้ติดต่อ" tabindex="0">' + sheetSections(renderField, lead.leadId || '', lead.customerId || '') + '</div>';
         const html = contactDetails +
-            '<div class="sheet-side-column" role="region" aria-label="สถานะและประวัติการติดต่อ" tabindex="0"><section class="sheet-status-card"><div class="sheet-section-grid">' + renderField('followUp') + '</div></section><aside class="sheet-history-card"><h3>ประวัติการติดต่อ</h3><div class="history-meta-row"><label>ผู้บันทึก<select id="history-by"><option value="">— เลือก —</option>' + (lists['พนักงานขาย'] || []).map(value => '<option>' + esc(value) + '</option>').join('') + '</select></label>' + reminderField + '</div><small id="history-reminder-hint">ค่าเริ่มต้น 2 วันหลังการติดต่อล่าสุด · เลือกวันเองได้</small><label>รายละเอียด<textarea id="history-text" rows="3" placeholder="บันทึกการติดต่อ..."></textarea></label><button type="button" class="lead-button primary" id="add-contact-history">+ เพิ่มประวัติ</button><small>บันทึกพร้อมข้อมูลลูกค้า</small><p id="history-error" role="alert"></p><div id="contact-history-list"></div></aside></div>';
+            '<div class="sheet-side-column" role="region" aria-label="สถานะและประวัติการติดต่อ" tabindex="0"><section class="sheet-status-card"><div class="sheet-section-grid">' + renderField('followUp') + '</div></section><aside class="sheet-history-card"><h3>ประวัติการติดต่อ</h3><div class="history-meta-row"><label>ผู้บันทึก<select id="history-by"><option value="">— เลือก —</option>' + (lists['พนักงานขาย'] || []).map(value => '<option>' + esc(value) + '</option>').join('') + '</select></label>' + reminderField + '</div><small id="history-reminder-hint">ค่าเริ่มต้น วันนี้ + 2 วัน · เลือกวันเองได้</small><label>รายละเอียด<textarea id="history-text" rows="3" placeholder="บันทึกการติดต่อ..."></textarea></label><button type="button" class="lead-button primary" id="add-contact-history">+ เพิ่มประวัติ</button><small>บันทึกพร้อมข้อมูลลูกค้า</small><p id="history-error" role="alert"></p><div id="contact-history-list"></div></aside></div>';
         editor('เก็บข้อมูลผู้ติดต่อ', html, async values => {
             values.phone = formatLeadPhone(values.phone);
             if (values.phone && !/^\d{3}-\d{3}-\d{4}$/.test(values.phone)) throw new Error('กรุณากรอกเบอร์โทร 10 หลัก รูปแบบ xxx-xxx-xxxx');
@@ -833,10 +840,15 @@
             const removed = removedHistory.map((item,index) => '<div class="contact-history-pending"><span>รอลบ: ' + esc(item.text) + '</span><button type="button" class="contact-history-undo" data-restore-history="' + index + '">คืนค่า</button></div>').join('');
             $('contact-history-list').innerHTML = (entries || '<p class="lead-muted">ยังไม่มีประวัติ</p>') + removed;
         };
-        let customReminder = window.CarLeadSheet.validReminderDate(storedReminderDate);
-        $('history-reminder-date').addEventListener('input',() => { customReminder = true; });
-        const updateDefaultReminder = now => {
-            if (!customReminder) $('history-reminder-date').value = new Date(now + 7*3600000 + followUpAlertDays*86400000).toISOString().slice(0,10);
+        const storedReminder = window.CarLeadSheet.validReminderDate(storedReminderDate), addedHistoryIds = new Set();
+        let reminderPicked = false;
+        $('history-reminder-date').addEventListener('input',() => { reminderPicked = true; });
+        // Unless a date is picked in this editor, a contact added here moves the reminder to two days from today;
+        // without one, a saved reminder stays as it was.
+        const updateDefaultReminder = () => {
+            if (reminderPicked) return;
+            const added = contactHistory.some(item => addedHistoryIds.has(item.id));
+            $('history-reminder-date').value = storedReminder && !added ? storedReminderDate : twoDaysAfter(Date.now());
         };
         $('contact-history-list').onclick = event => {
             if ($('editor-form').getAttribute('aria-busy') === 'true') return;
@@ -849,7 +861,7 @@
             const [item] = list.splice(index,1);
             (remove ? removedHistory : contactHistory).push(item);
             leadEditorHistoryChanged = true;
-            if (!customReminder) $('history-reminder-date').value = defaultReminderDate({...lead,note:previous.note,sheetData:{...lead.sheetData,note:previous.note},contactHistory});
+            updateDefaultReminder();
             $('history-error').textContent = remove ? 'ลบแล้ว · รอกดบันทึกข้อมูล' : 'คืนค่าประวัติแล้ว · รอกดบันทึกข้อมูล';
             renderHistory();
         };
@@ -857,9 +869,10 @@
         $('add-contact-history').onclick = () => {
             const by=$('history-by').value, text=$('history-text').value.trim();
             if (!by || !text) { $('history-error').textContent='กรุณาระบุผู้บันทึก และรายละเอียด'; return; }
-            const now=Date.now(), at=new Date(now+7*3600000).toISOString().slice(0,19);
-            updateDefaultReminder(now);
-            contactHistory.push({id:crypto.randomUUID(),at,by,text});
+            const id=crypto.randomUUID(), at=new Date(Date.now()+7*3600000).toISOString().slice(0,19);
+            contactHistory.push({id,at,by,text});
+            addedHistoryIds.add(id);
+            updateDefaultReminder();
             leadEditorHistoryChanged = true;
             $('history-text').value=''; $('history-error').textContent='เพิ่มแล้ว · รอกดบันทึกข้อมูล'; renderHistory();
         };
