@@ -420,6 +420,12 @@
         const userId = tab === 'instagram' ? row.instagram_user_id : tab === 'line' ? row.line_user_id : row.facebook_user_id;
         return records.leads.find(l => l.identity === core.identity(tab, account, userId));
     }
+    // Apps Script mode: a saved lead carries the key of the contact it came from (intakeSource), not a local identity.
+    function savedSheetLeads(row) {
+        const userId = tab === 'instagram' ? row.instagram_user_id : tab === 'line' ? row.line_user_id : row.facebook_user_id;
+        if (!userId || !Array.isArray(records.sheetLeads)) return [];
+        return records.sheetLeads.filter(lead => lead.intakeSource?.platform === tab && lead.intakeSource.userId === userId);
+    }
     const day = core.dayKey;
     function renderInbox() {
         renderLineProfileWarning();
@@ -466,7 +472,7 @@
             const title = dateGroup ? new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'long',year:'numeric'}).format(new Date(rows[0].last_seen_at)) : 'ไม่มีวันที่';
             return `<section class="lead-timeline-group"><h3 class="lead-day"><span>${calendar}${rows[0].legacy ? 'ประวัติเดิมบางส่วน' : inboxSource === 'line-sheet' ? 'กิจกรรมรายวันที่ตรวจพบ' : 'ทักในวันที่'} · ${esc(title)}</span><span class="lead-day-count">${counts(rows).map(([label,count]) => `${label} ${count}`).join(" · ")} <small>(ในหน้านี้)</small></span></h3><div class="lead-timeline">${rows.map(row => {
                 const selected = selectedLead(row);
-                const savedInSheet = existsInLeadSheet(row,selected);
+                const savedInSheet = existsInLeadSheet(row,selected) || savedSheetLeads(row).length > 0;
                 const firstDay = row.first_seen_at ? day(row.first_seen_at) : '';
                 const contactDays = new Set((row.daily_activity || []).map(at => day(at)).filter(Boolean)).size;
                 const daysBadge = contactDays ? `<span class="lead-contact-days" title="จำนวนวันที่มีข้อความติดต่อ · นับวันละหนึ่งครั้ง${row.history_complete === false ? ' · ประวัติที่อ่านได้ยังไม่ครบ' : ''}">${contactDays}${row.history_complete === false ? '+' : ''} วัน</span>` : ''; 
@@ -1036,9 +1042,19 @@
     $('inbox-list').addEventListener('click',guard(async event => {
         const button = event.target.closest('[data-contact]'); if (!button || button.disabled) return;
         const row = contacts.find(c => c.id === button.dataset.contact && day(c.last_seen_at) === button.dataset.contactDay); const lead = selectedLead(row);
+        // A contact already saved in the lead sheet opens that saved row for editing, never a blank form.
+        const savedLeads = lead ? [] : savedSheetLeads(row);
+        if (!lead && existsInLeadSheet(row,null) && savedLeads.length !== 1) {
+            notice(savedLeads.length > 1 ? 'พบข้อมูลลีดของผู้ติดต่อนี้หลายรายการ กรุณาแก้ไขจากแท็บรายชื่อผู้ติดต่อ' : 'ไม่พบข้อมูลลีดที่ผูกกับผู้ติดต่อนี้ กรุณาเปิดแก้ไขจากแท็บรายชื่อผู้ติดต่อ หรือกดอัปเดตข้อมูลล่าสุดแล้วลองอีกครั้ง',true);
+            return;
+        }
+        const savedLead = savedLeads.length === 1 ? {...savedLeads[0],status:customerFollowUp(savedLeads[0])} : null;
         const label = button.textContent;
         button.disabled = true; button.textContent = 'กำลังเปิด…'; button.setAttribute('aria-busy','true');
-        try { await editLead(lead || {},lead ? null : row); }
+        try {
+            if (savedLead) { if (await editLead(savedLead)) $('editor-title').textContent = 'รายละเอียดข้อมูลผู้ติดต่อ'; }
+            else await editLead(lead || {},lead ? null : row);
+        }
         finally { button.disabled = false; button.textContent = label; button.removeAttribute('aria-busy'); }
     }));
     $('lead-search').addEventListener('input',() => { contactPage=0; renderLeads(); }); $('lead-status').addEventListener('change',() => { contactPage=0; renderLeads(); });
