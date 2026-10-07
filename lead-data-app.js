@@ -214,9 +214,27 @@
         const content = Array.isArray(value) ? value.map(item => '<span class="contact-installation-date' + (item.cancelled ? ' cancelled' : '') + '" title="' + esc(item.jobId + (item.status ? ' · ' + item.status : '')) + '">' + esc(item.label) + (item.cancelled ? ' · ยกเลิก' : '') + '</span>').join('') : esc(value || '—');
         return '<div class="contact-report-field contact-installation-dates" aria-label="วันที่นัดติดตั้ง">' + content + '</div>';
     }
+    // GitHub Pages: the contact report reads start together with the sign-in check instead of after it.
+    // Only the first list load uses them; a failed or late early read falls back to the normal request.
+    let earlyLeads = null;
+    function startEarlyLeads() {
+        if (!cloudLead || embeddedNewLead || !['leads','followups'].includes(initialTab())) return;
+        const records = api('records'), dates = loadInstallationDates();
+        records.catch(() => {}); dates.catch(() => {});
+        earlyLeads = {records,dates,startedAt:Date.now(),revision:savedLeadRevision};
+    }
+    function takeEarlyLeads() {
+        const early = earlyLeads;
+        earlyLeads = null;
+        return early && early.revision === savedLeadRevision && Date.now() - early.startedAt < 60000 ? early : null;
+    }
     async function loadRecords(intake = ['line','facebook','instagram'].includes(tab), {reportErrors = false} = {}) {
         const currentSession = session, currentService = service, currentRevision = savedLeadRevision;
         const isCurrent = () => session === currentSession && service === currentService && currentRevision === savedLeadRevision;
+        const early = intake ? null : takeEarlyLeads();
+        // Installation dates do not depend on the lead list, so both reads run at the same time.
+        const datesRequest = intake ? null : early ? early.dates : loadInstallationDates();
+        if (datesRequest) datesRequest.catch(() => {});
         const stored = !intake && !sheetLeads.length ? readLeadsSnapshot() : null;
         if (stored && stored.length) {
             // Paint the last complete list at once; it stays view-only until the fresh read replaces it.
@@ -226,13 +244,16 @@
             notice('แสดงรายการล่าสุดที่โหลดไว้ · กำลังอัปเดต…');
         }
         let result;
-        try { result = await api(intake ? 'records?scope=intake' : 'records'); }
+        try { result = await (early ? early.records.catch(() => api('records')) : api(intake ? 'records?scope=intake' : 'records')); }
         catch (error) { if (!isCurrent()) return; dropLeadsSnapshotView(); throw error; }
         if (!isCurrent()) return;
         records = result; recordsLoaded = true; renderInstallations(); renderInbox();
         if (intake) {
             void (result.sheetLeads ? Promise.resolve({leads:result.sheetLeads}) : api('sheet-leads')).then(sheet => {
-                if(isCurrent()) updateFollowUpCount(sheet.leads);
+                if(!isCurrent()) return;
+                updateFollowUpCount(sheet.leads);
+                // The contact report tab can then paint this list at once while it reads a fresh one.
+                writeLeadsSnapshot(sheet.leads);
             }).catch(() => { if(isCurrent()) updateFollowUpCount(null); });
             return;
         }
@@ -242,7 +263,7 @@
             renderStatusOptions();
             sheetLeads.forEach(lead => { lead.installationDate = lead.customerId ? 'กำลังโหลด…' : '—'; });
             renderLeads();
-            try { const dates = await loadInstallationDates(); if(!isCurrent()) return; sheetLeads.forEach(lead => { lead.installationDate = dates.get(lead.customerId) || '—'; }); }
+            try { const dates = await datesRequest; if(!isCurrent()) return; sheetLeads.forEach(lead => { lead.installationDate = dates.get(lead.customerId) || '—'; }); }
             catch { if(!isCurrent()) return; sheetLeads.forEach(lead => { lead.installationDate = lead.customerId ? 'โหลดไม่สำเร็จ' : '—'; }); }
             renderLeads(); }
         catch(e) { if(!isCurrent()) return; if (leadsFromSnapshot) dropLeadsSnapshotView(); if(reportErrors) throw e; sheetLeads=[]; renderLeads(); updateFollowUpCount(null); notice('โหลดชีต lead ไม่สำเร็จ: '+e.message,true); }
@@ -1162,6 +1183,7 @@
             $('service-form').hidden = true;
             $('signout').textContent = 'ออกจากระบบ';
             $('current-user').textContent = 'กำลังตรวจสอบการเข้าสู่ระบบ…';
+            startEarlyLeads();
             if (!await window.CarCrmAuth.refresh()) {
                 if (embeddedNewLead) throw new Error('กรุณาเข้าสู่ระบบ CAR CRM ใหม่ แล้วกดเพิ่มข้อมูลลีดอีกครั้ง');
                 location.replace('crm-login.html?next=' + encodeURIComponent('lead-data.html' + location.search + location.hash));
@@ -1169,6 +1191,8 @@
             }
         }
         await connect();
+        // Early reads the first load did not use (e.g. another tab was opened first) are never reused later.
+        earlyLeads = null;
     }
     startLead().catch(e => {
         if (embeddedNewLead) { postToBooking('error',{message:e.message}); return; }
