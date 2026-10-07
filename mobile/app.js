@@ -557,7 +557,7 @@
 
   async function verifyPayInBackendVersion() {
     if (!payInBackendVersionPromise) {
-      payInBackendVersionPromise = fetch(`${MOBILE_PAYIN_SCRIPT_URL}?backendCheck=${Date.now()}`, {
+      payInBackendVersionPromise = fetch(`${MOBILE_PAYIN_SCRIPT_URL}?driveCheck=1&backendCheck=${Date.now()}`, {
         cache: 'no-store',
         credentials: 'omit',
         redirect: 'follow'
@@ -570,6 +570,13 @@
           if (result.backendVersion !== PAYIN_REQUIRED_BACKEND_VERSION) {
             throw new Error('Apps Script Web App ยังเป็นเวอร์ชันเก่า กรุณา Deploy เป็น New version ก่อนบันทึกรูป PayIn');
           }
+          if (!result.drive || result.drive.ready !== true) {
+            const driveError = String(result.drive && result.drive.error || '');
+            if (/permission to call|required permissions|authorization is required|insufficient authentication scopes|ไม่ได้รับอนุญาตให้เรียกใช้|สิทธิ์ที่จำเป็น|googleapis\.com\/auth\/drive/i.test(driveError)) {
+              throw new Error('ระบบบันทึกรูปยังไม่ได้รับอนุญาตให้ใช้ Google Drive กรุณาให้ผู้ดูแลรัน authorizeOnce และอนุญาตสิทธิ์ใน Apps Script ของระบบชำระเงิน แล้วลองอีกครั้ง');
+            }
+            throw new Error('ระบบรูป PayIn ยังเข้าถึงโฟลเดอร์หลักฐานใน Google Drive ไม่ได้ กรุณาให้ผู้ดูแลตรวจโฟลเดอร์และสิทธิ์เข้าถึง แล้วลองอีกครั้ง');
+          }
           return result;
         })
         .catch(error => {
@@ -577,7 +584,12 @@
           throw error;
         });
     }
-    return payInBackendVersionPromise;
+    try {
+      return await payInBackendVersionPromise;
+    } finally {
+      // Recheck on the next save: Drive permissions can change while the page is open.
+      payInBackendVersionPromise = null;
+    }
   }
 
   async function submitPayIn(event) {
