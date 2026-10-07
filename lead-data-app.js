@@ -90,7 +90,7 @@
     let leadEditorSnapshot = '', leadEditorHistoryChanged = false;
     let savedLeadRevision = 0;
     let accessKey = sessionStorage.getItem('carLeadAccessKey') || '';
-    let rangeMode = '7', rangeStart = '', rangeEnd = '';
+    let rangeMode = '3', rangeStart = '', rangeEnd = '';
     let inboxSource = 'webhook', inboxLoading = false, inboxIncomplete = false, lineProfilesConfigured;
     let instagramError = null;
     let sheetContacts = [], sheetChecked = false, recordsLoaded = false;
@@ -453,7 +453,7 @@
         };
         const summaryRows = contacts.filter(row => { const date = day(row.last_seen_at); return !row.legacy && date && date >= rangeStart && date <= rangeEnd; });
         const totals = [...counts(summaryRows), ['เก็บข้อมูล Lead', summaryRows.filter(row => existsInLeadSheet(row, selectedLead(row))).length]];
-        const summaryPeriod = ({today:'วันนี้','7':'7 วันล่าสุด','15':'15 วันล่าสุด',month:'เดือนนี้',year:'ปีนี้'})[rangeMode] || `${rangeStart} – ${rangeEnd}`;
+        const summaryPeriod = ({today:'วันนี้','3':'3 วันล่าสุด','7':'7 วันล่าสุด','15':'15 วันล่าสุด',month:'เดือนนี้',year:'ปีนี้'})[rangeMode] || `${rangeStart} – ${rangeEnd}`;
         const progressLabel = inboxLoading ? ' · กำลังโหลด สถิติยังไม่ครบ' : inboxIncomplete ? ' · อัปเดตข้อมูลยังไม่ครบ' : '';
         const selectionReady = sheetChecked && recordsLoaded;
         $('inbox-summary-scope').textContent = `สรุปสถิติจากช่องทาง ${tab === 'instagram' ? 'Instagram' : tab === 'line' ? 'Line OA' : 'Facebook'} ${summaryPeriod}${inboxSource === 'line-daily' ? ' · เฉพาะบันทึกรายวันใหม่' : ''}${progressLabel}`;
@@ -1005,7 +1005,7 @@
         const today = day(new Date());
         rangeEnd = today;
         const date = new Date(today+'T00:00:00Z');
-        if (mode === '7' || mode === '15') date.setUTCDate(date.getUTCDate()-Number(mode)+1);
+        if (mode === '3' || mode === '7' || mode === '15') date.setUTCDate(date.getUTCDate()-Number(mode)+1);
         rangeStart = mode === 'month' ? today.slice(0,7)+'-01' : mode === 'year' ? today.slice(0,4)+'-01-01' : date.toISOString().slice(0,10);
         $('range-start').value = rangeStart; $('range-end').value = rangeEnd;
         updateRange();
@@ -1034,7 +1034,7 @@
         if (!start || !end || start > end) throw new Error('กรุณาเลือกวันที่เริ่มต้นไม่เกินวันที่สิ้นสุด');
         rangeStart = start; rangeEnd = end; rangeMode = 'custom'; updateRange(); await loadInbox();
     }));
-    setRange('7');
+    setRange('3');
     $('inbox-date').value = day(new Date());
     $('inbox-date').addEventListener('change',guard(loadInbox)); $('inbox-filter').addEventListener('change',renderInbox);
     $('previous-page').addEventListener('click',guard(async () => { page = Math.max(0,page-1); renderInbox(); }));
