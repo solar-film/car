@@ -741,6 +741,12 @@
             ...(platform === 'instagram' ? {knownFrom:'Instagram'} : {}),
             contact:['line','facebook','instagram'].includes(platform) ? profileName : '',phone:lead.phone || '',note:lead.note || '',customerType:(contact?.customer_type || (contact ? core.customerTag(contact.first_seen_at,contact.last_seen_at) : 'new')) === 'existing' ? 'ลค.เก่า' : 'ลค.ใหม่',followUp:'🟡 สอบถามใหม่'};
         const labels = sheetLabels;
+        // Car model -> brand (Car_model sheet), spelled as in the brand list, so choosing a model fills the brand.
+        const carModelBrand = model => {
+            const brands = lists.Car_model_brand || {};
+            const brand = Object.hasOwn(brands,model) ? String(brands[model] || '').trim() : '';
+            return brand && ((lists.Car_Brand || []).find(choice => choice.toLowerCase() === brand.toLowerCase()) || brand);
+        };
         const placeholders = {admin:'ชื่อฝ่ายขาย',name:'ชื่อ-นามสกุล',contact:'ชื่อโปรไฟล์ เช่น Weerachon',phone:'เบอร์โทรศัพท์',carBrand:'เช่น Toyota',carModel:'เช่น Vios',positions:'เช่น เต็มคัน, ซันรูฟ',filmBrand:'ยี่ห้อที่สนใจ',filmModel:'รุ่นที่สนใจ',budget:'เช่น 3,200',knownFrom:'เช่น Facebook',note:'รายละเอียดเพิ่มเติม / สิ่งที่ต้องติดตาม'};
         const renderField = name => {
             if (name === 'positions') {
@@ -776,7 +782,7 @@
                     return `<div class="sheet-status-automatic"><span class="sheet-control-label">${esc(labels[name] || label)}</span><input type="hidden" name="followUp" value="${esc(value)}"><strong>${esc(value)}</strong><small>สถานะอัปเดตอัตโนมัติจากคิวติดตั้ง</small></div>`;
                 }
                 if (['carBrand','carModel','filmBrand','filmModel'].includes(name)) {
-                    return `<div class="sheet-search-field" data-multiple="${multiple}"><span class="sheet-control-label">${esc(labels[name] || label)}</span><input type="hidden" name="${esc(name)}" value="${esc(value)}"><details class="sheet-search-menu"><summary><span class="sheet-search-value">${esc(value || '— เลือก —')}</span><span aria-hidden="true">⌄</span></summary><div class="sheet-search-panel"><input type="search" class="sheet-option-search" placeholder="พิมพ์ค้นหา..." aria-label="ค้นหา${esc(labels[name] || label)}" autocomplete="off"><div class="sheet-search-options">${['',...choices].map(option => `<button type="button" class="sheet-search-option" data-option-value="${esc(option)}" aria-pressed="${selected.includes(option)}">${multiple && option ? `<span aria-hidden="true">${selected.includes(option) ? '☑' : '☐'}</span> ` : ''}${esc(option || '— ไม่ระบุ —')}</button>`).join('')}</div><small class="sheet-search-empty" hidden>ไม่พบรายการที่ค้นหา</small></div></details></div>`;
+                    return `<div class="sheet-search-field" data-multiple="${multiple}"><span class="sheet-control-label">${esc(labels[name] || label)}</span><input type="hidden" name="${esc(name)}" value="${esc(value)}"><details class="sheet-search-menu"><summary><span class="sheet-search-value">${esc(value || '— เลือก —')}</span><span aria-hidden="true">⌄</span></summary><div class="sheet-search-panel"><input type="search" class="sheet-option-search" placeholder="พิมพ์ค้นหา..." aria-label="ค้นหา${esc(labels[name] || label)}" autocomplete="off"><div class="sheet-search-options">${['',...choices].map(option => `<button type="button" class="sheet-search-option" data-option-value="${esc(option)}"${name === 'carModel' && carModelBrand(option) ? ` data-option-brand="${esc(carModelBrand(option))}"` : ''} aria-pressed="${selected.includes(option)}">${multiple && option ? `<span aria-hidden="true">${selected.includes(option) ? '☑' : '☐'}</span> ` : ''}${esc(option || '— ไม่ระบุ —')}</button>`).join('')}</div><small class="sheet-search-empty" hidden>ไม่พบรายการที่ค้นหา</small></div></details></div>`;
                 }
                 const newLeadFollowUp = name === 'followUp' && isNewLead;
                 return field(name,labels[name] || label,value,'text',newLeadFollowUp ? choices : [['','— เลือก —'],...choices],newLeadFollowUp) + (name === 'followUp' ? '<small class="sheet-status-hint">ปิดการขายอัตโนมัติเมื่อคิวติดตั้งเสร็จสิ้น</small>' : '');
@@ -1145,12 +1151,18 @@
             }
             return;
         }
-        container.querySelector('input[type="hidden"]').value = button.dataset.optionValue;
-        container.querySelector('.sheet-search-value').textContent = button.dataset.optionValue || '— เลือก —';
-        for (const option of container.querySelectorAll('[data-option-value]')) option.setAttribute('aria-pressed',String(option === button));
+        setSearchValue(container,button.dataset.optionValue);
+        // Choosing a car model also fills its brand.
+        const brandField = button.dataset.optionBrand && $('editor-fields').querySelector('input[name="carBrand"]')?.closest('.sheet-search-field');
+        if (brandField) setSearchValue(brandField,button.dataset.optionBrand);
         const menu = container.querySelector('details'); menu.open = false;
         menu.querySelector('summary').focus();
     });
+    function setSearchValue(container, value) {
+        container.querySelector('input[type="hidden"]').value = value;
+        container.querySelector('.sheet-search-value').textContent = value || '— เลือก —';
+        for (const option of container.querySelectorAll('[data-option-value]')) option.setAttribute('aria-pressed',String(option.dataset.optionValue === value));
+    }
     $('editor-fields').addEventListener('change',event => {
         if (!event.target.matches('[data-position-value]')) return;
         const container = event.target.closest('.sheet-positions-field');
