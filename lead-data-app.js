@@ -364,6 +364,12 @@
                 $('inbox-summary').hidden = true;
                 $('inbox-list').innerHTML = empty('รอเชื่อมช่องทางรับข้อมูล LINE @maholan ของ CAR');
             }
+            if (result.stale) {
+                // The service could not reach the channel and returned the last list it read.
+                const savedAt = Number.isFinite(Date.parse(result.staleSavedAt)) ? new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(result.staleSavedAt)) : '';
+                notice(`แสดงรายการล่าสุดที่จำไว้${savedAt ? ' (อ่านเมื่อ ' + savedAt + ' น.)' : ''} · ยังไม่ใช่ข้อมูลปัจจุบัน · ${result.staleReason || 'ติดต่อช่องทางนี้ไม่ได้'}`,true);
+                return;
+            }
             notice(inboxSource === 'line-sheet'
                 ? 'LINE: แสดงกิจกรรมรายวันที่ตรวจพบ · ประวัติอาจไม่ครบ ชีตเก็บเฉพาะครั้งแรกและล่าสุด ต้องรับเหตุการณ์ทุกครั้งจึงจะนับวันทักได้ครบ'
                 : result.contacts.some(row => !row.history_complete) && ['facebook-conversations','instagram-conversations'].includes(inboxSource)
