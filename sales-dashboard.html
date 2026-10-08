@@ -769,7 +769,6 @@
 
             const headerCells = [
                 '<th class="check-head">เลือก</th>',
-                '<th class="base-head">กลุ่มราคา</th>',
                 '<th class="base-head">รายการ</th>',
                 ...selectedBrands.map(brand => `<th>${escapeHtml(brand.label)}</th>`)
             ].join('');
@@ -787,7 +786,6 @@
                 return `
                     <tr class="${pricePreviewRowClass(row)}${summary ? ' summary-row' : ''}">
                         ${checkCell}
-                        <td class="base-cell">${escapeHtml(getPriceKey(row))}</td>
                         <td class="base-cell">${escapeHtml(getPricePosition(row))}</td>
                         ${brandCells}
                     </tr>
@@ -803,7 +801,7 @@
                         ${bodyRows}
                         <tr class="total-row hidden" id="priceTotalRow">
                             <td class="check-cell"></td>
-                            <td class="total-label base-cell" colspan="2">🧮 ยอดรวมที่เลือก</td>
+                            <td class="total-label base-cell">🧮 ยอดรวมที่เลือก</td>
                             ${totalCells}
                         </tr>
                     </tbody>
