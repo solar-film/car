@@ -90,7 +90,7 @@
     let leadEditorSnapshot = '', leadEditorHistoryChanged = false;
     let savedLeadRevision = 0;
     let accessKey = sessionStorage.getItem('carLeadAccessKey') || '';
-    let rangeMode = '3', rangeStart = '', rangeEnd = '';
+    let rangeMode = 'today', rangeStart = '', rangeEnd = '';
     let inboxSource = 'webhook', inboxLoading = false, inboxIncomplete = false, lineProfilesConfigured;
     let instagramError = null;
     let sheetContacts = [], sheetChecked = false, recordsLoaded = false;
@@ -1046,7 +1046,7 @@
         if (!start || !end || start > end) throw new Error('กรุณาเลือกวันที่เริ่มต้นไม่เกินวันที่สิ้นสุด');
         rangeStart = start; rangeEnd = end; rangeMode = 'custom'; updateRange(); await loadInbox();
     }));
-    setRange('3');
+    setRange('today');
     $('inbox-date').value = day(new Date());
     $('inbox-date').addEventListener('change',guard(loadInbox)); $('inbox-filter').addEventListener('change',renderInbox);
     $('previous-page').addEventListener('click',guard(async () => { page = Math.max(0,page-1); renderInbox(); }));
