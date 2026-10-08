@@ -93,7 +93,7 @@
     let rangeMode = 'today', rangeStart = '', rangeEnd = '';
     let inboxSource = 'webhook', inboxLoading = false, inboxIncomplete = false, lineProfilesConfigured;
     let instagramError = null;
-    let sheetContacts = [], sheetChecked = false, recordsLoaded = false;
+    let sheetContacts = [], sheetSaved = null, sheetChecked = false, recordsLoaded = false;
     async function checkSheetContacts({refresh = false} = {}) {
         const currentSession = session, currentService = service, currentRevision = savedLeadRevision;
         if (refresh) sheetContactCache.clear();
@@ -105,6 +105,8 @@
         });
         if (session !== currentSession || service !== currentService || currentRevision !== savedLeadRevision) return;
         sheetContacts = result.contacts;
+        // Apps Script also lists the saved LINE/Facebook contacts, so the buttons need not wait for the full lead records.
+        sheetSaved = Array.isArray(result.saved) ? result.saved : null;
         sheetChecked = true;
         renderInbox();
     }
@@ -154,14 +156,14 @@
     function requireSession() { if (!session) throw new Error('ยังไม่ได้เชื่อมต่อระบบรับข้อมูล CAR กรุณาตรวจการตั้งค่าฝั่งเซิร์ฟเวอร์'); }
     function resetRecords() {
         formOptions.clear(); sheetContactCache.clear(); inboxLoader.clear(); editorOpenRequest++;
-        sheetContacts = []; sheetChecked = false; recordsLoaded = false; inboxLoading = false; inboxIncomplete = false;
+        sheetContacts = []; sheetSaved = null; sheetChecked = false; recordsLoaded = false; intakeRecordsRequest = null; inboxLoading = false; inboxIncomplete = false;
         lineProfilesConfigured = undefined;
         instagramError = null;
         sheetLeads = []; leadsFromSnapshot = false; request++; records = { leads: [], installations: [] }; contacts = []; legacy = []; legacySources = null; session = null;
         $('current-user').textContent = 'ยังไม่ได้เชื่อมต่อระบบลีด'; $('signout').hidden = true;
         $('editor').close(); $('legacy-dialog').close(); renderLeads(); renderInstallations(); renderInbox();
     }
-    async function connect() {
+    async function connect(signedIn = true) {
         const attempt = ++connection;
         resetRecords();
         // Both reads are independent: start the session check while configuration loads.
@@ -169,6 +171,7 @@
         sessionRequest.catch(() => {});
         // The embedded form needs only the sheet options; read them alongside the start-up checks.
         if (embeddedNewLead) prefetchFormOptions();
+        else startEarlyIntake(attempt);
         settings = await api('config');
         if (attempt !== connection) return;
         $('instagram-connection').textContent = settings.instagramConfigured ? `Instagram: @${settings.instagramUsername} · ตรวจสิทธิ์อ่านแชตเมื่อเปิดแท็บ` : 'Instagram: รอตั้งค่าเชื่อมต่อบัญชี CAR';
@@ -176,8 +179,11 @@
         $('line-connection').textContent = settings.lineConfigured ? 'LINE: รถยนต์ @maholan · ตั้งค่ารับข้อมูลแล้ว' : 'LINE: รถยนต์ @maholan · รอตั้งค่า webhook CAR';
         $('access-label').hidden = settings.local || cloudLead;
         $('service-form').hidden = cloudLead;
-        session = await sessionRequest;
+        const current = await sessionRequest;
         if (attempt !== connection) return;
+        // GitHub Pages: these reads start together with the sign-in check; nothing is shown until it confirms the sign-in.
+        if (!await signedIn || attempt !== connection) return;
+        session = current;
         $('current-user').textContent = session.name; $('signout').hidden = session.mode === 'local';
         if (embeddedNewLead) { await openEmbeddedLead(); return; }
         const entryUrl = new URL(location.href);
@@ -188,7 +194,7 @@
             return;
         }
         const entryTab = initialTab();
-        if (['line','facebook','instagram'].includes(entryTab)) await Promise.all([loadRecords(true),showTab(entryTab)]);
+        if (['line','facebook','instagram'].includes(entryTab)) await Promise.all([intakeRecords(),showTab(entryTab)]);
         else await showTab(entryTab);
     }
     async function loadInstallationDates() {
@@ -228,10 +234,35 @@
         earlyLeads = null;
         return early && early.revision === savedLeadRevision && Date.now() - early.startedAt < 60000 ? early : null;
     }
+    // GitHub Pages, Line page: the contact list, the saved-contact check and the lead records start with the sign-in
+    // and configuration checks. The first list load joins the same requests (the loader and check share pending reads).
+    let earlyIntake = null, intakeRecordsRequest = null;
+    function startEarlyIntake(attempt) {
+        if (!cloudLead || embeddedNewLead || initialTab() !== 'line') return;
+        void inboxLoader.load({platform:'line',start:rangeStart,end:rangeEnd,isCurrent:() => attempt === connection}).catch(() => {});
+        void sheetContactCache.get().catch(() => {});
+        const records = api('records?scope=intake');
+        records.catch(() => {});
+        earlyIntake = {records,attempt,revision:savedLeadRevision};
+    }
+    function takeEarlyIntake() {
+        const early = earlyIntake;
+        earlyIntake = null;
+        return early && early.attempt === connection && early.revision === savedLeadRevision ? early : null;
+    }
+    // One shared read of the lead records on the Line/Facebook pages; a button clicked before it answers waits for it.
+    function intakeRecords() {
+        if (recordsLoaded) return Promise.resolve();
+        if (!intakeRecordsRequest) {
+            const request = loadRecords(true).finally(() => { if (intakeRecordsRequest === request) intakeRecordsRequest = null; });
+            intakeRecordsRequest = request;
+        }
+        return intakeRecordsRequest;
+    }
     async function loadRecords(intake = ['line','facebook','instagram'].includes(tab), {reportErrors = false} = {}) {
         const currentSession = session, currentService = service, currentRevision = savedLeadRevision;
         const isCurrent = () => session === currentSession && service === currentService && currentRevision === savedLeadRevision;
-        const early = intake ? null : takeEarlyLeads();
+        const early = intake ? takeEarlyIntake() : takeEarlyLeads();
         // Installation dates do not depend on the lead list, so both reads run at the same time.
         const datesRequest = intake ? null : early ? early.dates : loadInstallationDates();
         if (datesRequest) datesRequest.catch(() => {});
@@ -244,7 +275,8 @@
             notice('แสดงรายการล่าสุดที่โหลดไว้ · กำลังอัปเดต…');
         }
         let result;
-        try { result = await (early ? early.records.catch(() => api('records')) : api(intake ? 'records?scope=intake' : 'records')); }
+        const path = intake ? 'records?scope=intake' : 'records';
+        try { result = await (early ? early.records.catch(() => api(path)) : api(path)); }
         catch (error) { if (!isCurrent()) return; dropLeadsSnapshotView(); throw error; }
         if (!isCurrent()) return;
         records = result; recordsLoaded = true; renderInstallations(); renderInbox();
@@ -432,6 +464,11 @@
         if (!userId || !Array.isArray(records.sheetLeads)) return [];
         return records.sheetLeads.filter(lead => lead.intakeSource?.platform === tab && lead.intakeSource.userId === userId);
     }
+    // The same saved-contact rule from the light sheet check, before the full lead records arrive.
+    function savedContactKey(row) {
+        const userId = tab === 'instagram' ? row.instagram_user_id : tab === 'line' ? row.line_user_id : row.facebook_user_id;
+        return Boolean(userId && sheetSaved?.some(item => item.platform === tab && item.userId === userId));
+    }
     const day = core.dayKey;
     function renderInbox() {
         renderLineProfileWarning();
@@ -461,7 +498,7 @@
         const totals = [...counts(summaryRows), ['เก็บข้อมูล Lead', summaryRows.filter(row => existsInLeadSheet(row, selectedLead(row))).length]];
         const summaryPeriod = ({today:'วันนี้','3':'3 วันล่าสุด','7':'7 วันล่าสุด','15':'15 วันล่าสุด',month:'เดือนนี้',year:'ปีนี้'})[rangeMode] || `${rangeStart} – ${rangeEnd}`;
         const progressLabel = inboxLoading ? ' · กำลังโหลด สถิติยังไม่ครบ' : inboxIncomplete ? ' · อัปเดตข้อมูลยังไม่ครบ' : '';
-        const selectionReady = sheetChecked && recordsLoaded;
+        const selectionReady = sheetChecked && (recordsLoaded || sheetSaved !== null);
         $('inbox-summary-scope').textContent = `สรุปสถิติจากช่องทาง ${tab === 'instagram' ? 'Instagram' : tab === 'line' ? 'Line OA' : 'Facebook'} ${summaryPeriod}${inboxSource === 'line-daily' ? ' · เฉพาะบันทึกรายวันใหม่' : ''}${progressLabel}`;
         $('inbox-summary').innerHTML = totals.map(([label,count]) => `<div class="lead-stat ${label === 'ลูกค้าใหม่' ? 'stat-new' : label === 'ลูกค้าเก่า' ? 'stat-old' : label === 'ทั้งหมด' ? 'stat-total' : label === 'เก็บข้อมูล Lead' ? 'stat-saved' : 'stat-unknown'}"><span class="lead-stat-label"><i aria-hidden="true"></i>${label}</span><strong>${inboxLoading && !contacts.length || label === 'เก็บข้อมูล Lead' && !selectionReady ? '…' : count.toLocaleString('th-TH')}<small>${rangeStart === rangeEnd ? "คน" : "คน-วัน"}</small></strong></div>`).join('');
         const dated = contacts.filter(row => day(row.last_seen_at)>=rangeStart && day(row.last_seen_at)<=rangeEnd);
@@ -478,7 +515,7 @@
             const title = dateGroup ? new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'long',year:'numeric'}).format(new Date(rows[0].last_seen_at)) : 'ไม่มีวันที่';
             return `<section class="lead-timeline-group"><h3 class="lead-day"><span>${calendar}${rows[0].legacy ? 'ประวัติเดิมบางส่วน' : inboxSource === 'line-sheet' ? 'กิจกรรมรายวันที่ตรวจพบ' : 'ทักในวันที่'} · ${esc(title)}</span><span class="lead-day-count">${counts(rows).map(([label,count]) => `${label} ${count}`).join(" · ")} <small>(ในหน้านี้)</small></span></h3><div class="lead-timeline">${rows.map(row => {
                 const selected = selectedLead(row);
-                const savedInSheet = existsInLeadSheet(row,selected) || savedSheetLeads(row).length > 0;
+                const savedInSheet = existsInLeadSheet(row,selected) || savedSheetLeads(row).length > 0 || savedContactKey(row);
                 const firstDay = row.first_seen_at ? day(row.first_seen_at) : '';
                 const contactDays = new Set((row.daily_activity || []).map(at => day(at)).filter(Boolean)).size;
                 const daysBadge = contactDays ? `<span class="lead-contact-days" title="จำนวนวันที่มีข้อความติดต่อ · นับวันละหนึ่งครั้ง${row.history_complete === false ? ' · ประวัติที่อ่านได้ยังไม่ครบ' : ''}">${contactDays}${row.history_complete === false ? '+' : ''} วัน</span>` : ''; 
@@ -684,8 +721,7 @@
     }
     function editor(title, html, save) {
         $('save-editor').hidden = false; $('editor').querySelector('.sheet-save-hint').hidden = false;
-        $('book-lead-installation').hidden = true;
-        $('book-lead-installation').onclick = null;
+        for (const id of ['add-lead-customer','book-lead-installation']) { $(id).hidden = true; $(id).onclick = null; }
         $('editor-title').textContent = title; $('editor-fields').innerHTML = html; $('editor-error').textContent = '';
         const sheetForm = html.includes('sheet-form-section');
         $('editor').classList.toggle('sheet-editor', sheetForm);
@@ -705,6 +741,37 @@
             return;
         }
         location.href = 'customer-data.html?bookingCustomer=' + encodeURIComponent(customerId);
+    }
+    // The customer page opens a new customer form prefilled from the saved lead row.
+    function startCustomerFromLead(lead) {
+        const draft = {...lead.sheetData,note:window.CarLeadSheet.splitReminder(window.CarLeadSheet.splitHistory(lead.sheetData?.note).note).note};
+        sessionStorage.setItem('carLeadCustomerDraft',JSON.stringify({createdAt:Date.now(),data:draft}));
+        location.href = 'customer-data.html?fromLead=1';
+    }
+    function openCustomerFromLead(lead) {
+        if ($('editor-form').getAttribute('aria-busy') === 'true' || $('add-lead-customer').disabled) return;
+        if (getLeadEditorSnapshot() !== leadEditorSnapshot || $('history-text').value.trim() || leadEditorHistoryChanged) {
+            $('editor-error').textContent = 'กรุณาบันทึกข้อมูลที่แก้ไขก่อนบันทึกข้อมูลลูกค้า';
+            return;
+        }
+        startCustomerFromLead(lead);
+    }
+    // With a CustID the lead can book an installation; without one, the customer is added first from the saved lead row.
+    function setLeadCustomerButtons(lead, platform) {
+        const customerId = String(lead.customerId || '').trim();
+        const booking = $('book-lead-installation'), customer = $('add-lead-customer');
+        booking.hidden = false;
+        booking.disabled = !customerId;
+        booking.title = customerId ? 'เปิดฟอร์มนัดคิวติดตั้งสำหรับลูกค้ารายนี้' : 'บันทึกข้อมูลลูกค้าก่อนนัดคิวติดตั้ง';
+        booking.onclick = () => openBookingFromLead(lead);
+        customer.hidden = !!customerId;
+        // Same limits as the list button, so a matched customer is never added twice.
+        const blocked = platform !== 'sheet-lead' ? 'บันทึกข้อมูลลีดก่อนบันทึกข้อมูลลูกค้า'
+            : lead.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า'
+            : lead.isCustomer ? 'พบข้อมูลลูกค้าที่ตรงกันมากกว่า 1 รายการ กรุณาตรวจในหน้าข้อมูลลูกค้า' : '';
+        customer.disabled = !!blocked;
+        customer.title = blocked || 'เปิดฟอร์มบันทึกข้อมูลลูกค้าจากลีดนี้';
+        customer.onclick = () => openCustomerFromLead(lead);
     }
     async function editLead(lead = {}, contact = null) {
         requireSession();
@@ -956,11 +1023,7 @@
             leadEditorHistoryChanged = true;
             $('history-text').value=''; $('history-error').textContent='เพิ่มแล้ว · รอกดบันทึกข้อมูล'; renderHistory();
         };
-        const bookingButton = $('book-lead-installation');
-        bookingButton.hidden = false;
-        bookingButton.disabled = !String(lead.customerId || '').trim();
-        bookingButton.title = bookingButton.disabled ? 'เพิ่มข้อมูลลูกค้าก่อนนัดคิวติดตั้ง' : 'เปิดฟอร์มนัดคิวติดตั้งสำหรับลูกค้ารายนี้';
-        bookingButton.onclick = () => openBookingFromLead(lead);
+        setLeadCustomerButtons(lead, platform);
         leadEditorHistoryChanged = false;
         leadEditorSnapshot = getLeadEditorSnapshot();
         if (platform === 'sheet-lead') {
@@ -1053,6 +1116,13 @@
     $('next-page').addEventListener('click',guard(async () => { page++; renderInbox(); }));
     $('inbox-list').addEventListener('click',guard(async event => {
         const button = event.target.closest('[data-contact]'); if (!button || button.disabled) return;
+        const label = button.textContent;
+        // The buttons are ready before the full lead records; a click before they arrive waits for that same read.
+        if (!recordsLoaded) {
+            button.disabled = true; button.textContent = 'กำลังเปิด…'; button.setAttribute('aria-busy','true');
+            try { await intakeRecords(); }
+            finally { button.disabled = false; button.textContent = label; button.removeAttribute('aria-busy'); }
+        }
         const row = contacts.find(c => c.id === button.dataset.contact && day(c.last_seen_at) === button.dataset.contactDay); const lead = selectedLead(row);
         // A contact already saved in the lead sheet opens that saved row for editing, never a blank form.
         const savedLeads = lead ? [] : savedSheetLeads(row);
@@ -1061,7 +1131,6 @@
             return;
         }
         const savedLead = savedLeads.length === 1 ? {...savedLeads[0],status:customerFollowUp(savedLeads[0])} : null;
-        const label = button.textContent;
         button.disabled = true; button.textContent = 'กำลังเปิด…'; button.setAttribute('aria-busy','true');
         try {
             if (savedLead) { if (await editLead(savedLead)) $('editor-title').textContent = 'รายละเอียดข้อมูลผู้ติดต่อ'; }
@@ -1098,9 +1167,7 @@
         if (edit) {
             const lead=sheetLeads.find(l=>l.id===edit.dataset.lead);
             if (!lead || lead.isCustomer || lead.pendingCustomerCheck || edit.disabled) return;
-            const draft = {...lead.sheetData,note:window.CarLeadSheet.splitReminder(window.CarLeadSheet.splitHistory(lead.sheetData?.note).note).note};
-            sessionStorage.setItem('carLeadCustomerDraft',JSON.stringify({createdAt:Date.now(),data:draft}));
-            location.href = 'customer-data.html?fromLead=1';
+            startCustomerFromLead(lead);
             return;
         }
         const details = event.target.closest('[data-lead-details]');
@@ -1184,8 +1251,8 @@
         $('save-editor').innerHTML = '<span class="save-spinner" aria-hidden="true"></span>กำลังบันทึก…';
         $('save-editor').setAttribute('aria-live','polite');
         $('editor-form').setAttribute('aria-busy','true');
-        const bookingDisabled = $('book-lead-installation').disabled;
-        $('book-lead-installation').disabled = true;
+        const bookingDisabled = $('book-lead-installation').disabled, customerDisabled = $('add-lead-customer').disabled;
+        $('book-lead-installation').disabled = true; $('add-lead-customer').disabled = true;
         $('close-editor').disabled = true; $('cancel-editor').disabled = true;
         $('editor-error').textContent = '';
         try {
@@ -1212,7 +1279,7 @@
         finally {
             $('save-editor').textContent = saveLabel; $('save-editor').disabled = false;
             $('editor-form').removeAttribute('aria-busy');
-            $('book-lead-installation').disabled = bookingDisabled;
+            $('book-lead-installation').disabled = bookingDisabled; $('add-lead-customer').disabled = customerDisabled;
             $('close-editor').disabled = false; $('cancel-editor').disabled = false;
         }
     });
@@ -1242,17 +1309,22 @@
         if (cloudLead) {
             $('service-form').hidden = true;
             $('signout').textContent = 'ออกจากระบบ';
-            $('current-user').textContent = 'กำลังตรวจสอบการเข้าสู่ระบบ…';
             startEarlyLeads();
-            if (!await window.CarCrmAuth.refresh()) {
+            // The service checks the stored sign-in on every read, so the page's reads start with the sign-in check
+            // instead of after it; connect() shows nothing until the check confirms the sign-in.
+            const signedIn = window.CarCrmAuth.refresh();
+            const connected = connect(signedIn);
+            connected.catch(() => {});
+            $('current-user').textContent = 'กำลังตรวจสอบการเข้าสู่ระบบ…';
+            if (!await signedIn) {
                 if (embeddedNewLead) throw new Error('กรุณาเข้าสู่ระบบ CAR CRM ใหม่ แล้วกดเพิ่มข้อมูลลีดอีกครั้ง');
                 location.replace('crm-login.html?next=' + encodeURIComponent('lead-data.html' + location.search + location.hash));
                 return;
             }
-        }
-        await connect();
+            await connected;
+        } else await connect();
         // Early reads the first load did not use (e.g. another tab was opened first) are never reused later.
-        earlyLeads = null;
+        earlyLeads = null; earlyIntake = null;
     }
     startLead().catch(e => {
         if (embeddedNewLead) { postToBooking('error',{message:e.message}); return; }
