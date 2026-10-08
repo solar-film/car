@@ -261,7 +261,7 @@
                             <p id="kpiTargetGap">-</p>
                         </div>
                         <div class="sales-customer-row"><p><span class="customer-dot is-new"></span>ลูกค้าใหม่ <span id="salesSummaryNewCount">0 คัน</span></p><p><span class="customer-dot is-returning"></span>ลูกค้าเก่า <span id="salesSummaryOldCount">0 คัน</span></p></div>
-                        <div class="sales-channel-section"><h3>จำนวนการติดต่อแต่ละช่องทาง</h3><div id="salesSummaryContactChannels" class="sales-channel-grid"></div></div>
+                        <div class="sales-channel-section"><h3 title="นับจากคิวลูกค้าใหม่/เก่าที่ติดตั้งเสร็จแล้วในช่วงที่เลือก ตามช่องทางติดต่อในข้อมูลลูกค้า (ไม่ใช่ Lead)">จำนวนการติดต่อแต่ละช่องทาง</h3><div id="salesSummaryContactChannels" class="sales-channel-grid"></div></div>
                     </article>
                     <article class="dashboard-card overview-daily">
                         <header class="panel-heading"><h2><i class="ph ph-calendar-blank" aria-hidden="true"></i> สถิติยอดขายรายวัน</h2><a class="overview-view-all" href="index.html">ตารางนัดหมาย <i class="ph ph-arrow-right" aria-hidden="true"></i></a></header>
@@ -338,6 +338,7 @@
         const BOOKINGS_SHEET_NAME = 'Bookings';
         const SALES_TARGET_SHEET_NAME = 'เป้ายอดขาย';
         const CONTACT_SHEET_NAME = 'สถิตการติดต่อ';
+        const CUSTOMER_SHEET_NAME = 'Customer';
         const MEMO_SHEET_NAME = 'memo';
         const CONTACT_CHANNELS = [
             { key: 'phone', label: 'โทร', headers: ['โทร', 'โทรศัพท์', 'Tel', 'Phone'] },
@@ -373,6 +374,7 @@
         let bookings = [];
         let contacts = [];
         let contactStatsRows = [];
+        let customerChannels = null;
         let salesTargets = {};
         let appHasStarted = false;
         let overviewMemos = [];
@@ -567,6 +569,33 @@
             const text = await response.text();
             if (isHtmlResponseText(text)) throw new Error(`Cannot parse ${sheetName}`);
             return text;
+        }
+
+        // Customer channel by CustID. Only columns A and E are read; their headers are checked so a moved column fails instead of miscounting.
+        async function fetchCustomerChannels() {
+            const response = await fetch(sheetCsvUrl(CUSTOMER_SHEET_NAME) + '&tq=' + encodeURIComponent('select A,E'));
+            if (!response.ok) throw new Error(`Cannot load ${CUSTOMER_SHEET_NAME}`);
+            const text = await response.text();
+            if (isHtmlResponseText(text)) throw new Error(`Cannot parse ${CUSTOMER_SHEET_NAME}`);
+            const rows = await parseCsv(text);
+            if (rows.length && (!Object.prototype.hasOwnProperty.call(rows[0], 'CustID') || !Object.prototype.hasOwnProperty.call(rows[0], 'ช่องทางติดต่อ'))) {
+                throw new Error('หัวคอลัมน์ชีต Customer ไม่ตรงกับช่องทางติดต่อ');
+            }
+            return new Map(rows.map(row => [textValue(row.CustID), textValue(row['ช่องทางติดต่อ'])]).filter(([custId]) => custId));
+        }
+
+        // Each installed booking counts once per channel listed on its customer (e.g. "Line , Tel" counts both).
+        // Unlisted channels count as อื่น ๆ; bookings whose customer has no channel are not counted.
+        function installedChannelCounts(rows) {
+            const counts = Object.fromEntries(CONTACT_CHANNELS.map(channel => [channel.key, 0]));
+            const other = CONTACT_CHANNELS.find(channel => channel.key === 'other');
+            rows.forEach(item => {
+                textValue(customerChannels.get(item.custId)).split(',').map(name => name.trim()).filter(Boolean).forEach(name => {
+                    const channel = CONTACT_CHANNELS.find(entry => entry.headers.some(header => normalizeText(header) === normalizeText(name))) || other;
+                    counts[channel.key] += 1;
+                });
+            });
+            return counts;
         }
 
         async function fetchContactReport() {
@@ -1116,8 +1145,11 @@
             }
             if (dom.salesSummaryNewCount) dom.salesSummaryNewCount.innerText = `${newRevenueCustomers.length.toLocaleString('th-TH')} คัน`;
             if (dom.salesSummaryOldCount) dom.salesSummaryOldCount.innerText = `${oldRevenueCustomers.length.toLocaleString('th-TH')} คัน`;
-            if (dom.salesSummaryContactChannels) {
-                const contactChannelTotals = groupSum(contactRows, item => item.channel, item => item.count);
+            if (dom.salesSummaryContactChannels && !customerChannels) {
+                dom.salesSummaryContactChannels.innerHTML = '<div class="overview-empty" style="grid-column:1/-1">โหลดช่องทางติดต่อของลูกค้าไม่สำเร็จ กรุณารีเฟรชหน้า</div>';
+            } else if (dom.salesSummaryContactChannels) {
+                // Customers whose installation is finished (completed new/old-customer sales in this period), not leads.
+                const installedChannels = installedChannelCounts(revenueRows.filter(isCompletedBooking));
                 const contactChannelIcons = {
                     phone: 'ph-phone',
                     line: 'ph-chat-teardrop-text',
@@ -1127,8 +1159,7 @@
                     other: 'ph-dots-three-circle'
                 };
                 dom.salesSummaryContactChannels.innerHTML = CONTACT_CHANNELS.map(channel => {
-                    const matched = Object.values(contactChannelTotals).find(item => normalizeText(item.label) === normalizeText(channel.label));
-                    const value = matched?.value || 0;
+                    const value = installedChannels[channel.key];
                     const icon = contactChannelIcons[channel.key] || contactChannelIcons.other;
                     return `<div class="sales-channel-item">
                         <span class="sales-channel-icon" aria-hidden="true"><i class="ph ${icon}"></i></span>
@@ -1251,15 +1282,21 @@
             dom.dashboardContent.classList.add('hidden');
 
             try {
-                const [bookingText, targetText, legacyRows, reportRows] = await Promise.all([
+                const [bookingText, targetText, legacyRows, reportRows, customerChannelMap] = await Promise.all([
                     fetchCsvText(BOOKINGS_SHEET_NAME),
                     fetchCsvText(SALES_TARGET_SHEET_NAME).catch(error => {
                         console.warn(error.message);
                         return '';
                     }),
                     fetchCsvText(CONTACT_SHEET_NAME).then(parseContactStatsCsv),
-                    fetchContactReport()
+                    fetchContactReport(),
+                    // Only the channel tiles depend on Customer; a failure is shown there and the rest of the dashboard still loads.
+                    fetchCustomerChannels().catch(error => {
+                        console.warn(error.message);
+                        return null;
+                    })
                 ]);
+                customerChannels = customerChannelMap;
                 bookings = buildBookings(await parseCsv(bookingText));
                 salesTargets = targetText ? buildSalesTargets(await parseCsv(targetText)) : {};
                 contactStatsRows = CarContactReportSummary.mergeDailyRows(reportRows, legacyRows);
