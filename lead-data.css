@@ -440,6 +440,9 @@ html[data-lead-embed] .lead-dialog::backdrop { background:transparent; backdrop-
 }
 #editor.sheet-editor .sheet-admin-choice input:checked + span { background:#dbeafe; border-color:#2563eb; color:#1d4ed8; }
 #editor.sheet-editor .sheet-admin-choice input:focus-visible + span { outline:2px solid #2563eb; outline-offset:3px; }
+/* Values the form fills itself (car brand from the car model): shown, not edited. */
+#editor.sheet-editor .sheet-auto-value { display:flex; align-items:center; min-height:34px; padding:6px 10px; border:1px solid #dce4ee; border-radius:9px; background:#f8fafc; color:#182b46; font-size:13px; box-sizing:border-box; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; cursor:default; }
+#editor.sheet-editor .sheet-auto-field small { color:#64748b; font-size:11px; line-height:1.5; }
 
 /* Lead editor opens as a right-side drawer. */
 #editor.sheet-editor {
