@@ -296,8 +296,10 @@ window.applyLeadCustomerDraft = function () {
 .customer-lead-section { background:#fff; }
 .customer-lead-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; }
 .customer-lead-heading h3 { margin:0; }
-.customer-lead-open { color:#2563eb; font-weight:600; text-decoration:none; white-space:nowrap; }
-.customer-lead-open:hover { text-decoration:underline; }
+.customer-compact-history li+li { margin-top:8px; padding-top:8px; }
+.customer-compact-history .br-history-car { margin:4px 0 2px; }
+.customer-compact-history .br-history-meta { margin:0; color:#475569; }
+.customer-compact-history .br-history-note { margin-top:2px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 html[data-customer-embed] body { visibility:hidden; background:transparent !important; }
 html[data-customer-embed] #customerDrawer { visibility:visible; }
 html[data-customer-embed] #customerBookingButton { display:none !important; }
@@ -2305,39 +2307,33 @@ document.addEventListener('DOMContentLoaded',()=>{
                 return;
             }
             const textNode = (tag, className, value) => { const node = document.createElement(tag); node.className = className; node.textContent = value; return node; };
-            const shown = value => String(value || '').trim() && String(value).trim() !== '-' ? String(value).trim() : '-';
+            const filled = value => { const text = String(value || '').trim(); return text && text !== '-' ? text : ''; };
             const leadNote = value => { const sheet = window.CarLeadSheet; const text = String(value || ''); return (sheet ? sheet.splitReminder(sheet.splitHistory(text).note).note : text).trim(); };
+            list.classList.add('customer-compact-history');
             const history = document.createElement('ol');
             leads.forEach(lead => {
                 const item = document.createElement('li');
+                item.title = [lead['Lead ID'], lead['ประเภทลูกค้า']].map(filled).filter(Boolean).join(' · ');
                 const header = textNode('div', 'br-history-row', '');
                 const status = String(lead['สถานะการติดตาม'] || '').trim();
                 const badge = textNode('span', 'br-history-status', status || 'ยังไม่ระบุสถานะ');
                 badge.dataset.state = status.includes('ยกเลิก') ? 'cancelled' : status.includes('ปิดการขาย') ? 'done' : status.includes('มัดจำ') ? 'installing' : 'new';
                 header.append(textNode('span', 'br-history-date', String(lead['วันที่'] || '-').split(',')[0].trim() || '-'), badge);
-                item.append(header, textNode('p', 'br-history-car', [lead['ยี่ห้อรถยนต์'], lead['รุ่นรถยนต์']].map(value => String(value || '').trim()).filter(value => value && value !== '-').join(' · ') || '-'));
+                item.append(header);
+                const car = [lead['ยี่ห้อรถยนต์'], lead['รุ่นรถยนต์']].map(filled).filter(Boolean).join(' · ');
+                if (car) item.append(textNode('p', 'br-history-car', car));
                 const budget = Number(String(lead['งบประมาณ'] || '').replace(/,/g, ''));
-                const details = document.createElement('dl');
-                [
-                    ['ฟิล์มที่สนใจ', [lead['ยี่ห้อที่สนใจ'], lead['รุ่นที่สนใจ']].map(value => String(value || '').trim()).filter(value => value && value !== '-').join(' · ') || '-'],
-                    ['ตำแหน่ง', shown(lead['ตำแหน่งติดตั้ง * (เลือกได้หลายตำแหน่ง)'])],
-                    ['งบประมาณ', String(lead['งบประมาณ'] || '').trim() && Number.isFinite(budget) ? `${budget.toLocaleString('th-TH')} บาท` : shown(lead['งบประมาณ'])],
-                    ['ฝ่ายขาย', shown(lead['Admin'])],
-                    ['รู้จักเราจาก', shown(lead['รู้จักเราจาก'])],
-                    ['ช่องทาง', [lead['ช่องทางติดต่อ'], lead['ชื่อช่องทางติดต่อ']].map(value => String(value || '').trim()).filter(value => value && value !== '-').join(' : ') || '-']
-                ].forEach(([label, value]) => details.append(textNode('dt', '', label), textNode('dd', '', value)));
-                item.append(details);
-                const meta = textNode('p', 'br-history-meta', [lead['Lead ID'], lead['ประเภทลูกค้า']].map(value => String(value || '').trim()).filter(Boolean).join(' · '));
-                const leadId = String(lead['Lead ID'] || '').trim();
-                if (leadId) {
-                    const open = textNode('a', 'customer-lead-open', 'เปิดในหน้าข้อมูลลีด ↗');
-                    open.href = 'lead-data.html?openLead=' + encodeURIComponent(leadId) + '#leads';
-                    open.target = '_blank'; open.rel = 'noopener';
-                    meta.append(' · ', open);
-                }
-                item.append(meta);
+                const film = [lead['ยี่ห้อที่สนใจ'], lead['รุ่นที่สนใจ']].map(filled).filter(Boolean).join(' ');
+                const summary = [
+                    filled(lead['ตำแหน่งติดตั้ง * (เลือกได้หลายตำแหน่ง)']),
+                    film && 'ฟิล์ม ' + film,
+                    filled(lead['งบประมาณ']) && (Number.isFinite(budget) ? 'งบ ' + budget.toLocaleString('th-TH') + ' บาท' : 'งบ ' + filled(lead['งบประมาณ'])),
+                    filled(lead['Admin']) && 'ขาย ' + filled(lead['Admin']),
+                    filled(lead['รู้จักเราจาก']) && 'รู้จักจาก ' + filled(lead['รู้จักเราจาก'])
+                ].filter(Boolean).join(' · ');
+                if (summary) item.append(textNode('p', 'br-history-meta', summary));
                 const note = leadNote(lead['*หมายเหตุ']);
-                if (note && note !== '-') item.append(textNode('p', 'br-history-note', `หมายเหตุลีด: ${note}`));
+                if (note && note !== '-') item.append(textNode('p', 'br-history-note', note));
                 history.appendChild(item);
             });
             list.appendChild(history);
@@ -2356,10 +2352,10 @@ document.addEventListener('DOMContentLoaded',()=>{
                 count.textContent = '';
                 return;
             }
-            renderCustomerBookingHistory(custId, list, count);
+            renderCustomerBookingHistory(custId, list, count, true);
         }
 
-        function renderCustomerBookingHistory(custId, list, count) {
+        function renderCustomerBookingHistory(custId, list, count, compact = false) {
             if (!list || !count || !custId) return;
             list.replaceChildren();
             count.textContent = '';
@@ -2385,6 +2381,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                 node.textContent = value;
                 return node;
             };
+            list.classList.toggle('customer-compact-history', compact);
             const history = document.createElement('ol');
             cases.forEach(booking => {
                 const item = document.createElement('li');
@@ -2397,17 +2394,26 @@ document.addEventListener('DOMContentLoaded',()=>{
                 item.append(header, textNode('p', 'br-history-car', [booking.carModel, booking.plate].filter(value => value && value !== '-').join(' · ') || '-'));
 
                 const sales = Number(String(booking.sales || '').replace(/,/g, ''));
-                const details = document.createElement('dl');
-                const fields = [
-                    ['ฟิล์ม', booking.filmBrand || '-'],
-                    ['ติดตั้ง', booking.installPos || '-'],
-                    ['ยอดขาย', !isCancelledStatus(status) && booking.sales && Number.isFinite(sales) ? `${sales.toLocaleString('th-TH')} บาท` : '-'],
-                    ['ฝ่ายขาย', booking.salesPerson || '-']
-                ];
-                fields.forEach(([label, value]) => details.append(textNode('dt', '', label), textNode('dd', '', value)));
-                item.append(details, textNode('p', 'br-history-meta', [booking.jobId, booking.custType].filter(Boolean).join(' · ')));
+                const salesText = !isCancelledStatus(status) && booking.sales && Number.isFinite(sales) ? `${sales.toLocaleString('th-TH')} บาท` : '';
+                if (compact) {
+                    // ฟอร์มลูกค้า: สรุปบรรทัดเดียว ข้ามช่องที่ไม่มีข้อมูล
+                    const value = text => String(text || '').trim() && String(text).trim() !== '-' ? String(text).trim() : '';
+                    item.title = [booking.jobId, booking.custType].filter(Boolean).join(' · ');
+                    const summary = [value(booking.filmBrand) && 'ฟิล์ม ' + value(booking.filmBrand), value(booking.installPos), salesText, value(booking.salesPerson) && 'ขาย ' + value(booking.salesPerson)].filter(Boolean).join(' · ');
+                    if (summary) item.append(textNode('p', 'br-history-meta', summary));
+                } else {
+                    const details = document.createElement('dl');
+                    const fields = [
+                        ['ฟิล์ม', booking.filmBrand || '-'],
+                        ['ติดตั้ง', booking.installPos || '-'],
+                        ['ยอดขาย', salesText || '-'],
+                        ['ฝ่ายขาย', booking.salesPerson || '-']
+                    ];
+                    fields.forEach(([label, value]) => details.append(textNode('dt', '', label), textNode('dd', '', value)));
+                    item.append(details, textNode('p', 'br-history-meta', [booking.jobId, booking.custType].filter(Boolean).join(' · ')));
+                }
                 const note = String(booking.note || '').trim();
-                if (note && note !== '-') item.append(textNode('p', 'br-history-note', `หมายเหตุ: ${note}`));
+                if (note && note !== '-') item.append(textNode('p', 'br-history-note', compact ? note : `หมายเหตุ: ${note}`));
                 history.appendChild(item);
             });
             list.appendChild(history);
