@@ -68,7 +68,7 @@
     let session, settings, tab = 'line', page = 0, installationPage = 0, contacts = [], account = core.LINE_ACCOUNT, summary = {total:0,fresh:0,selected:0};
     let contactPage = 0, sheetLeads = [], leadsFromSnapshot = false;
     const followUpStatuses = ['สอบถามใหม่','เลื่อนติดตั้ง','ติดตามผล / รอตัดสินใจ'];
-    const followUpAlertDays = 2;
+    const followUpAlertDays = 3;
     const normalizeFollowUp = value => {
         const status = String(value || '').replace(/[^ก-๙a-zA-Z0-9/]/g,'');
         return status === 'ไม่เกี่ยวข้อง' ? 'ยกเลิก/ไม่เกี่ยวข้อง' : status;
@@ -191,6 +191,18 @@
             entryUrl.searchParams.delete('newLead');
             history.replaceState(null,'',entryUrl.pathname + entryUrl.search + entryUrl.hash);
             await Promise.all([showTab('leads'),editLead()]);
+            return;
+        }
+        // From the customer page: lead-data.html?openLead=<Lead ID>#leads opens that lead once the list is read.
+        const openLeadId = String(entryUrl.searchParams.get('openLead') || '').trim();
+        if (openLeadId && initialTab() === 'leads') {
+            entryUrl.searchParams.delete('openLead');
+            history.replaceState(null,'',entryUrl.pathname + entryUrl.search + entryUrl.hash);
+            await showTab('leads');
+            if (attempt !== connection) return;
+            const target = sheetLeads.find(item => item.leadId === openLeadId);
+            if (target) await showLeadDetails(target.id);
+            else notice('ไม่พบลีด ' + openLeadId + ' ในรายการ', true);
             return;
         }
         const entryTab = initialTab();
@@ -549,7 +561,7 @@
         const title=valid ? (fromHistory ? 'วันที่บันทึกประวัติการติดต่อล่าสุด' : 'วันที่บันทึกลีดครั้งแรก · ยังไม่มีประวัติการอัปเดต') + ' · ' + value : 'ยังไม่มีวันที่อัปเดต';
         return `<div class="contact-report-field" aria-label="อัปเดตล่าสุด"><span class="contact-inline-detail" title="${esc(title)}">${esc(value)}</span></div>`;
     }
-    // A reminder date two Bangkok calendar days after the given time.
+    // A reminder date followUpAlertDays Bangkok calendar days after the given time.
     function twoDaysAfter(at) {
         return new Date(at + 7*3600000 + followUpAlertDays*86400000).toISOString().slice(0,10);
     }
@@ -558,7 +570,7 @@
         const note=window.CarLeadSheet.splitHistory(lead.sheetData?.note || lead.note || '').note;
         const reminderDate=lead.sheetData?.reminderDate || window.CarLeadSheet.splitReminder(note).reminderDate;
         const explicit=window.CarLeadSheet.validReminderDate(reminderDate);
-        // Without a saved reminder the due date is two Bangkok days after the latest contact.
+        // Without a saved reminder the due date is followUpAlertDays Bangkok days after the latest contact.
         const dueDate=explicit ? reminderDate : Number.isFinite(latest) ? twoDaysAfter(latest) : '';
         const today=new Date(now+7*3600000).toISOString().slice(0,10), tomorrow=new Date(now+7*3600000+86400000).toISOString().slice(0,10);
         // Due today or already overdue is strong, due tomorrow is light, and later dates are not highlighted.
@@ -723,7 +735,7 @@
         $('editor').classList.toggle('sheet-editor', sheetForm);
         $('cancel-editor').textContent = save ? 'ยกเลิก' : 'ปิด';
         $('save-editor').textContent = sheetForm ? 'บันทึกข้อมูล' : 'บันทึก';
-        saveEditor = save; $('editor').showModal();
+        saveEditor = save; editorGeneration++; $('editor').showModal();
     }
     function getLeadEditorSnapshot() {
         return JSON.stringify(Array.from(new FormData($('editor-form'))));
@@ -849,6 +861,7 @@
         const platform = contact ? tab : lead.source?.platform;
         const isNewLead = platform !== 'sheet-lead' && !lead.id && !lead.leadId && !lead.sheetKey && !lead.sheetSavedAt;
         const source = contact ? {platform,account,userId:platform === 'instagram' ? contact.instagram_user_id : platform === 'line' ? contact.line_user_id : contact.facebook_user_id,displayName:contact.display_name} : lead.source;
+        if ([lead.leadId,lead.id].some(id => id && backgroundSaves.has(id))) throw new Error('กำลังบันทึกรายการนี้อยู่ กรุณารอให้บันทึกเสร็จก่อนเปิดอีกครั้ง');
         const key = platform === 'sheet-lead' ? `sheet-edit:${crypto.randomUUID()}` : lead.sheetKey || (source?.userId ? `${source.platform}:${source.account}:${source.userId}` : `manual:${lead.id || crypto.randomUUID()}`);
         const previous = {...lead.sheetData};
         const originalSheetData = {...previous};
@@ -943,12 +956,12 @@
         };
         const statusChangeId = crypto.randomUUID();
         const storedReminderDate = previous.reminderDate || reminderData.reminderDate;
-        // A lead without a saved reminder starts two days from today, so a past date is never offered.
+        // A lead without a saved reminder starts followUpAlertDays from today, so a past date is never offered.
         const reminderDate = window.CarLeadSheet.validReminderDate(storedReminderDate) ? storedReminderDate : twoDaysAfter(Date.now());
         const reminderField = '<label>วันที่แจ้งเตือน<input id="history-reminder-date" name="reminderDate" type="date" value="' + esc(reminderDate) + '" required aria-describedby="history-reminder-hint"></label>';
         const contactDetails = '<div class="sheet-main-column" role="region" aria-label="รายละเอียดข้อมูลผู้ติดต่อ" tabindex="0">' + sheetSections(renderField, lead.leadId || '', lead.customerId || '') + '</div>';
         const html = contactDetails +
-            '<div class="sheet-side-column" role="region" aria-label="สถานะและประวัติการติดต่อ" tabindex="0"><section class="sheet-status-card"><div class="sheet-section-grid">' + renderField('followUp') + '</div></section><aside class="sheet-history-card"><h3>ประวัติการติดต่อ</h3><div class="history-meta-row"><label>ผู้บันทึก<select id="history-by"><option value="">— เลือก —</option>' + (lists['พนักงานขาย'] || []).map(value => '<option>' + esc(value) + '</option>').join('') + '</select></label>' + reminderField + '</div><small id="history-reminder-hint">ค่าเริ่มต้น วันนี้ + 2 วัน · เลือกวันเองได้</small><label>รายละเอียด<textarea id="history-text" rows="3" placeholder="บันทึกการติดต่อ..."></textarea></label><button type="button" class="lead-button primary" id="add-contact-history">+ เพิ่มประวัติ</button><small>บันทึกพร้อมข้อมูลลูกค้า</small><p id="history-error" role="alert"></p><div id="contact-history-list"></div></aside></div>';
+            '<div class="sheet-side-column" role="region" aria-label="สถานะและประวัติการติดต่อ" tabindex="0"><section class="sheet-status-card"><div class="sheet-section-grid">' + renderField('followUp') + '</div></section><aside class="sheet-history-card"><h3>ประวัติการติดต่อ</h3><div class="history-meta-row"><label>ผู้บันทึก<select id="history-by"><option value="">— เลือก —</option>' + (lists['พนักงานขาย'] || []).map(value => '<option>' + esc(value) + '</option>').join('') + '</select></label>' + reminderField + '</div><small id="history-reminder-hint">ค่าเริ่มต้น วันนี้ + ' + followUpAlertDays + ' วัน · เลือกวันเองได้</small><label>รายละเอียด<textarea id="history-text" rows="3" placeholder="บันทึกการติดต่อ..."></textarea></label><button type="button" class="lead-button primary" id="add-contact-history">+ เพิ่มประวัติ</button><small>บันทึกพร้อมข้อมูลลูกค้า</small><p id="history-error" role="alert"></p><div id="contact-history-list"></div></aside></div>';
         const duplicatePhone = duplicatePhoneCheck(lead,previous.phone ?? lead.phone);
         editor('เพิ่มข้อมูลผู้ติดต่อ', html, async values => {
             values.phone = formatLeadPhone(values.phone);
@@ -972,35 +985,41 @@
             const editedHistory = contactHistory.flatMap(item => { const old = savedHistory.get(String(item.id)); return old && !String(old.id).startsWith('CAR-BOOKING:') && (old.by !== item.by || old.text !== item.text) ? [{id:String(item.id),previous:{at:old.at,by:old.by,text:old.text},current:{at:item.at,by:item.by,text:item.text}}] : []; });
             if (editedHistory.length) values.editedContactHistory = editedHistory;
             values.deletedContactHistory = removedHistory.filter(item => savedHistory.has(String(item.id))).map(item => ({...savedHistory.get(String(item.id))}));
-            const saved = await window.CarLeadSheet.save(key,values,platform === 'sheet-lead' || lead.sheetSavedAt ? originalSheetData : null);
-            if (typeof saved.followUp === 'string') values.followUp = saved.followUp;
-            if (Array.isArray(saved.contactHistory)) values.contactHistory = saved.contactHistory.map(item => ({...item}));
-            if (platform === 'sheet-lead') {
-                applyConfirmedLead(saved,values,lead);
-                refreshAfterLeadSave(saved);
-                notice(`บันทึกการแก้ไขลงชีต lead แล้ว · แถว ${saved.rowNumber}`);
-                return;
-            }
-            const local = {...lead,id:lead.id,name:values.name,phone:values.phone,salesperson:values.admin,note:values.note,
-                leadId:saved.leadId,sheetKey:key,sheetData:values,sheetRow:saved.rowNumber,sheetSavedAt:new Date().toISOString()};
-            if (typeof cloudLead !== 'undefined' && cloudLead) {
-                // The verified Sheet row is the durable record. No second database commit is needed.
-                lead = {...local,id:'sheet-lead:' + saved.leadId,source:source || {platform:'manual'}};
+            // Every check above runs before the form closes; the sheet write below starts now and may finish after it closes.
+            const commit = async () => {
+                const saved = await window.CarLeadSheet.save(key,values,platform === 'sheet-lead' || lead.sheetSavedAt ? originalSheetData : null);
+                if (typeof saved.followUp === 'string') values.followUp = saved.followUp;
+                if (Array.isArray(saved.contactHistory)) values.contactHistory = saved.contactHistory.map(item => ({...item}));
+                if (platform === 'sheet-lead') {
+                    applyConfirmedLead(saved,values,lead);
+                    refreshAfterLeadSave(saved);
+                    notice(`บันทึกการแก้ไขลงชีต lead แล้ว · แถว ${saved.rowNumber}`);
+                    return;
+                }
+                const local = {...lead,id:lead.id,name:values.name,phone:values.phone,salesperson:values.admin,note:values.note,
+                    leadId:saved.leadId,sheetKey:key,sheetData:values,sheetRow:saved.rowNumber,sheetSavedAt:new Date().toISOString()};
+                if (typeof cloudLead !== 'undefined' && cloudLead) {
+                    // The verified Sheet row is the durable record. No second database commit is needed.
+                    lead = {...local,id:'sheet-lead:' + saved.leadId,source:source || {platform:'manual'}};
+                    applyConfirmedLead(saved,values,lead,lead);
+                    refreshAfterLeadSave(saved);
+                    notice(`บันทึกลงชีต lead แล้ว · แถว ${saved.rowNumber}`);
+                    return;
+                }
+                try {
+                    const result = contact ? await api('select',{platform,contactId:contact.id,lead:local}) : await api('lead',local);
+                    if (!result.lead?.id) throw new Error('ไม่พบรหัสรายการที่บันทึก');
+                    lead = {...result.lead,leadId:saved.leadId};
+                } catch {
+                    throw new Error(`บันทึกลงชีต lead แถว ${saved.rowNumber} แล้ว แต่ยังอัปเดตรายการในเครื่องไม่ได้ กดบันทึกซ้ำเพื่ออัปเดตโดยใช้แถวเดิม`);
+                }
                 applyConfirmedLead(saved,values,lead,lead);
                 refreshAfterLeadSave(saved);
                 notice(`บันทึกลงชีต lead แล้ว · แถว ${saved.rowNumber}`);
-                return;
-            }
-            try {
-                const result = contact ? await api('select',{platform,contactId:contact.id,lead:local}) : await api('lead',local);
-                if (!result.lead?.id) throw new Error('ไม่พบรหัสรายการที่บันทึก');
-                lead = {...result.lead,leadId:saved.leadId};
-            } catch {
-                throw new Error(`บันทึกลงชีต lead แถว ${saved.rowNumber} แล้ว แต่ยังอัปเดตรายการในเครื่องไม่ได้ กดบันทึกซ้ำเพื่ออัปเดตโดยใช้แถวเดิม`);
-            }
-            applyConfirmedLead(saved,values,lead,lead);
-            refreshAfterLeadSave(saved);
-            notice(`บันทึกลงชีต lead แล้ว · แถว ${saved.rowNumber}`);
+            };
+            const done = commit();
+            done.catch(() => {});
+            return {leadRef:lead.leadId || lead.id || key,name:values.name,commit,done};
         });
         const phoneInput = $('editor-fields').querySelector('[name="phone"]');
         phoneInput.value = formatLeadPhone(phoneInput.value);
@@ -1051,7 +1070,7 @@
         const storedReminder = window.CarLeadSheet.validReminderDate(storedReminderDate), addedHistoryIds = new Set();
         let reminderPicked = false;
         $('history-reminder-date').addEventListener('input',() => { reminderPicked = true; });
-        // Unless a date is picked in this editor, a contact added here moves the reminder to two days from today;
+        // Unless a date is picked in this editor, a contact added here moves the reminder to followUpAlertDays from today;
         // without one, a saved reminder stays as it was.
         const updateDefaultReminder = () => {
             if (reminderPicked) return;
@@ -1335,6 +1354,45 @@
         container.querySelector('[name="positions"]').value = values.join(', ');
         container.querySelector('.sheet-position-summary').textContent = values.join(', ') || 'เลือกตำแหน่งติดตั้ง';
     });
+    // Lead saves that continue after the form closes: one status card each. Retrying sends the same request,
+    // which the sheet API recognises by its lead key, so a retry never adds a second row.
+    const backgroundSaves = new Map();
+    let editorGeneration = 0;
+    function saveInBackground(job, generation) {
+        let stack = $('lead-save-toasts');
+        if (!stack) { stack = document.createElement('div'); stack.id = 'lead-save-toasts'; stack.className = 'lead-save-toast-stack'; document.body.append(stack); }
+        const card = document.createElement('div');
+        card.setAttribute('role','status');
+        stack.append(card);
+        const label = String(job.name || '').trim() || 'ลีด';
+        const run = attempt => {
+            card.className = 'lead-save-toast is-pending';
+            card.innerHTML = '<span class="save-spinner" aria-hidden="true"></span>กำลังบันทึก ' + esc(label) + '…';
+            backgroundSaves.set(job.leadRef,card);
+            attempt.then(() => {
+                card.className = 'lead-save-toast';
+                card.textContent = '✓ บันทึก ' + label + ' เรียบร้อยแล้ว';
+                setTimeout(() => card.remove(),4000);
+            },error => {
+                card.className = 'lead-save-toast is-error';
+                card.setAttribute('role','alert');
+                const reopen = generation === editorGeneration && !$('editor').open;
+                card.innerHTML = '<div>บันทึก ' + esc(label) + ' ไม่สำเร็จ: ' + esc(error.message) + '</div><div class="lead-save-toast-actions">'
+                    + '<button type="button" class="lead-button" data-save-retry>ลองบันทึกซ้ำ</button>'
+                    + (reopen ? '<button type="button" class="lead-button" data-save-reopen>เปิดฟอร์มเดิม</button>' : '')
+                    + '<button type="button" class="lead-button" data-save-dismiss>ปิด</button></div>';
+                card.querySelector('[data-save-retry]').onclick = () => run(job.commit());
+                card.querySelector('[data-save-dismiss]').onclick = () => card.remove();
+                const reopenButton = card.querySelector('[data-save-reopen]');
+                if (reopenButton) reopenButton.onclick = () => {
+                    if (generation !== editorGeneration || $('editor').open) { reopenButton.remove(); return; }
+                    card.remove(); $('editor-error').textContent = error.message; $('editor').showModal();
+                };
+            }).finally(() => { if (backgroundSaves.get(job.leadRef) === card) backgroundSaves.delete(job.leadRef); });
+        };
+        run(job.done);
+    }
+    window.addEventListener('beforeunload',event => { if (backgroundSaves.size) { event.preventDefault(); event.returnValue = ''; } });
     $('editor-form').addEventListener('submit',async event => {
         event.preventDefault();
         if ($('save-editor').disabled) return;
@@ -1355,7 +1413,13 @@
                 if (!sales.length) throw new Error('กรุณาเลือกฝ่ายขายอย่างน้อย 1 คน');
                 values.admin = sales.join(', ');
             }
-            await saveEditor(values);
+            const pending = await saveEditor(values);
+            if (pending?.done && !embeddedNewLead) {
+                $('editor').close();
+                saveInBackground(pending,editorGeneration);
+                return;
+            }
+            if (pending?.done) await pending.done;
             embeddedLeadSaved = true;
             $('editor').close();
             notice('บันทึกเรียบร้อยแล้ว');

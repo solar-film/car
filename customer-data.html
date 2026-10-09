@@ -177,6 +177,7 @@
     <script src="sidebar.js" defer></script>
     <script src="film-brands.js"></script>
     <script src="first-known-options.js?v=20261005-1"></script>
+    <script src="lead-sheet.js?v=20261007-history-edit-1"></script>
     <script>
 /* Transfer a lead into the existing customer form; never submit automatically. */
 let customerFromLead = false;
@@ -288,9 +289,14 @@ window.applyLeadCustomerDraft = function () {
 .customer-billing-section h3 { color:#187b77; }
 .customer-billing-section h3>span { background:#d8f5ee; color:#16857d; }
 .customer-note-section { background:#fff; }
+.customer-lead-section { background:#fff; }
+.customer-lead-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; }
+.customer-lead-heading h3 { margin:0; }
+.customer-lead-open { color:#2563eb; font-weight:600; text-decoration:none; white-space:nowrap; }
+.customer-lead-open:hover { text-decoration:underline; }
 .customer-section-grid { display:grid; gap:10px; min-width:0; }
-#customerForm .customer-demographics { grid-template-columns:minmax(0,1fr); gap:10px; }
-#customerForm .customer-section-grid>div,#customerForm .customer-demographics>div { min-width:0; }
+#customerForm .customer-demographics,#customerForm .customer-contact-row { grid-template-columns:minmax(0,1fr); gap:10px; }
+#customerForm .customer-section-grid>div,#customerForm .customer-demographics>div,#customerForm .customer-contact-row>div { min-width:0; }
 #customerForm .customer-channel-options { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
 #customerForm .customer-channel-options>div:last-child { grid-column:1/-1; }
 #customerDrawer #customerForm label { display:block; margin-bottom:4px; color:#53637b; font-size:11px; line-height:1.5; font-weight:500; }
@@ -320,7 +326,7 @@ window.applyLeadCustomerDraft = function () {
 #customerForm .customer-editor-footer #customerSaveButton:disabled { display:inline-flex; align-items:center; justify-content:center; gap:7px; opacity:.85; background:#2563eb; transform:none; }
 .customer-save-spinner { display:inline-block; flex-shrink:0; width:14px; height:14px; border:2px solid #ffffff66; border-top-color:#fff; border-radius:50%; animation:spin .8s linear infinite; }
 @media(prefers-reduced-motion:reduce) { .customer-save-spinner { animation:none; } }
-@container(min-width:440px) { #customerForm .customer-demographics { grid-template-columns:repeat(2,minmax(0,1fr)); } #customerForm .customer-channel-options { grid-template-columns:repeat(4,minmax(0,1fr)); } #customerForm .customer-channel-options>div:last-child { grid-column:span 2; } }
+@container(min-width:440px) { #customerForm .customer-demographics,#customerForm .customer-contact-row { grid-template-columns:repeat(2,minmax(0,1fr)); } #customerForm .customer-channel-options { grid-template-columns:repeat(4,minmax(0,1fr)); } #customerForm .customer-channel-options>div:last-child { grid-column:span 2; } }
 @media(max-width:1023px) { #customerDrawer { width:90%; } }
 @media(max-width:767px) {
     #customerDrawer { width:100%; border:0; border-radius:0; }
@@ -780,20 +786,26 @@ document.addEventListener('DOMContentLoaded',()=>{
                                 </div>
                             </div>
 
-                            <!-- เบอร์โทรศัพท์ -->
-                            <div>
-                                <label class="block mb-1.5 text-sm font-semibold text-slate-700">เบอร์โทรศัพท์ <span class="text-rose-500">*</span></label>
-                                <div class="relative">
-                                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
-                                        <i class="fas fa-phone-alt text-sm"></i>
+                            <!-- เบอร์โทรศัพท์ & ชื่อช่องทางติดต่อ -->
+                            <div class="customer-contact-row grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block mb-1.5 text-sm font-semibold text-slate-700">เบอร์โทรศัพท์ <span class="text-rose-500">*</span></label>
+                                    <div class="relative">
+                                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                                            <i class="fas fa-phone-alt text-sm"></i>
+                                        </div>
+                                        <input type="tel" id="phone" required placeholder="09X-XXX-XXXX"
+                                            class="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2.5 font-mono text-base tracking-wider outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:font-sans"
+                                            oninput="formatPhone(this)" maxlength="12">
                                     </div>
-                                    <input type="tel" id="phone" required placeholder="09X-XXX-XXXX"
-                                        class="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2.5 font-mono text-base tracking-wider outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:font-sans"
-                                        oninput="formatPhone(this)" maxlength="12">
+                                    <p id="phoneError" class="mt-1.5 text-xs text-rose-500 hidden font-medium">
+                                        <i class="fas fa-exclamation-circle"></i> เบอร์นี้มีในระบบแล้ว หรือรูปแบบไม่ถูกต้อง
+                                    </p>
                                 </div>
-                                <p id="phoneError" class="mt-1.5 text-xs text-rose-500 hidden font-medium">
-                                    <i class="fas fa-exclamation-circle"></i> เบอร์นี้มีในระบบแล้ว หรือรูปแบบไม่ถูกต้อง
-                                </p>
+                                <div>
+                                    <label for="contactName" class="block mb-1.5 text-sm font-semibold text-slate-700">ชื่อช่องทางติดต่อ</label>
+                                    <input type="text" id="contactName" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-slate-400" placeholder="ชื่อไอดี/แอคเคาท์ (ถ้ามี)">
+                                </div>
                             </div>
 
                             <!-- ช่องทางติดต่อ -->
@@ -834,7 +846,6 @@ document.addEventListener('DOMContentLoaded',()=>{
                                         <label for="chOther" class="block cursor-pointer rounded-lg border border-slate-200 bg-white py-2 text-center text-xs font-medium text-slate-600 transition-all hover:bg-slate-50 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-700">อื่นๆ (Other)</label>
                                     </div>
                                 </div>
-                                <input type="text" id="contactName" class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all placeholder:text-slate-400" placeholder="ชื่อไอดี/แอคเคาท์ (ถ้ามี)">
                             </div>
 
                             </div>
@@ -870,6 +881,15 @@ document.addEventListener('DOMContentLoaded',()=>{
                             <section class="customer-form-section customer-note-section">
                                 <h3 id="customerNoteHeading"><span>03</span>หมายเหตุ</h3>
                                 <textarea id="note" aria-labelledby="customerNoteHeading" rows="6" oninput="resizeCustomerNote()" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all resize-none placeholder:text-slate-400" placeholder="ข้อมูลเพิ่มเติม..."></textarea>
+                            </section>
+
+                            <!-- ข้อมูลลีดของลูกค้า (อ่านอย่างเดียว) -->
+                            <section id="customerLeadCard" class="customer-form-section customer-lead-section" aria-labelledby="customerLeadHeading" hidden>
+                                <div class="customer-lead-heading">
+                                    <h3 id="customerLeadHeading"><span>04</span>ข้อมูลลีด</h3>
+                                    <span id="customerLeadCount" class="br-history-count"></span>
+                                </div>
+                                <div id="customerLeadList" class="br-history-list" aria-live="polite" aria-busy="true">กำลังโหลดข้อมูลลีด...</div>
                             </section>
                         </div>
                         </div>
@@ -2207,7 +2227,94 @@ document.addEventListener('DOMContentLoaded',()=>{
             renderCustomerBookingHistory(custId, list, count);
         }
 
+        // ข้อมูลลีดของลูกค้า (อ่านอย่างเดียว): จับคู่ด้วยเบอร์โทร หรือช่องทาง + ชื่อช่องทาง แบบเดียวกับหน้าข้อมูลลีด
+        const LEAD_COLUMNS = ['วันที่','Admin','ช่องทางติดต่อ','ชื่อช่องทางติดต่อ','ชื่อลูกค้า','เบอร์โทร','ยี่ห้อรถยนต์','รุ่นรถยนต์','ตำแหน่งติดตั้ง * (เลือกได้หลายตำแหน่ง)','ยี่ห้อที่สนใจ','รุ่นที่สนใจ','งบประมาณ','ประเภทลูกค้า','รู้จักเราจาก','สถานะการติดตาม','*หมายเหตุ','Lead ID'];
+        let customerLeadsState = 'idle', customerLeads = [];
+        const leadPhoneKey = value => { const digits = String(value || '').replace(/\D/g, ''); return digits.length === 11 && digits.startsWith('66') ? '0' + digits.slice(2) : digits; };
+        const leadText = value => String(value || '').normalize('NFKC').trim().toLowerCase().replace(/\s+/g, ' ');
+        function loadCustomerLeads() {
+            if (customerLeadsState === 'loading' || customerLeadsState === 'ready') return;
+            customerLeadsState = 'loading';
+            fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=lead&_=${Date.now()}`, { cache: 'no-store' })
+                .then(response => { if (!response.ok) throw new Error('โหลดข้อมูลลีดไม่สำเร็จ'); return response.text(); })
+                .then(csv => {
+                    const rows = parseCSV(csv), header = rows.shift() || [];
+                    if (LEAD_COLUMNS.some(name => !header.includes(name))) throw new Error('หัวตารางลีดไม่ตรง');
+                    customerLeads = rows.map((row, index) => ({row: index, ...Object.fromEntries(LEAD_COLUMNS.map(name => [name, row[header.indexOf(name)] || '']))}))
+                        .filter(lead => String(lead['ชื่อลูกค้า'] || lead['Lead ID']).trim());
+                    customerLeadsState = 'ready';
+                })
+                .catch(error => { customerLeadsState = 'error'; console.error('โหลดข้อมูลลีดไม่สำเร็จ:', error); })
+                .finally(renderCustomerLeads);
+        }
+        function customerLeadMatches(customer, lead) {
+            const phone = leadPhoneKey(lead['เบอร์โทร']);
+            if (phone && phone === leadPhoneKey(customer.phone)) return true;
+            const contact = leadText(lead['ชื่อช่องทางติดต่อ']), channel = leadText(lead['ช่องทางติดต่อ']);
+            return Boolean(contact) && !['-', '—'].includes(contact) && Boolean(channel) && channel === leadText(customer.channel) && contact === leadText(customer.contactName);
+        }
+        function renderCustomerLeads() {
+            const card = document.getElementById('customerLeadCard'), list = document.getElementById('customerLeadList'), count = document.getElementById('customerLeadCount');
+            if (!card) return;
+            const customer = currentEditingId ? allCustomers.find(item => String(item.id) === String(currentEditingId)) : null;
+            card.hidden = !customer;
+            list.replaceChildren();
+            count.textContent = '';
+            if (!customer) return;
+            if (customerLeadsState !== 'ready') {
+                list.setAttribute('aria-busy', String(customerLeadsState !== 'error'));
+                list.textContent = customerLeadsState === 'error' ? 'โหลดข้อมูลลีดไม่สำเร็จ กรุณาโหลดหน้าใหม่' : 'กำลังโหลดข้อมูลลีด...';
+                if (customerLeadsState === 'idle') loadCustomerLeads();
+                return;
+            }
+            list.setAttribute('aria-busy', 'false');
+            const leads = customerLeads.filter(lead => customerLeadMatches(customer, lead)).sort((a, b) => b.row - a.row);
+            count.textContent = `${leads.length.toLocaleString('th-TH')} รายการ`;
+            if (!leads.length) {
+                list.textContent = 'ยังไม่พบลีดของลูกค้ารายนี้';
+                return;
+            }
+            const textNode = (tag, className, value) => { const node = document.createElement(tag); node.className = className; node.textContent = value; return node; };
+            const shown = value => String(value || '').trim() && String(value).trim() !== '-' ? String(value).trim() : '-';
+            const leadNote = value => { const sheet = window.CarLeadSheet; const text = String(value || ''); return (sheet ? sheet.splitReminder(sheet.splitHistory(text).note).note : text).trim(); };
+            const history = document.createElement('ol');
+            leads.forEach(lead => {
+                const item = document.createElement('li');
+                const header = textNode('div', 'br-history-row', '');
+                const status = String(lead['สถานะการติดตาม'] || '').trim();
+                const badge = textNode('span', 'br-history-status', status || 'ยังไม่ระบุสถานะ');
+                badge.dataset.state = status.includes('ยกเลิก') ? 'cancelled' : status.includes('ปิดการขาย') ? 'done' : status.includes('มัดจำ') ? 'installing' : 'new';
+                header.append(textNode('span', 'br-history-date', String(lead['วันที่'] || '-').split(',')[0].trim() || '-'), badge);
+                item.append(header, textNode('p', 'br-history-car', [lead['ยี่ห้อรถยนต์'], lead['รุ่นรถยนต์']].map(value => String(value || '').trim()).filter(value => value && value !== '-').join(' · ') || '-'));
+                const budget = Number(String(lead['งบประมาณ'] || '').replace(/,/g, ''));
+                const details = document.createElement('dl');
+                [
+                    ['ฟิล์มที่สนใจ', [lead['ยี่ห้อที่สนใจ'], lead['รุ่นที่สนใจ']].map(value => String(value || '').trim()).filter(value => value && value !== '-').join(' · ') || '-'],
+                    ['ตำแหน่ง', shown(lead['ตำแหน่งติดตั้ง * (เลือกได้หลายตำแหน่ง)'])],
+                    ['งบประมาณ', String(lead['งบประมาณ'] || '').trim() && Number.isFinite(budget) ? `${budget.toLocaleString('th-TH')} บาท` : shown(lead['งบประมาณ'])],
+                    ['ฝ่ายขาย', shown(lead['Admin'])],
+                    ['รู้จักเราจาก', shown(lead['รู้จักเราจาก'])],
+                    ['ช่องทาง', [lead['ช่องทางติดต่อ'], lead['ชื่อช่องทางติดต่อ']].map(value => String(value || '').trim()).filter(value => value && value !== '-').join(' : ') || '-']
+                ].forEach(([label, value]) => details.append(textNode('dt', '', label), textNode('dd', '', value)));
+                item.append(details);
+                const meta = textNode('p', 'br-history-meta', [lead['Lead ID'], lead['ประเภทลูกค้า']].map(value => String(value || '').trim()).filter(Boolean).join(' · '));
+                const leadId = String(lead['Lead ID'] || '').trim();
+                if (leadId) {
+                    const open = textNode('a', 'customer-lead-open', 'เปิดในหน้าข้อมูลลีด ↗');
+                    open.href = 'lead-data.html?openLead=' + encodeURIComponent(leadId) + '#leads';
+                    open.target = '_blank'; open.rel = 'noopener';
+                    meta.append(' · ', open);
+                }
+                item.append(meta);
+                const note = leadNote(lead['*หมายเหตุ']);
+                if (note && note !== '-') item.append(textNode('p', 'br-history-note', `หมายเหตุลีด: ${note}`));
+                history.appendChild(item);
+            });
+            list.appendChild(history);
+        }
+
         function renderCustomerEditorHistory() {
+            renderCustomerLeads();
             const card = document.getElementById('customerHistoryCard');
             const list = document.getElementById('customerHistoryList');
             const count = document.getElementById('customerHistoryCount');

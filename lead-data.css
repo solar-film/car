@@ -44,6 +44,13 @@ input[type=search] { min-width:240px; flex:1; }
 .lead-profile-warning p { margin:4px 0 0; }
 .lead-profile-warning>a { flex-shrink:0; font-weight:600; text-decoration:underline; text-underline-offset:3px; }
 .lead-save-toast { position:fixed; top:20px; right:20px; z-index:10000; max-width:calc(100vw - 40px); box-sizing:border-box; padding:12px 20px; border:1px solid #a7f3d0; border-radius:12px; background:#ecfdf5; color:#047857; box-shadow:0 6px 24px #0f172a20; font-size:14px; }
+/* Lead saves that continue after the form closes: one card each, stacked (Design System info / error colors). */
+.lead-save-toast-stack { position:fixed; top:20px; right:20px; z-index:10000; display:flex; flex-direction:column; align-items:flex-end; gap:8px; max-width:calc(100vw - 40px); }
+.lead-save-toast-stack .lead-save-toast { position:static; max-width:min(420px,100%); }
+.lead-save-toast.is-pending { border-color:#bfdbfe; background:#eff6ff; color:#1e40af; }
+.lead-save-toast.is-pending .save-spinner { border-color:#1e40af33; border-top-color:#1e40af; }
+.lead-save-toast.is-error { border-color:#fecdd3; background:#fff1f2; color:#be123c; }
+.lead-save-toast-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin-top:10px; }
 .lead-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
 .lead-stat { padding:16px; border:1px solid #dbeafe; border-left:4px solid #2563eb; border-radius:14px; display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; }
 .lead-stat strong { font-size:27px; color:#2563eb; }
