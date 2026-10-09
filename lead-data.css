@@ -169,6 +169,8 @@ html[data-lead-embed] .lead-dialog::backdrop { background:transparent; backdrop-
 .sheet-editor footer .lead-button { padding:8px 17px; border-radius:10px; font-size:12px; font-weight:600; }
 .sheet-editor footer .lead-button.booking { background:#ecfdf5; color:#047857; border-color:#a7f3d0; }
 .sheet-editor footer .lead-button.booking:hover:not(:disabled) { background:#d1fae5; border-color:#6ee7b7; }
+/* Unavailable until the lead (or customer) is saved: plainly grey with a not-allowed cursor, not a faded green "loading" look. */
+.sheet-editor footer .lead-button.booking:disabled { opacity:1; background:#f1f5f9; color:#94a3b8; border-color:#e2e8f0; cursor:not-allowed; }
 #editor.sheet-editor footer { flex-wrap:wrap; }
 .sheet-editor #save-editor { background:linear-gradient(120deg,#2563eb,#4f46e5); box-shadow:0 3px 8px #2563eb25; border-color:#2563eb; }
 .sheet-editor #save-editor:hover { background:#1d4ed8; }
