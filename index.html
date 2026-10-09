@@ -736,6 +736,20 @@
             </div>
         </div>
     </div>
+    <div id="bookingCustomerEditor" class="booking-lead-editor" hidden>
+        <div class="booking-lead-editor-status" role="status" aria-live="polite">
+            <svg class="booking-lead-editor-spinner animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p id="bookingCustomerEditorMessage">กำลังเปิดฟอร์มแก้ไขข้อมูลลูกค้า…</p>
+            <div class="booking-lead-editor-actions">
+                <button type="button" id="bookingCustomerEditorRetry" class="booking-lead-editor-button primary" hidden>ลองอีกครั้ง</button>
+                <a id="bookingCustomerEditorFallback" class="booking-lead-editor-button" href="customer-data.html" hidden>เปิดหน้าข้อมูลลูกค้า</a>
+                <button type="button" id="bookingCustomerEditorCancel" class="booking-lead-editor-button">ยกเลิก</button>
+            </div>
+        </div>
+    </div>
     <div class="booking-page w-full px-4 py-8 sm:px-6 lg:ml-72 lg:w-[calc(100%-18rem)] lg:px-8">
         <div class="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
             <div class="booking-toolbar px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:justify-between sm:items-center bg-slate-50 gap-4">
@@ -884,13 +898,16 @@
                     <div class="flex-1 overflow-y-auto p-4 sm:p-6 bg-white">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3 text-sm">
 
-                            <div class="col-span-1 md:col-span-2 mb-1">
+                            <div id="m-customerSection" class="col-span-1 md:col-span-2 mb-1">
                                 <h4 class="font-semibold text-slate-700 mb-2 flex items-center justify-between">
                                     <span class="flex items-center">
                                         <svg class="w-5 h-5 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                                         ข้อมูลลูกค้า (Customer)
                                     </span>
-                                    <span id="m-customerRegDate" class="text-xs font-normal text-slate-400"></span>
+                                    <span class="flex items-center gap-2">
+                                        <span id="m-customerRegDate" class="text-xs font-normal text-slate-400"></span>
+                                        <button type="button" id="m-customerEdit" class="text-xs font-semibold text-emerald-600 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 rounded-lg px-3 py-1 transition-colors" aria-haspopup="dialog" aria-controls="bookingCustomerEditor" hidden>แก้ไข</button>
+                                    </span>
                                 </h4>
                                 <div id="m-customerDetails" class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 bg-green-50/50 p-3 rounded-lg border border-green-100 text-sm">
                                 </div>
@@ -3939,8 +3956,12 @@
             }
 
             const custContainer = dom['m-customerDetails'];
+            const custSection = document.getElementById('m-customerSection');
+            const custEdit = document.getElementById('m-customerEdit');
+            if (custEdit) { custEdit.hidden = true; custEdit.dataset.custId = ''; }
             if(custContainer) {
                 custContainer.innerHTML = '';
+                if (custSection) custSection.hidden = false;
                 if (job.customerDetails && Object.keys(job.customerDetails).length > 0) {
                     // ค้นหา key เพื่อความยืดหยุ่นกรณีชื่อคอลัมน์ใน Sheet มี space หรือพิมพ์ผิดนิดหน่อย
                     const getVal = (keyword) => {
@@ -3948,21 +3969,20 @@
                         return (key && job.customerDetails[key] && job.customerDetails[key].trim() !== "") ? job.customerDetails[key] : null;
                     };
 
-                    // 1. ข้อมูลลูกค้าพื้นฐาน
-                    custContainer.innerHTML = `
-                        <div><span class="font-medium text-slate-500">ชื่อลูกค้า:</span> <span class="text-slate-800">${escapeHtml(getVal('ชื่อ') || '-')}</span></div>
-                        <div><span class="font-medium text-slate-500">เพศ:</span> <span class="text-slate-800">${escapeHtml(getVal('เพศ') || '-')}</span></div>
-                        <div><span class="font-medium text-slate-500">เบอร์โทรศัพท์:</span> <span class="text-slate-800">${escapeHtml(getVal('เบอร์') || '-')}</span></div>
-                        <div><span class="font-medium text-slate-500">ช่องทางติดต่อ:</span> <span class="text-slate-800">${escapeHtml(job.customerChannel || '-')}</span></div>
-                        <div><span class="font-medium text-slate-500">ชื่อช่องทางติดต่อ:</span> <span class="text-slate-800">${escapeHtml(job.customerChannelName || '-')}</span></div>
-                    `;
+                    // 1. ข้อมูลลูกค้าพื้นฐาน: แสดงเฉพาะช่องที่มีข้อมูล
+                    const filled = value => { const text = String(value ?? '').trim(); return text && text !== '-' ? text : ''; };
+                    const customerFields = [['ชื่อลูกค้า', getVal('ชื่อ')], ['เพศ', getVal('เพศ')], ['เบอร์โทรศัพท์', getVal('เบอร์')], ['ช่องทางติดต่อ', job.customerChannel], ['ชื่อช่องทางติดต่อ', job.customerChannelName]]
+                        .map(([label, value]) => [label, filled(value)]).filter(([, value]) => value);
+                    custContainer.innerHTML = customerFields.map(([label, value]) => `<div><span class="font-medium text-slate-500">${label}:</span> <span class="text-slate-800">${escapeHtml(value)}</span></div>`).join('');
+                    if (custEdit && filled(job.custId)) { custEdit.dataset.custId = job.custId; custEdit.hidden = false; }
 
                     // แสดงวันที่ลงข้อมูลที่ header
                     const regDate = getVal('วันที่ลงข้อมูล') || getVal('วันลงข้อมูล') || getVal('วันที่');
                     const regDateEl = dom['m-customerRegDate'];
                     if(regDateEl) regDateEl.textContent = regDate ? `ลงข้อมูล: ${regDate}` : '';
                 } else {
-                    custContainer.innerHTML = `<div class="text-slate-400 italic col-span-1 md:col-span-2 text-center py-2">- ไม่พบข้อมูลลูกค้าในชีต Customer -</div>`;
+                    // ไม่พบข้อมูลลูกค้าในชีต Customer: ไม่แสดงส่วนนี้
+                    if (custSection) custSection.hidden = true;
                     if(dom['m-customerRegDate']) dom['m-customerRegDate'].textContent = '';
                 }
             }
@@ -6502,6 +6522,90 @@
                     if (event.data.saved === true) showSavedToast();
                 } else if (state === 'error') {
                     removeFrame();
+                    if (overlay.hidden) return;
+                    overlay.classList.remove('is-open');
+                    setStatus('เปิดฟอร์มไม่สำเร็จ: ' + (event.data.message || 'กรุณาลองใหม่'), true);
+                    retry.focus();
+                }
+            });
+        })();
+    </script>
+    <script>
+        // แก้ไขข้อมูลลูกค้าจากรายละเอียดงาน: เปิดฟอร์มเดิมของหน้าข้อมูลลูกค้าในกรอบซ้อน แล้วโหลดข้อมูลใหม่เมื่อบันทึก
+        (() => {
+            const trigger = document.getElementById('m-customerEdit');
+            const overlay = document.getElementById('bookingCustomerEditor');
+            const status = overlay.querySelector('.booking-lead-editor-status');
+            const message = document.getElementById('bookingCustomerEditorMessage');
+            const retry = document.getElementById('bookingCustomerEditorRetry');
+            const fallback = document.getElementById('bookingCustomerEditorFallback');
+            const cancel = document.getElementById('bookingCustomerEditorCancel');
+            let frame = null, custId = '';
+
+            function setStatus(text, failed = false) {
+                status.classList.toggle('error', failed);
+                status.setAttribute('role', failed ? 'alert' : 'status');
+                message.textContent = text;
+                retry.hidden = !failed;
+                fallback.hidden = !failed;
+            }
+            function hide() {
+                frame?.remove();
+                frame = null;
+                overlay.hidden = true;
+                overlay.classList.remove('is-open');
+                document.body.classList.remove('booking-lead-editor-open');
+            }
+            function open() {
+                custId = trigger.dataset.custId || '';
+                if (!custId) return;
+                frame?.remove();
+                overlay.classList.remove('is-open');
+                setStatus('กำลังเปิดฟอร์มแก้ไขข้อมูลลูกค้า…');
+                fallback.href = 'customer-data.html';
+                overlay.hidden = false;
+                document.body.classList.add('booking-lead-editor-open');
+                cancel.focus();
+                frame = document.createElement('iframe');
+                frame.className = 'booking-lead-editor-frame';
+                frame.title = 'แก้ไขข้อมูลลูกค้า';
+                frame.src = 'customer-data.html?embed=edit-customer&custId=' + encodeURIComponent(custId);
+                overlay.append(frame);
+            }
+            async function refreshAfterSave() {
+                document.querySelector('.booking-lead-toast')?.remove();
+                const toast = document.createElement('div');
+                toast.className = 'booking-lead-toast';
+                toast.setAttribute('role', 'status');
+                toast.textContent = '✓ บันทึกข้อมูลลูกค้าเรียบร้อยแล้ว';
+                document.body.append(toast);
+                setTimeout(() => toast.remove(), 4000);
+                // โหลดข้อมูลใหม่ แล้วแสดงรายละเอียดงานเดิมด้วยข้อมูลลูกค้าที่แก้แล้ว
+                const jobId = currentViewJobId;
+                try { await fetchGoogleSheetData(); } catch (error) { console.error('โหลดข้อมูลใหม่ไม่สำเร็จ:', error); return; }
+                if (jobId && currentViewJobId === jobId) openJobModal(jobId);
+            }
+
+            trigger.addEventListener('click', open);
+            retry.addEventListener('click', open);
+            cancel.addEventListener('click', () => { hide(); trigger.focus(); });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && !overlay.hidden && !overlay.classList.contains('is-open')) cancel.click();
+            });
+            window.addEventListener('message', event => {
+                if (!frame || event.source !== frame.contentWindow || event.origin !== location.origin || event.data?.type !== 'car-customer-embed') return;
+                const {state} = event.data;
+                if (state === 'opened') {
+                    if (overlay.hidden) return;
+                    overlay.classList.add('is-open');
+                    frame.focus();
+                } else if (state === 'closed') {
+                    hide();
+                    trigger.focus();
+                    if (event.data.saved === true) refreshAfterSave();
+                } else if (state === 'error') {
+                    frame?.remove();
+                    frame = null;
                     if (overlay.hidden) return;
                     overlay.classList.remove('is-open');
                     setStatus('เปิดฟอร์มไม่สำเร็จ: ' + (event.data.message || 'กรุณาลองใหม่'), true);

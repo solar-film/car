@@ -179,6 +179,10 @@
     <script src="first-known-options.js?v=20261005-1"></script>
     <script src="lead-sheet.js?v=20261007-history-edit-1"></script>
     <script>
+        // เปิดจากหน้าคิวจอง (index.html) เพื่อแก้ไขลูกค้ารายเดียว: แสดงเฉพาะฟอร์มลูกค้า
+        if (window.parent !== window && new URLSearchParams(location.search).get('embed') === 'edit-customer') document.documentElement.dataset.customerEmbed = '1';
+    </script>
+    <script>
 /* Transfer a lead into the existing customer form; never submit automatically. */
 let customerFromLead = false;
 let customerSaveInProgress = false;
@@ -294,6 +298,9 @@ window.applyLeadCustomerDraft = function () {
 .customer-lead-heading h3 { margin:0; }
 .customer-lead-open { color:#2563eb; font-weight:600; text-decoration:none; white-space:nowrap; }
 .customer-lead-open:hover { text-decoration:underline; }
+html[data-customer-embed] body { visibility:hidden; background:transparent !important; }
+html[data-customer-embed] #customerDrawer { visibility:visible; }
+html[data-customer-embed] #customerBookingButton { display:none !important; }
 .customer-section-grid { display:grid; gap:10px; min-width:0; }
 #customerForm .customer-demographics,#customerForm .customer-contact-row { grid-template-columns:minmax(0,1fr); gap:10px; }
 #customerForm .customer-section-grid>div,#customerForm .customer-demographics>div,#customerForm .customer-contact-row>div { min-width:0; }
@@ -1144,6 +1151,8 @@ document.addEventListener('DOMContentLoaded',()=>{
                 const bookingDropdownsReady = fetchBookingDropdowns();
                 // Fetch existing customers
                 const customersReady = fetchExistingCustomers();
+                // ในกรอบของหน้าคิวจองต้องมีรายชื่อลูกค้าก่อนเปิดฟอร์ม
+                if (customerEmbedded) await customersReady;
                 if (new URLSearchParams(window.location.search).has('bookingCustomer')) {
                     const [, customersLoaded] = await Promise.all([bookingDropdownsReady, customersReady]);
                     handleBookingCustomerParam(customersLoaded);
@@ -1669,6 +1678,8 @@ document.addEventListener('DOMContentLoaded',()=>{
                 
                 if (result.success) {
                     const savedCustomerId = result.id || currentEditingId || '';
+                    // ในกรอบของหน้าคิวจอง: ปิดฟอร์มแล้วให้หน้าคิวจองโหลดข้อมูลใหม่เอง
+                    if (customerEmbedded) { customerEmbedSaved = true; await closeCustomerDrawer(true); return; }
                     await closeCustomerDrawer(true);
                     document.getElementById('customerForm').reset();
                     resetForm(); // ล้างสถานะการ Edit
@@ -2227,6 +2238,25 @@ document.addEventListener('DOMContentLoaded',()=>{
             renderCustomerBookingHistory(custId, list, count);
         }
 
+        // หน้าคิวจองเปิดฟอร์มนี้ในกรอบซ้อน: เปิดลูกค้าตาม CustID แล้วแจ้งผล (opened / closed + saved / error) กลับไป
+        const customerEmbedded = document.documentElement.dataset.customerEmbed === '1';
+        let customerEmbedSaved = false;
+        function postCustomerEmbed(state, detail = {}) {
+            if (customerEmbedded) window.parent.postMessage({ type: 'car-customer-embed', state, ...detail }, location.origin);
+        }
+        window.openEmbeddedCustomerEditor = () => {
+            if (!customerEmbedded) return;
+            const custId = String(new URLSearchParams(location.search).get('custId') || '').trim();
+            const customer = custId ? allCustomers.find(item => String(item.id).trim() === custId) : null;
+            if (!customer) {
+                postCustomerEmbed('error', { message: allCustomers.length ? 'ไม่พบลูกค้ารหัส ' + custId : 'โหลดข้อมูลลูกค้าไม่สำเร็จ' });
+                return;
+            }
+            document.getElementById('customerDrawer').addEventListener('close', () => postCustomerEmbed('closed', { saved: customerEmbedSaved }), { once: true });
+            editCustomer(customer.phoneClean, customer.id);
+            requestAnimationFrame(() => requestAnimationFrame(() => postCustomerEmbed('opened')));
+        };
+
         // ข้อมูลลีดของลูกค้า (อ่านอย่างเดียว): จับคู่ด้วยเบอร์โทร หรือช่องทาง + ชื่อช่องทาง แบบเดียวกับหน้าข้อมูลลีด
         const LEAD_COLUMNS = ['วันที่','Admin','ช่องทางติดต่อ','ชื่อช่องทางติดต่อ','ชื่อลูกค้า','เบอร์โทร','ยี่ห้อรถยนต์','รุ่นรถยนต์','ตำแหน่งติดตั้ง * (เลือกได้หลายตำแหน่ง)','ยี่ห้อที่สนใจ','รุ่นที่สนใจ','งบประมาณ','ประเภทลูกค้า','รู้จักเราจาก','สถานะการติดตาม','*หมายเหตุ','Lead ID'];
         let customerLeadsState = 'idle', customerLeads = [];
@@ -2696,7 +2726,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             new MutationObserver(syncBookingCustomerHighlight).observe(document.getElementById('bookingModal'), {attributes: true, attributeFilter: ['class']});
             resizeCustomerNote();
             document.getElementById('customerForm').addEventListener('reset',() => requestAnimationFrame(resizeCustomerNote));
-            loadInitialData().then(() => window.applyLeadCustomerDraft());
+            loadInitialData().then(() => { window.applyLeadCustomerDraft(); window.openEmbeddedCustomerEditor(); });
             handleEditJobParam();
         });
     </script>
