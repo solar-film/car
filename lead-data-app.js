@@ -314,7 +314,7 @@
         if (session && !inbox) prefetchFormOptions();
         $('add-lead').hidden = next !== 'leads';
         if (next !== 'connection') history.replaceState(null,'',['leads','followups','instagram'].includes(next) ? '#' + next : location.pathname + location.search);
-        ['account-label','range-buttons'].forEach(id => { $(id).hidden = !inbox; });
+        $('range-buttons').hidden = !inbox;
         if (!inbox) $('range-form').hidden = true;
         document.querySelector('.lead-refresh-control').hidden = !inbox;
         if (tab !== next) { contactPage = 0; $('lead-status').value = ''; }
@@ -336,12 +336,6 @@
         if (panel === 'inbox') {
             contacts = []; page = 0; summary = {total:0,fresh:0,selected:0};
             inboxSource = 'webhook'; inboxLoading = Boolean(session); inboxIncomplete = false;
-            $('account-label').textContent = next === 'line' ? 'Line OA : @maholan ↗' : 'FB : MHLcarfilm ↗';
-            $('account-label').href = next === 'line' ? 'https://chat.line.biz/U49f59e2c0f09f7633b5404b0a9918d51' : 'https://business.facebook.com/latest/inbox/all?asset_id=109607531869658&business_id=337743700122129&nav_ref=bm_more_tools_header&selected_item_id=1130558699&mailbox_id=109607531869658&biz_login_source=biz_unified_f3_fb_login_button&join_id=d717b3c6-3747-4ccb-82ae-27e41218904c&thread_type=FB_MESSAGE';
-            if (next === 'instagram') {
-                $('account-label').textContent = `Instagram : @${settings?.instagramUsername || 'mhlcarfilm'} ↗`;
-                $('account-label').href = `https://www.instagram.com/${encodeURIComponent(settings?.instagramUsername || 'mhlcarfilm')}/`;
-            }
             renderInbox(); if (session) await loadInbox();
         }
     }
@@ -430,7 +424,7 @@
     }
     function clearInboxSnapshots() {
         if (!snapshotsEnabled()) return;
-        try { Object.keys(sessionStorage).filter(key => key.startsWith('carLeadInbox:') || key === LEADS_SNAPSHOT_KEY).forEach(key => sessionStorage.removeItem(key)); } catch {}
+        try { Object.keys(sessionStorage).filter(key => key.startsWith('carLeadInbox:') || key === LEADS_SNAPSHOT_KEY || key === 'carLeadFollowUpCount').forEach(key => sessionStorage.removeItem(key)); } catch {}
     }
     // The contact report list uses the same per-tab snapshot rules: shown only until the fresh read answers.
     const LEADS_SNAPSHOT_KEY = 'carLeadRecords:sheetLeads';
@@ -577,15 +571,17 @@
     function updateFollowUpCount(leads, now = Date.now()) {
         const badge=$('followup-tab-count');
         if (!badge) return;
-        if (!leads || !session) { badge.textContent='—'; badge.title='ยังโหลดจำนวนงานไม่สำเร็จ'; return; }
+        if (!leads || !session) { badge.textContent='—'; badge.title='ยังโหลดจำนวนงานไม่สำเร็จ'; if (session) window.carCrmSetFollowUpCount?.(null); return; }
         const count=leads.filter(lead => followUpAge(lead,now).highlight).length;
         badge.textContent=count.toLocaleString('th-TH');
         badge.title='งานที่ต้องติดตามวันนี้ (รวมที่เลยกำหนด) และพรุ่งนี้ '+count+' รายการ';
         badge.setAttribute('aria-label',badge.title);
+        window.carCrmSetFollowUpCount?.(count);
     }
     function renderLeads() {
         const now=Date.now();
-        updateFollowUpCount(sheetLeads,now);
+        // An empty list means the contact report has not been read yet; the Line/Facebook tabs set the count from their own read.
+        if (sheetLeads.length || !session) updateFollowUpCount(sheetLeads,now);
         const followUps = tab === 'followups';
         const query = $('lead-search').value.trim().toLowerCase(), status = $('lead-status').value;
         const newestLeadFirst = (a,b) => contactDate(b).localeCompare(contactDate(a))
@@ -773,6 +769,80 @@
         customer.title = blocked || 'เปิดฟอร์มบันทึกข้อมูลลูกค้าจากลีดนี้';
         customer.onclick = () => openCustomerFromLead(lead);
     }
+    // Same phone in another lead: a note under the phone field, and the first save with that number stops once.
+    // A second save goes ahead, since one customer can have more than one car. The leads come from the loaded list,
+    // this tab's snapshot, or (e.g. on the Line/Facebook tabs before the list is read) one fresh read per editor.
+    function duplicatePhoneCheck(lead, originalPhone) {
+        const key = value => { const digits = String(value || '').replace(/\D/g,''); return digits.startsWith('66') && digits.length === 11 ? '0' + digits.slice(2) : digits; };
+        const original = key(originalPhone), own = new Set([lead.id,lead.leadId].filter(Boolean));
+        const dateLabel = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',year:'2-digit'}).format(new Date(value + 'T12:00:00+07:00')) : '';
+        let source = null, confirmed = '', note = null;
+        const known = () => {
+            if (sheetLeads.length) return sheetLeads;
+            const stored = readLeadsSnapshot();
+            return stored && stored.length ? stored : null;
+        };
+        const pick = (list, target) => list.filter(item => !own.has(item.id) && !own.has(item.leadId) && key(item.phone) === target);
+        // An array when the list is at hand, otherwise a promise of one read.
+        const matches = phone => {
+            const target = key(phone);
+            if (target.length !== 10 || target === original) return [];
+            const list = known();
+            if (list) return pick(list,target);
+            source = source || api('sheet-leads').then(sheet => sheet.leads,error => { source = null; throw error; });
+            return source.then(all => pick(all,target));
+        };
+        const show = (list, failed = false) => {
+            if (!note) return;
+            note.hidden = !failed && !list.length;
+            if (failed) { note.textContent = 'ตรวจเบอร์ซ้ำไม่สำเร็จ บันทึกต่อได้ แต่ควรค้นเบอร์นี้ในรายการก่อน'; return; }
+            const openable = item => !embeddedNewLead && sheetLeads.some(saved => saved.id === item.id);
+            note.innerHTML = '<strong>เบอร์นี้มีในลีดแล้ว ' + list.length + ' รายการ</strong>' + list.slice(0,3).map(item =>
+                '<span class="sheet-phone-duplicate-item"><span>' + esc([item.leadId,item.name,dateLabel(item.sheetData?.date),item.sheetData?.channel,item.status || item.sheetData?.followUp].filter(Boolean).join(' · ')) + '</span>'
+                + (openable(item) ? '<button type="button" data-open-duplicate="' + esc(item.id) + '" title="ข้อมูลที่กรอกในฟอร์มนี้จะไม่ถูกบันทึก">เปิดรายการเดิม</button>' : '') + '</span>').join('')
+                + (list.length > 3 ? '<span class="sheet-phone-duplicate-item">และอีก ' + (list.length - 3) + ' รายการ</span>' : '');
+        };
+        return {
+            watch(input) {
+                const label = input.closest('label'), caption = label?.querySelector('.sheet-field-caption');
+                note = document.createElement('span');
+                note.id = 'phone-duplicate'; note.className = 'sheet-phone-duplicate'; note.hidden = true; note.setAttribute('role','status');
+                // The note sits inside the field's label; the caption alone stays the field's name.
+                if (caption) { caption.id = 'phone-caption'; input.setAttribute('aria-labelledby','phone-caption'); }
+                input.setAttribute('aria-describedby','phone-duplicate');
+                (label || input.parentElement).append(note);
+                note.addEventListener('click',guard(async event => {
+                    const button = event.target.closest('[data-open-duplicate]');
+                    if (!button) return;
+                    event.preventDefault();
+                    if ($('editor-form').getAttribute('aria-busy') === 'true' || leadsSnapshotBusy()) return;
+                    $('editor').close();
+                    await showLeadDetails(button.dataset.openDuplicate);
+                }));
+                let request = 0;
+                const check = async () => {
+                    const current = ++request;
+                    try { const list = await Promise.resolve(matches(input.value)); if (current === request) show(list); }
+                    catch { if (current === request) show([],true); }
+                };
+                input.addEventListener('input',check);
+                void check();
+            },
+            // Called by the save: stops once per number that matches another lead; a failed check never blocks the save.
+            // Answers at once when the list is at hand; returns a promise only when it has to read the list first.
+            confirm(phone) {
+                const decide = list => {
+                    show(list);
+                    const target = key(phone);
+                    if (!list.length || confirmed === target) return;
+                    confirmed = target;
+                    throw new Error('เบอร์นี้มีในลีดแล้ว ' + list.length + ' รายการ (ดูใต้ช่องเบอร์โทร) ถ้าเป็นงานใหม่ เช่น รถคันใหม่ กดบันทึกข้อมูลอีกครั้ง');
+                };
+                const result = matches(phone);
+                return Array.isArray(result) ? decide(result) : result.then(decide,() => show([],true));
+            }
+        };
+    }
     async function editLead(lead = {}, contact = null) {
         requireSession();
         const openRequest = ++editorOpenRequest;
@@ -875,9 +945,12 @@
         const contactDetails = '<div class="sheet-main-column" role="region" aria-label="รายละเอียดข้อมูลผู้ติดต่อ" tabindex="0">' + sheetSections(renderField, lead.leadId || '', lead.customerId || '') + '</div>';
         const html = contactDetails +
             '<div class="sheet-side-column" role="region" aria-label="สถานะและประวัติการติดต่อ" tabindex="0"><section class="sheet-status-card"><div class="sheet-section-grid">' + renderField('followUp') + '</div></section><aside class="sheet-history-card"><h3>ประวัติการติดต่อ</h3><div class="history-meta-row"><label>ผู้บันทึก<select id="history-by"><option value="">— เลือก —</option>' + (lists['พนักงานขาย'] || []).map(value => '<option>' + esc(value) + '</option>').join('') + '</select></label>' + reminderField + '</div><small id="history-reminder-hint">ค่าเริ่มต้น วันนี้ + 2 วัน · เลือกวันเองได้</small><label>รายละเอียด<textarea id="history-text" rows="3" placeholder="บันทึกการติดต่อ..."></textarea></label><button type="button" class="lead-button primary" id="add-contact-history">+ เพิ่มประวัติ</button><small>บันทึกพร้อมข้อมูลลูกค้า</small><p id="history-error" role="alert"></p><div id="contact-history-list"></div></aside></div>';
+        const duplicatePhone = duplicatePhoneCheck(lead,previous.phone ?? lead.phone);
         editor('เพิ่มข้อมูลผู้ติดต่อ', html, async values => {
             values.phone = formatLeadPhone(values.phone);
             if (values.phone && !/^\d{3}-\d{3}-\d{4}$/.test(values.phone)) throw new Error('กรุณากรอกเบอร์โทร 10 หลัก รูปแบบ xxx-xxx-xxxx');
+            const phoneCheck = duplicatePhone.confirm(values.phone);
+            if (phoneCheck) await phoneCheck;
             if ($('history-text').value.trim()) throw new Error('กรุณากดเพิ่มประวัติก่อนบันทึก หรือเคลียร์ข้อความประวัติที่ยังไม่ได้เพิ่ม');
             if (contactHistory.some(item => item.editing)) throw new Error('กรุณากด ตกลง หรือ ยกเลิก ที่ประวัติที่กำลังแก้ไขก่อนบันทึก');
             values.note = String(values.note || '');
@@ -932,6 +1005,7 @@
             if (formatted !== phoneInput.value) phoneInput.value = formatted;
         });
         phoneInput.addEventListener('blur',() => { phoneInput.value = formatLeadPhone(phoneInput.value); });
+        duplicatePhone.watch(phoneInput);
         const bookingHistory = document.createElement('div');
         bookingHistory.className = 'booking-history-list';
         $('contact-history-list').after(bookingHistory);
@@ -1139,6 +1213,15 @@
         finally { button.disabled = false; button.textContent = label; button.removeAttribute('aria-busy'); }
     }));
     $('lead-search').addEventListener('input',() => { contactPage=0; renderLeads(); }); $('lead-status').addEventListener('change',() => { contactPage=0; renderLeads(); });
+    // Reads the contact report again on demand; the current list stays on screen until the new one arrives.
+    $('refresh-leads').addEventListener('click',guard(async () => {
+        const button = $('refresh-leads');
+        if (button.disabled) return;
+        requireSession();
+        button.disabled = true; button.setAttribute('aria-busy','true');
+        try { await loadRecords(false,{reportErrors:true}); }
+        finally { button.disabled = false; button.removeAttribute('aria-busy'); }
+    }));
     $('contact-previous').addEventListener('click',() => { contactPage=Math.max(0,contactPage-1); renderLeads(); $('lead-list').scrollIntoView({block:'start'}); });
     $('contact-next').addEventListener('click',() => { contactPage++; renderLeads(); $('lead-list').scrollIntoView({block:'start'}); });
     $('installation-search').addEventListener('input',() => { installationPage=0; renderInstallations(); });

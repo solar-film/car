@@ -183,15 +183,31 @@ html[data-lead-embed] .lead-dialog::backdrop { background:transparent; backdrop-
 .lead-inbox-heading .lead-tabs button { padding:8px 16px; border-radius:10px; font-size:14px; }
 .lead-inbox-heading #add-lead { margin-left:auto; flex-shrink:0; padding:10px 18px; border-radius:14px; font-size:15px; line-height:22px; font-weight:700; background:#2563eb; border:0; color:#fff; box-shadow:none; white-space:nowrap; }
 .lead-inbox-heading #add-lead:hover { background:#1d4ed8; box-shadow:none; }
+/* Customer data shortcut: a quiet icon before the first tab, sized like the tabs and spaced like them. */
+.lead-inbox-heading .lead-customer-link { flex-shrink:0; width:40px; height:40px; margin-right:-6px; padding:0; border-radius:10px; color:#64748b; }
+.lead-inbox-heading .lead-customer-link:hover { color:#2563eb; border-color:#bfdbfe; filter:none; }
+.lead-tabs .lead-tab-icon { display:inline-block; vertical-align:-3px; margin-right:5px; }
+/* Line OA / Facebook tabs show only a small channel icon; the icon sits in the normal text line so the tab height matches. */
+.lead-inbox-heading .lead-tabs button.lead-tab-icon-only { height:40px; padding-left:12px; padding-right:12px; }
+.lead-tabs .lead-tab-icon-only svg { display:inline-block; vertical-align:middle; }
+/* The channel icons sit on the right, just before "add lead"; unselected ones are muted like the other quiet icons. */
+.lead-inbox-heading .lead-channel-tabs { margin-left:auto; }
+.lead-inbox-heading .lead-channel-tabs + #add-lead { margin-left:0; }
+.lead-inbox-heading .lead-channel-tabs ~ .lead-range-buttons { margin-left:0; }
+.lead-inbox-heading .lead-tabs button.lead-tab-icon-only:not([aria-current]) { color:#64748b; }
+.lead-inbox-heading .lead-tabs button.lead-tab-icon-only:not([aria-current]):hover { color:#2563eb; border-color:#bfdbfe; }
 .contact-report-toolbar { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
 .contact-report-toolbar h2 { display:flex; align-items:center; gap:10px; margin:0; white-space:nowrap; flex-shrink:0; }
 .contact-report-toolbar #contact-count { margin:0; }
 .contact-report-toolbar #lead-search { flex:1; min-width:180px; width:0; }
 .contact-report-toolbar #lead-status { flex:0 0 170px; width:170px; }
 .contact-report-toolbar #lead-search,.contact-report-toolbar #lead-status { height:42px; padding:9px 12px; border:1px solid #dbe5f2; border-radius:12px; background:#fff; font-size:13px; }
+/* Refresh icon after the status filter: same size and border as the filters, quiet until hovered; spins while reading. */
+.contact-report-toolbar .contact-refresh { flex:0 0 42px; width:42px; height:42px; padding:0; border-color:#dbe5f2; border-radius:12px; color:#64748b; }
+.contact-report-toolbar .contact-refresh:hover { color:#2563eb; border-color:#bfdbfe; filter:none; }
+.contact-report-toolbar .contact-refresh[aria-busy="true"] svg { animation:save-spin .8s linear infinite; }
+@media(prefers-reduced-motion:reduce) { .contact-report-toolbar .contact-refresh[aria-busy="true"] svg { animation:none; } }
 @media(max-width:760px) { .contact-report-toolbar { flex-wrap:wrap; gap:10px; } .contact-report-toolbar h2 { width:100%; } .contact-report-toolbar #lead-search { min-width:140px; } .contact-report-toolbar #lead-status { flex-basis:130px; width:130px; } }
-.lead-inbox-heading #account-label { font-size:13px; }
-.lead-inbox-heading a#account-label:hover { color:#2563eb; text-decoration:underline; }
 .lead-inbox-stats { padding:14px 18px; border-radius:16px; margin-bottom:14px; }
 .lead-inbox-stats .lead-toolbar { margin-bottom:10px; }
 .lead-inbox-stats .lead-stats { margin:0; }
@@ -200,7 +216,8 @@ html[data-lead-embed] .lead-dialog::backdrop { background:transparent; backdrop-
  .lead-inbox-heading { gap:8px; }
  .lead-inbox-heading .lead-tabs { gap:5px; }
  .lead-inbox-heading .lead-tabs button { padding:7px 10px; font-size:12px; }
- .lead-inbox-heading #account-label { font-size:11px; }
+ .lead-inbox-heading .lead-customer-link { width:37px; height:37px; margin-right:-3px; }
+ .lead-inbox-heading .lead-tabs button.lead-tab-icon-only { height:37px; }
  .lead-refresh-control #refresh-inbox { padding:8px 12px; font-size:12px; }
 }
 
@@ -233,7 +250,6 @@ html[data-lead-embed] .lead-dialog::backdrop { background:transparent; backdrop-
 
 .lead-inbox-heading > * { flex-shrink:0; }
 .lead-inbox-heading .lead-tabs { flex-wrap:nowrap; overflow:visible; }
-.lead-inbox-heading #account-label { white-space:nowrap; }
 .lead-inbox-heading .lead-range-buttons { margin-left:auto; flex-wrap:nowrap; }
 .lead-inbox-heading .lead-range-buttons button { white-space:nowrap; padding:8px 12px; }
 .lead-range-bar:has(.lead-range-custom[hidden]) { display:none; }
@@ -372,6 +388,12 @@ html[data-lead-embed] .lead-dialog::backdrop { background:transparent; backdrop-
 .sheet-status-automatic { display:flex; flex-direction:column; gap:6px; }
 .sheet-status-automatic strong { padding:8px 10px; border:1px solid #c4b5fd; border-radius:9px; background:#fff9; color:#5b21b6; font-size:13px; }
 .sheet-status-automatic small,.sheet-status-hint { color:#6d5c8d; font-size:11px; line-height:1.5; }
+/* Same phone as another lead: a warning note under the phone field (design system warning colours). */
+.sheet-phone-duplicate { display:flex; flex-direction:column; gap:4px; margin-top:6px; padding:8px 10px; border:1px solid #fcd34d; border-radius:10px; background:#fffbeb; color:#92400e; font-size:12px; line-height:1.5; }
+.sheet-phone-duplicate[hidden] { display:none; }
+.sheet-phone-duplicate-item { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+.sheet-phone-duplicate button { flex-shrink:0; padding:3px 10px; border:1px solid #fcd34d; border-radius:8px; background:#fff; color:#92400e; font-size:12px; font-weight:600; }
+.sheet-phone-duplicate button:hover { background:#fef3c7; }
 .sheet-editor .sheet-status-card label:has([name="followUp"]) { font-size:14px; gap:9px; }
 
 /* Compact status and history cards. */

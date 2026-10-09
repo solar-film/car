@@ -1,7 +1,7 @@
 const CAR_CRM_NAV = [
     { href: 'overview.html', label: 'ภาพรวมธุรกิจ', icon: '◉', color: 'sky' },
-    { href: 'lead-data.html#leads', label: 'ข้อมูลการติดต่อ', icon: '☏', color: 'indigo' },
-    { href: 'customer-data.html', label: 'ข้อมูลลูกค้า', icon: '👤', color: 'blue' },
+    { href: 'lead-data.html#leads', label: 'ข้อมูลการติดต่อ', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="images/page-heading-icons.svg#contacts"/></svg>', color: 'indigo', followUpCount: true },
+    // ข้อมูลลูกค้า: เปิดจากไอคอนก่อนแท็บแรกในหน้าข้อมูลการติดต่อ (หน้านี้ยังให้เมนูข้อมูลการติดต่อเป็น active)
     { href: 'index.html', label: 'รายการคิวจอง', icon: '▦', color: 'blue' },
     // { href: 'technician.html', label: 'ข้อมูลงานติดตั้ง', icon: '⚙', color: 'indigo' }, // ซ่อนชั่วคราว
     //{ href: 'calendar.html', label: 'ปฏิทินคิวจอง', icon: '◷', color: 'sky' },// ซ่อนชั่วคราว
@@ -9,7 +9,8 @@ const CAR_CRM_NAV = [
     { href: 'sales-summary.html', label: 'สรุปยอดขาย', icon: '฿', color: 'amber' },
     { href: 'damage.html', label: 'ความเสียหายฟิล์ม', icon: '!', color: 'rose' },
     { href: 'other-damage.html', label: 'ความเสียหายอื่นๆ', icon: '+', color: 'indigo' },
-    { href: 'install-summary.html', label: 'สรุปงานฟิล์ม', icon: 'Σ', color: 'emerald' }
+    { href: 'install-summary.html', label: 'สรุปงานฟิล์ม', icon: 'Σ', color: 'emerald' },
+    { href: 'feedback-car.html', label: 'Feedback ลูกค้า', icon: '★', color: 'rose' }
 ];
 
 const CAR_CRM_TITLES = {
@@ -98,6 +99,29 @@ function ensureCarCrmSidebarStyles() {
             background: #ffffff !important;
             color: #1d4ed8 !important;
             box-shadow: 0 10px 22px rgba(15, 23, 42, 0.16) !important;
+        }
+
+        /* Follow-up count: the same red pill as the "รายการติดตาม" tab on the contact page. */
+        .car-crm-sidebar-panel .car-crm-nav-count {
+            display: inline-block;
+            min-width: 22px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: #fee2e2;
+            color: #b91c1c;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.4;
+            text-align: center;
+        }
+
+        .car-crm-sidebar-panel .car-crm-nav-link-active .car-crm-nav-count {
+            background: #ffffff;
+            color: #dc2626;
+        }
+
+        .car-crm-sidebar-panel .car-crm-nav-count[hidden] {
+            display: none;
         }
 
         .car-crm-sidebar-panel .car-crm-close {
@@ -291,7 +315,7 @@ function iconColorClass(color, isActive) {
 
 function navItemHtml(item, activePage) {
     const isActive = item.href === activePage
-        || (item.href === 'lead-data.html#leads' && activePage === 'lead-data.html');
+        || (item.href === 'lead-data.html#leads' && ['lead-data.html','customer-data.html'].includes(activePage));
 
     const linkClass = isActive
         ? 'car-crm-nav-link car-crm-nav-link-active flex items-center gap-3 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-sm'
@@ -303,9 +327,44 @@ function navItemHtml(item, activePage) {
         <a href="${item.href}" class="${linkClass}">
             <span class="${iconClass}">${item.icon}</span>
             <span class="flex-1">${item.label}</span>
+            ${item.followUpCount ? '<span class="car-crm-nav-count" data-car-crm-followup-count hidden></span>' : ''}
         </a>
     `;
 }
+
+// Follow-up count beside "ข้อมูลการติดต่อ". The contact page publishes it; other pages in the same browser tab show the
+// last published count of the same Bangkok day (sessionStorage, like the contact page's own snapshots).
+const CAR_CRM_FOLLOWUP_KEY = 'carLeadFollowUpCount';
+let carCrmFollowUpFallback = null;
+
+function carCrmBangkokDay(time) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(time));
+}
+
+function readCarCrmFollowUpCount() {
+    let saved = carCrmFollowUpFallback;
+    try { saved = JSON.parse(window.sessionStorage.getItem(CAR_CRM_FOLLOWUP_KEY) || 'null'); } catch (_) {}
+    return saved && saved.day === carCrmBangkokDay(Date.now()) && Number.isInteger(saved.count) && saved.count >= 0 ? saved.count : null;
+}
+
+function paintCarCrmFollowUpCount() {
+    const count = readCarCrmFollowUpCount();
+    document.querySelectorAll('[data-car-crm-followup-count]').forEach(badge => {
+        badge.hidden = !count;
+        badge.textContent = count ? count.toLocaleString('th-TH') : '';
+        badge.title = count ? 'งานที่ต้องติดตามวันนี้ (รวมที่เลยกำหนด) และพรุ่งนี้ ' + count + ' รายการ' : '';
+    });
+}
+
+// count: a whole number from the contact page, or null when it could not be read (the badge is then hidden).
+window.carCrmSetFollowUpCount = count => {
+    carCrmFollowUpFallback = Number.isInteger(count) && count >= 0 ? { count, day: carCrmBangkokDay(Date.now()) } : null;
+    try {
+        if (carCrmFollowUpFallback) window.sessionStorage.setItem(CAR_CRM_FOLLOWUP_KEY, JSON.stringify(carCrmFollowUpFallback));
+        else window.sessionStorage.removeItem(CAR_CRM_FOLLOWUP_KEY);
+    } catch (_) {}
+    paintCarCrmFollowUpCount();
+};
 
 function renderCarCrmSidebar() {
     const host = document.querySelector('[data-car-crm-sidebar]');
@@ -316,7 +375,6 @@ function renderCarCrmSidebar() {
     const activePage = currentCarCrmPage();
     const pageTitle = CAR_CRM_TITLES[activePage] || 'CAR CRM';
     const navLinks = CAR_CRM_NAV.map(item => navItemHtml(item, activePage)).join('');
-    const feedbackActive = activePage === 'feedback-car.html';
     const salesCardActive = activePage === 'sales-dashboard.html';
     host.innerHTML = `
         <button type="button" data-sidebar-open aria-label="เปิดเมนูด้านข้าง" title="เปิดเมนู" class="car-crm-sidebar-open fixed left-4 top-4 z-50 inline-flex items-center gap-2 rounded-2xl border text-sm font-bold">
@@ -385,10 +443,6 @@ function renderCarCrmSidebar() {
                         <span class="flex-1">ทีมช่าง</span>
                     </a>
 
-                    <a href="feedback-car.html" ${feedbackActive ? 'aria-current="page"' : ''} class="car-crm-nav-link mt-0.5 flex items-center gap-3 rounded-2xl px-4 py-2 text-sm ${feedbackActive ? 'car-crm-nav-link-active bg-blue-600 font-bold text-white shadow-sm' : 'font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900'}">
-                        <span class="car-crm-nav-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-base font-bold ${iconColorClass('rose', feedbackActive)}">★</span>
-                        <span class="flex-1">Feedback ลูกค้า</span>
-                    </a>
                 </div>
             </nav>
 
@@ -414,6 +468,8 @@ function renderCarCrmSidebar() {
             <div class="text-lg font-bold">${pageTitle}</div>
         </header>
     `;
+
+    paintCarCrmFollowUpCount();
 
     const panel = host.querySelector('[data-sidebar-panel]');
     const overlay = host.querySelector('[data-sidebar-overlay]');
