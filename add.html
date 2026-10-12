@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เพิ่มรุ่นรถยนต์ | CAR CRM</title>
+    <link rel="icon" type="image/png" sizes="256x256" href="images/car-crm-app.png?v=20261002-2">
+    <link rel="manifest" href="app.webmanifest?v=20261002-2">
+    <link rel="apple-touch-icon" href="images/car-crm-app-192.png?v=20261002-2">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="crm-auth.js?v=20261002-1" defer></script>
+    <script src="sidebar.js" defer></script>
+    <link rel="stylesheet" href="page-heading.css?v=20261002-1">
+    <style>
+        /* Design tokens จาก DESIGN.html (:root) */
+        :root {
+            --color-primary: #2563eb;
+            --color-primary-hover: #1d4ed8;
+            --color-secondary: #475569;
+            --color-background: #f8fafc;
+            --color-surface: #ffffff;
+            --color-text: #1e293b;
+            --color-muted: #64748b;
+            --color-heading: #0f172a;
+            --color-border: #e2e8f0;
+            --color-info: #1e40af;
+            --color-info-bg: #eff6ff;
+            --color-success: #047857;
+            --color-success-bg: #ecfdf5;
+            --color-success-border: #a7f3d0;
+            --color-warning: #92400e;
+            --color-warning-bg: #fffbeb;
+            --color-warning-border: #fcd34d;
+            --color-error: #be123c;
+            --color-error-bg: #fff1f2;
+            --color-error-border: #fecdd3;
+            --font-family: 'Prompt', sans-serif;
+            --radius-button: 12px;
+            --radius-field: 11px;
+        }
+        * { box-sizing: border-box; }
+        html { background: var(--color-background); }
+        body { margin: 0; min-height: 100vh; font-family: var(--font-family); background: var(--color-background); color: var(--color-text); font-size: 14px; line-height: 1.5; }
+        [hidden] { display: none !important; }
+
+        /* ล็อกหน้าจนกว่าจะเข้าสู่ระบบ */
+        #loginScreen { display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center; padding: 16px; background: var(--color-heading); }
+        body.auth-locked > :not(#loginScreen) { display: none !important; }
+        body.auth-locked #loginScreen { display: flex; }
+        .login-card { width: 100%; max-width: 384px; padding: 24px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .35); }
+        .login-card h1 { margin: 0; font-size: 24px; font-weight: 800; color: var(--color-heading); }
+        .login-card p { margin: 4px 0 20px; color: var(--color-muted); }
+
+        /* โครงหน้า: ตามหน้าข้อมูลลีด (sidebar 18rem) */
+        .lead-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding: 16px 24px; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+        #mainHeader, #mainContent { min-width: 0; }
+        @media (min-width: 1024px) {
+            body:not(.car-crm-sidebar-collapsed) #mainHeader, body:not(.car-crm-sidebar-collapsed) #mainContent { margin-left: calc(18rem + 12px); }
+            body.car-crm-sidebar-collapsed #mainHeader, body.car-crm-sidebar-collapsed #mainContent { margin-left: 0 !important; width: 100%; }
+            body.car-crm-sidebar-collapsed #mainHeader { padding-left: 116px; }
+        }
+        @media (max-width: 1023px) { #mainHeader { padding-left: 116px; } }
+        #mainContent { padding: 16px; }
+        @media (min-width: 640px) { #mainContent { padding: 24px; } }
+
+        .lead-button { display: inline-flex; justify-content: center; align-items: center; gap: 6px; border-radius: var(--radius-button); padding: 10px 16px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .lead-button.primary { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+        .lead-button.primary:hover { background: var(--color-primary-hover); border-color: var(--color-primary-hover); }
+        .lead-button:hover { filter: brightness(.97); }
+        .lead-button:disabled { cursor: wait; opacity: .5; }
+        button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #bfdbfe; outline-offset: 2px; }
+
+        .lead-card { background: rgba(255, 255, 255, .6); backdrop-filter: blur(20px); border: 1px solid #e2e8f0cc; border-radius: 32px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 2px #0000000d; }
+        .lead-card h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--color-heading); }
+        .lead-muted { color: var(--color-muted); font-size: 14px; line-height: 1.8; margin: 4px 0 0; }
+        @media (max-width: 640px) { .lead-card { padding: 16px; border-radius: 24px; } }
+
+        .add-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 24px; align-items: start; }
+        @media (max-width: 1100px) { .add-grid { grid-template-columns: minmax(0, 1fr); } }
+
+        .add-form { display: grid; gap: 16px; margin-top: 20px; }
+        .add-field { display: grid; gap: 6px; }
+        .add-label { color: #53637b; font-size: 12px; font-weight: 600; }
+        .add-label b { color: var(--color-error); font-weight: 700; }
+        .add-field input, .add-field select, .add-search { width: 100%; border: 1px solid #dbe3ef; border-radius: var(--radius-field); padding: 10px 12px; background: #fff; color: var(--color-text); font: inherit; font-size: 14px; }
+        .add-hint { margin: 0; font-size: 12px; color: var(--color-muted); }
+        .add-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+        .lead-notice { font-size: 14px; border-radius: 12px; padding: 12px 16px; margin-top: 16px; color: var(--color-info); background: var(--color-info-bg); }
+        .lead-notice.success { color: var(--color-success); background: var(--color-success-bg); border: 1px solid var(--color-success-border); }
+        .lead-notice.warning { color: var(--color-warning); background: var(--color-warning-bg); border: 1px solid var(--color-warning-border); }
+        .lead-notice.error { color: var(--color-error); background: var(--color-error-bg); border: 1px solid var(--color-error-border); }
+
+        .add-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+        .add-stat { padding: 16px; border: 1px solid #dbeafe; border-left: 4px solid var(--color-primary); border-radius: 14px; background: #fff; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+        .add-stat strong { font-size: 27px; color: var(--color-primary); }
+
+        .add-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+        .add-toolbar .add-search { flex: 1 1 240px; width: auto; }
+        .add-table-wrap { overflow: auto; max-height: 560px; border: 1px solid var(--color-border); border-radius: 14px; background: #fff; }
+        .add-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .add-table th { position: sticky; top: 0; background: var(--color-info-bg); color: var(--color-info); font-weight: 700; text-align: left; padding: 10px 12px; white-space: nowrap; }
+        .add-table td { padding: 9px 12px; border-top: 1px solid #edf2f7; vertical-align: top; }
+        .add-table td.id, .add-table td.date { color: var(--color-muted); font-size: 12px; white-space: nowrap; }
+        .add-table tr.is-new td { background: var(--color-success-bg); }
+        .add-empty { padding: 32px 16px; text-align: center; color: var(--color-muted); }
+    </style>
+</head>
+<body class="auth-locked">
+    <div id="loginScreen">
+        <form id="loginForm" class="login-card">
+            <h1>เข้าสู่ระบบ</h1>
+            <p>กรุณาเข้าสู่ระบบก่อนใช้งาน</p>
+            <div class="add-field" style="margin-bottom:16px">
+                <label class="add-label" for="loginUser">User</label>
+                <input id="loginUser" type="text" autocomplete="username" required>
+            </div>
+            <div class="add-field">
+                <label class="add-label" for="loginPass">Password</label>
+                <input id="loginPass" type="password" autocomplete="current-password" required>
+            </div>
+            <p id="loginError" class="lead-notice error" hidden>User หรือ Password ไม่ถูกต้อง</p>
+            <button type="submit" class="lead-button primary" style="width:100%;margin-top:20px">เข้าสู่ระบบ</button>
+        </form>
+    </div>
+
+    <div data-car-crm-sidebar></div>
+
+    <header id="mainHeader" class="lead-header transition-all duration-300">
+        <div class="car-page-heading">
+            <div class="car-page-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="images/page-heading-icons.svg#film"/></svg></div>
+            <div class="car-page-heading-copy">
+                <h1 class="car-page-heading-title">เพิ่มรุ่นรถยนต์</h1>
+                <p id="lastUpdated" class="car-page-heading-subtitle">บันทึกลงชีต Car_model</p>
+            </div>
+        </div>
+    </header>
+
+    <main id="mainContent" class="transition-all duration-300">
+        <div class="add-grid">
+            <section class="lead-card" aria-labelledby="formTitle">
+                <h2 id="formTitle">ข้อมูลรุ่นรถใหม่</h2>
+                <p class="lead-muted">ระบบสร้างรหัส ID และวันที่เพิ่มรายการให้อัตโนมัติ</p>
+
+                <form id="addForm" class="add-form" novalidate>
+                    <div class="add-field">
+                        <label class="add-label" for="brand">ยี่ห้อรถยนต์ <b>*</b></label>
+                        <input id="brand" name="ยี่ห้อรถยนต์" type="text" list="brandList" autocomplete="off" placeholder="เลือกหรือพิมพ์ยี่ห้อ เช่น Toyota" required>
+                        <datalist id="brandList"></datalist>
+                    </div>
+                    <div class="add-field">
+                        <label class="add-label" for="model">รุ่นรถยนต์ <b>*</b></label>
+                        <input id="model" name="รุ่นรถยนต์" type="text" autocomplete="off" placeholder="เช่น Toyota Camry" required>
+                    </div>
+                    <div class="add-field">
+                        <label class="add-label" for="priceGroup">กลุ่มราคา <b>*</b></label>
+                        <select id="priceGroup" name="กลุ่มราคา" required>
+                            <option value="">-- เลือกกลุ่มราคา --</option>
+                        </select>
+                        <p class="add-hint">ใช้กลุ่มราคาที่มีอยู่ในชีต Car_model เพื่อให้ราคาขายและสรุปงานจับคู่ได้ถูกต้อง</p>
+                    </div>
+
+                    <p id="duplicateNotice" class="lead-notice warning" role="status" hidden></p>
+                    <p id="formNotice" class="lead-notice" role="status" aria-live="polite" hidden></p>
+
+                    <div class="add-actions">
+                        <button id="submitBtn" type="submit" class="lead-button primary" disabled>บันทึกรุ่นรถ</button>
+                        <button id="resetBtn" type="button" class="lead-button">ล้างข้อมูล</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="lead-card" aria-labelledby="listTitle">
+                <h2 id="listTitle">รุ่นรถในชีต Car_model</h2>
+                <div class="add-stats">
+                    <div class="add-stat"><span>รุ่นทั้งหมด</span><strong id="statModels">-</strong></div>
+                    <div class="add-stat"><span>ยี่ห้อ</span><strong id="statBrands">-</strong></div>
+                </div>
+                <div class="add-toolbar">
+                    <input id="searchInput" class="add-search" type="search" placeholder="ค้นหายี่ห้อ รุ่น หรือกลุ่มราคา" autocomplete="off">
+                    <button id="refreshBtn" type="button" class="lead-button">รีเฟรชข้อมูล</button>
+                </div>
+                <p id="loadNotice" class="lead-notice" role="status" hidden></p>
+                <div class="add-table-wrap">
+                    <table class="add-table">
+                        <thead><tr><th>ID</th><th>ยี่ห้อ</th><th>รุ่น</th><th>กลุ่มราคา</th><th>วันที่เพิ่ม</th></tr></thead>
+                        <tbody id="modelRows"></tbody>
+                    </table>
+                    <div id="emptyState" class="add-empty" hidden>ไม่พบรายการที่ตรงกับคำค้นหา</div>
+                </div>
+                <p id="rowLimitNote" class="add-hint" style="margin-top:8px" hidden></p>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const SHEET_ID = '1u__xYWoWZpmrnquc-Fpk19WtpcrckxSd0-_G35NWxXQ';
+        const CAR_MODEL_SHEET_NAME = 'Car_model';
+        const CAR_MODEL_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CAR_MODEL_SHEET_NAME)}`;
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwH0Vw5qzVO3YDsibqi_EF8KScpL5e0-wp8mYXxgqSj_3wjqH8QG5CyFOse4-Q18o3Rgg/exec';
+        const WRITE_TOKEN_KEY = 'carCrmWriteToken';
+        const COLUMNS = ['ID', 'ยี่ห้อรถยนต์', 'รุ่นรถยนต์', 'กลุ่มราคา', 'วันที่เพิ่มรายการ'];
+        const ROW_LIMIT = 200;
+
+        const $ = id => document.getElementById(id);
+        const state = { rows: [], loaded: false, saving: false, newId: '' };
+        let appHasStarted = false;
+
+        const clean = value => String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+        const key = value => clean(value).toLowerCase();
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        }
+
+        function showNotice(element, type, message) {
+            element.className = 'lead-notice' + (type ? ' ' + type : '');
+            element.textContent = message;
+            element.hidden = !message;
+        }
+
+        // ---------- Write token (ใช้รูปแบบเดียวกับหน้าอื่น) ----------
+        function readWriteToken() { try { return String(localStorage.getItem(WRITE_TOKEN_KEY) || '').trim(); } catch (_) { return ''; } }
+        function saveWriteToken(token) { try { localStorage.setItem(WRITE_TOKEN_KEY, token); } catch (_) { /* ส่ง token ครั้งนี้ได้แม้ browser ไม่ให้เก็บ */ } }
+        function clearWriteToken() { try { localStorage.removeItem(WRITE_TOKEN_KEY); } catch (_) { /* ไม่มีค่าที่ต้องล้าง */ } }
+        function getWriteToken(forceNew = false) {
+            if (forceNew) clearWriteToken();
+            let token = forceNew ? '' : readWriteToken();
+            if (!token) {
+                token = String(window.prompt('กรุณาใส่ Write Token สำหรับบันทึกข้อมูล') || '').trim();
+                if (!token) throw new Error('ไม่พบ Write Token');
+                saveWriteToken(token);
+            }
+            return token;
+        }
+        async function postWithWriteToken(payload) {
+            for (let attempt = 0; attempt < 2; attempt += 1) {
+                const token = getWriteToken(attempt > 0);
+                const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ ...payload, token }) });
+                const result = await response.json();
+                if (!result.success && /write token/i.test(String(result.error || ''))) {
+                    clearWriteToken();
+                    if (attempt === 0) continue;
+                }
+                return result;
+            }
+            throw new Error('Write token ไม่ถูกต้อง');
+        }
+
+        // ---------- อ่านชีต Car_model ----------
+        function thaiDateValue(text) {
+            const match = String(text || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+            if (!match) return 0;
+            let year = Number(match[3]);
+            if (year > 2400) year -= 543;
+            return Date.UTC(year, Number(match[2]) - 1, Number(match[1]), Number(match[4] || 0), Number(match[5] || 0), Number(match[6] || 0));
+        }
+
+        async function loadModels() {
+            showNotice($('loadNotice'), 'info', 'กำลังโหลดข้อมูลจากชีต Car_model...');
+            $('refreshBtn').disabled = true;
+            try {
+                const response = await fetch(CAR_MODEL_CSV_URL, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`อ่านชีต Car_model ไม่สำเร็จ (HTTP ${response.status})`);
+                const text = await response.text();
+                if (/^\s*</.test(text)) throw new Error('ชีต Car_model ไม่ได้ส่งข้อมูลตาราง');
+                const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+                const fields = (parsed.meta.fields || []).map(clean);
+                const missing = COLUMNS.filter(name => !fields.includes(name));
+                if (missing.length) throw new Error('ชีต Car_model ไม่พบหัวคอลัมน์: ' + missing.join(', '));
+                state.rows = parsed.data
+                    .map((row, index) => ({
+                        id: clean(row['ID']), brand: clean(row['ยี่ห้อรถยนต์']), model: clean(row['รุ่นรถยนต์']),
+                        group: clean(row['กลุ่มราคา']), added: clean(row['วันที่เพิ่มรายการ']), order: index
+                    }))
+                    .filter(row => row.id || row.brand || row.model);
+                state.loaded = true;
+                showNotice($('loadNotice'), '', '');
+                $('lastUpdated').textContent = 'อัปเดต ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' · บันทึกลงชีต Car_model';
+            } catch (error) {
+                // โหลดไม่สำเร็จ: คงข้อมูลเดิมและห้ามบันทึก เพราะตรวจรุ่นซ้ำไม่ได้
+                state.loaded = false;
+                showNotice($('loadNotice'), 'error', error.message || 'โหลดข้อมูลไม่สำเร็จ');
+            } finally {
+                $('refreshBtn').disabled = false;
+                renderAll();
+            }
+        }
+
+        // ---------- แสดงผล ----------
+        function topValues(field, skip) {
+            const groups = new Map();
+            state.rows.forEach(row => {
+                const value = row[field];
+                if (!value || (skip && skip(value))) return;
+                const entry = groups.get(key(value)) || { count: 0, spellings: new Map() };
+                entry.count += 1;
+                entry.spellings.set(value, (entry.spellings.get(value) || 0) + 1);
+                groups.set(key(value), entry);
+            });
+            return [...groups.values()].map(entry => ({
+                value: [...entry.spellings.entries()].sort((a, b) => b[1] - a[1])[0][0],
+                count: entry.count
+            }));
+        }
+
+        function renderOptions() {
+            const brands = topValues('brand', value => value === '-').sort((a, b) => a.value.localeCompare(b.value, 'en', { sensitivity: 'base' }));
+            $('brandList').innerHTML = brands.map(item => `<option value="${escapeHtml(item.value)}"></option>`).join('');
+
+            const select = $('priceGroup');
+            const current = select.value;
+            const groups = topValues('group').sort((a, b) => b.count - a.count || a.value.localeCompare(b.value, 'th'));
+            select.innerHTML = '<option value="">-- เลือกกลุ่มราคา --</option>' +
+                groups.map(item => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.value)} (${item.count} รุ่น)</option>`).join('');
+            if (groups.some(item => item.value === current)) select.value = current;
+        }
+
+        function renderTable() {
+            const term = key($('searchInput').value);
+            const sorted = state.rows.slice().sort((a, b) => thaiDateValue(b.added) - thaiDateValue(a.added) || b.order - a.order);
+            const filtered = term
+                ? sorted.filter(row => [row.id, row.brand, row.model, row.group].some(value => key(value).includes(term)))
+                : sorted;
+            const shown = filtered.slice(0, ROW_LIMIT);
+            $('modelRows').innerHTML = shown.map(row => `
+                <tr class="${row.id && row.id === state.newId ? 'is-new' : ''}">
+                    <td class="id">${escapeHtml(row.id)}</td>
+                    <td>${escapeHtml(row.brand)}</td>
+                    <td>${escapeHtml(row.model)}</td>
+                    <td>${escapeHtml(row.group)}</td>
+                    <td class="date">${escapeHtml(row.added)}</td>
+                </tr>`).join('');
+            $('emptyState').hidden = shown.length > 0 || !state.loaded;
+            $('rowLimitNote').hidden = filtered.length <= ROW_LIMIT;
+            $('rowLimitNote').textContent = `แสดง ${ROW_LIMIT} รายการล่าสุดจาก ${filtered.length.toLocaleString('th-TH')} รายการ — พิมพ์ค้นหาเพื่อกรอง`;
+        }
+
+        function renderStats() {
+            $('statModels').textContent = state.loaded ? state.rows.length.toLocaleString('th-TH') : '-';
+            $('statBrands').textContent = state.loaded ? topValues('brand', value => value === '-').length.toLocaleString('th-TH') : '-';
+        }
+
+        function findDuplicate(brand, model) {
+            const wantedBrand = key(brand), wantedModel = key(model);
+            if (!wantedBrand || !wantedModel) return null;
+            return state.rows.find(row => key(row.brand) === wantedBrand && key(row.model) === wantedModel) || null;
+        }
+
+        function updateFormState() {
+            const brand = clean($('brand').value), model = clean($('model').value), group = $('priceGroup').value;
+            const duplicate = findDuplicate(brand, model);
+            const notice = $('duplicateNotice');
+            notice.hidden = !duplicate;
+            if (duplicate) notice.textContent = `มีรุ่น "${duplicate.model}" ของยี่ห้อ "${duplicate.brand}" ในชีตแล้ว (${duplicate.id}) จึงบันทึกซ้ำไม่ได้`;
+            $('submitBtn').disabled = state.saving || !state.loaded || !brand || !model || !group || !!duplicate;
+        }
+
+        function renderAll() {
+            renderOptions();
+            renderStats();
+            renderTable();
+            updateFormState();
+        }
+
+        // ---------- บันทึก ----------
+        async function submitForm(event) {
+            event.preventDefault();
+            if (state.saving) return;
+            const brand = clean($('brand').value), model = clean($('model').value), group = $('priceGroup').value;
+            if (!state.loaded) return showNotice($('formNotice'), 'error', 'ยังโหลดชีต Car_model ไม่สำเร็จ จึงยังบันทึกไม่ได้ กรุณากดรีเฟรชข้อมูล');
+            if (!brand || !model || !group) return showNotice($('formNotice'), 'error', 'กรุณากรอกยี่ห้อ รุ่น และเลือกกลุ่มราคาให้ครบ');
+            if (findDuplicate(brand, model)) return updateFormState();
+
+            state.saving = true;
+            $('submitBtn').textContent = 'กำลังบันทึก...';
+            updateFormState();
+            showNotice($('formNotice'), 'info', 'กำลังบันทึกลงชีต Car_model...');
+            try {
+                const result = await postWithWriteToken({
+                    action: 'insert',
+                    sheetName: CAR_MODEL_SHEET_NAME,
+                    'ยี่ห้อรถยนต์': brand,
+                    'รุ่นรถยนต์': model,
+                    'กลุ่มราคา': group
+                });
+                // ถือว่าสำเร็จเมื่อ backend ตอบ success และยืนยันแถวที่เขียนกลับแล้วเท่านั้น
+                if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+                if (!result.verified || !result.id) throw new Error('บันทึกแล้วแต่ระบบยังไม่ยืนยันแถวที่เขียน กรุณากดรีเฟรชแล้วตรวจในชีตก่อนบันทึกซ้ำ');
+                state.newId = result.id;
+                state.rows.push({ id: result.id, brand, model, group, added: 'เมื่อสักครู่', order: state.rows.length });
+                showNotice($('formNotice'), 'success', `บันทึกแล้ว: ${model} (${brand}) · ${group} · รหัส ${result.id}`);
+                $('addForm').reset();
+                renderAll();
+                $('brand').focus();
+                loadModels();
+            } catch (error) {
+                showNotice($('formNotice'), 'error', error.message || 'บันทึกไม่สำเร็จ');
+            } finally {
+                state.saving = false;
+                $('submitBtn').textContent = 'บันทึกรุ่นรถ';
+                updateFormState();
+            }
+        }
+
+        function initApp() {
+            $('addForm').addEventListener('submit', submitForm);
+            ['brand', 'model'].forEach(id => $(id).addEventListener('input', updateFormState));
+            $('priceGroup').addEventListener('change', updateFormState);
+            $('searchInput').addEventListener('input', renderTable);
+            $('refreshBtn').addEventListener('click', loadModels);
+            $('resetBtn').addEventListener('click', () => {
+                $('addForm').reset();
+                showNotice($('formNotice'), '', '');
+                updateFormState();
+            });
+            loadModels();
+        }
+
+        function unlockPage() {
+            document.body.classList.remove('auth-locked');
+            if (appHasStarted) return;
+            appHasStarted = true;
+            initApp();
+        }
+
+        window.addEventListener('load', () => {
+            window.CarCrmAuth.onLogin(unlockPage);
+            if (window.CarCrmAuth.isLoggedIn()) {
+                unlockPage();
+                return;
+            }
+            $('loginForm').addEventListener('submit', async event => {
+                event.preventDefault();
+                const user = $('loginUser').value.trim();
+                const pass = $('loginPass').value;
+                if (await window.CarCrmAuth.login(user, pass)) {
+                    unlockPage();
+                } else {
+                    $('loginError').hidden = false;
+                    $('loginPass').value = '';
+                }
+            });
+            $('loginUser').focus();
+        });
+    </script>
+</body>
+</html>
