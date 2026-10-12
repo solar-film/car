@@ -945,11 +945,12 @@
                             const fb = parseNumber(getVal(['fb', 'เฟซ']));
                             const tiktok = parseNumber(getVal(['tiktok', 'ติ๊ก']));
                             const walkin = parseNumber(getVal(['walkin', 'หน้าร้าน']));
+                            const other = parseNumber(getVal(['อื่นๆ', 'other']));
                             const note = getVal(['หมายเหตุ', 'note']);
                             const recorder = getVal(['ผู้บันทึก', 'พนักงานขาย', 'recorder', 'sales']);
                             
                             const date = parseDate(dateRaw);
-                            const total = phone + line + fb + tiktok + walkin;
+                            const total = phone + line + fb + tiktok + walkin + other;
 
                             return {
                                 id: statsId || `row-${index}`,
@@ -957,7 +958,7 @@
                                 dateRaw,
                                 date,
                                 monthKey: monthKeyFromDate(date),
-                                phone, line, fb, tiktok, walkin, total,
+                                phone, line, fb, tiktok, walkin, other, total,
                                 note,
                                 recorder
                             };
@@ -1624,7 +1625,8 @@
                         total: 0
                     };
                     const key = escapeHtml(alignedRow.key || dateKey(row.date));
-                    const actionButton = row.source === 'legacy' ? '<span class="text-slate-500">ข้อมูลเดิม</span>' : '<a href="lead-data.html#leads" class="row-action-btn text-blue-600 hover:text-blue-800">ดูรายงาน</a>';
+                    // Days the daily job copied from the lead sheet (ผู้บันทึก ระบบ) still link to the contact report.
+                    const actionButton = row.source === 'legacy' && row.recorder !== 'ระบบ' ? '<span class="text-slate-500">ข้อมูลเดิม</span>' : '<a href="lead-data.html#leads" class="row-action-btn text-blue-600 hover:text-blue-800">ดูรายงาน</a>';
                     return `
                     <tr class="hover:bg-blue-50/50 transition-colors group">
                         <td class="whitespace-nowrap px-4 py-2 text-sm font-medium text-slate-700">${escapeHtml(formatDate(row.date))}</td>

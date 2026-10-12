@@ -655,7 +655,8 @@
                             const fb = parseContactStatNumber(getValue(row, ['FB', 'เฟซ']));
                             const tiktok = parseContactStatNumber(getValue(row, ['Tiktok', 'ติ๊ก']));
                             const walkin = parseContactStatNumber(getValue(row, ['WalkIn', 'หน้าร้าน']));
-                            const total = phone + line + fb + tiktok + walkin;
+                            const other = parseContactStatNumber(getValue(row, ['อื่นๆ', 'อื่น ๆ', 'Other']));
+                            const total = phone + line + fb + tiktok + walkin + other;
 
                             return {
                                 id: index,
@@ -666,6 +667,7 @@
                                 fb,
                                 tiktok,
                                 walkin,
+                                other,
                                 total
                             };
                         }).filter(item => item.date || item.total > 0));
