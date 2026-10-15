@@ -10,6 +10,7 @@ const CAR_CRM_NAV = [
     { href: 'damage.html', label: 'ความเสียหายฟิล์ม', icon: '!', color: 'rose' },
     { href: 'other-damage.html', label: 'ความเสียหายอื่นๆ', icon: '+', color: 'indigo' },
     { href: 'install-summary.html', label: 'สรุปงานฟิล์ม', icon: 'Σ', color: 'emerald' },
+    { href: 'glass-size.html', label: 'ขนาดกระจก', icon: '▭', color: 'sky' },
     { href: 'feedback-car.html', label: 'Feedback ลูกค้า', icon: '★', color: 'rose' }
 ];
 
@@ -27,6 +28,7 @@ const CAR_CRM_TITLES = {
     'feedback-car.html': 'Feedback ลูกค้า',
     'sunroof.html': 'Sunroof',
     'install-summary.html': 'สรุปงานฟิล์ม',
+    'glass-size.html': 'ขนาดกระจก',
     'technician-commission.html': 'คำนวณค่าคอมช่าง',
     'damage.html': 'ความเสียหาย',
     'other-damage.html': 'ความเสียหายอื่นๆ'
