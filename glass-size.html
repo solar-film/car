@@ -33,6 +33,12 @@
         body.glass-auth-pending #mainHeader, body.glass-auth-pending #mainContent { visibility:hidden; }
 
         .lead-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; padding:16px 24px; background:var(--color-surface); border-bottom:1px solid var(--color-border); }
+        .glass-page-title-row { display:flex; align-items:center; gap:6px; min-width:0; }
+        .glass-page-title-row .car-page-heading-title { min-width:0; }
+        .glass-add-link { display:inline-flex; align-items:center; justify-content:center; flex:0 0 24px; width:24px; height:24px; border:1px solid #bfdbfe; border-radius:8px; background:var(--color-info-bg); color:var(--color-primary); }
+        .glass-add-link:hover { border-color:var(--color-primary); background:#dbeafe; text-decoration:none; }
+        .glass-add-link:focus-visible { outline:3px solid #bfdbfe; outline-offset:2px; }
+        .glass-add-link svg { width:15px; height:15px; }
         #mainHeader, #mainContent { min-width:0; }
         @media (min-width:1024px) {
             body:not(.car-crm-sidebar-collapsed) #mainHeader, body:not(.car-crm-sidebar-collapsed) #mainContent { margin-left:calc(18rem + 12px); }
@@ -127,7 +133,10 @@
         <div class="car-page-heading">
             <div class="car-page-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/><path d="M12 13l3-2M12 17l5-3"/></svg></div>
             <div class="car-page-heading-copy">
-                <h1 class="car-page-heading-title">ขนาดกระจก</h1>
+                <div class="glass-page-title-row">
+                    <h1 class="car-page-heading-title">ขนาดกระจก</h1>
+                    <a class="glass-add-link" href="add.html" aria-label="เพิ่มรุ่นรถยนต์" title="เพิ่มรุ่นรถยนต์"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>
+                </div>
                 <p class="car-page-heading-subtitle">ขนาดกระจกแต่ละบานที่เคยวัดจากงานติดตั้ง · ชีต data</p>
             </div>
         </div>
