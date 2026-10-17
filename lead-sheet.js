@@ -8,7 +8,9 @@ window.CarLeadSheet = (() => {
         ['carModel','รุ่นรถยนต์'], ['positions','ตำแหน่งติดตั้ง * (เลือกได้หลายตำแหน่ง)'],
         ['filmBrand','ยี่ห้อที่สนใจ'], ['filmModel','รุ่นที่สนใจ'], ['budget','งบประมาณ'],
         ['customerType','ประเภทลูกค้า','text',['ลค.ใหม่','ลค.เก่า','ลค.เคลม','ลค.แก้']], ['knownFrom','รู้จักเราจาก'],
-        ['followUp','สถานะการติดตาม'], ['note','*หมายเหตุ','textarea']
+        ['followUp','สถานะการติดตาม'], ['note','*หมายเหตุ','textarea'],
+        // The person's other channels, one "Channel: name" per line (a column after the original ones).
+        ['extraChannels','ช่องทางเพิ่มเติม']
     ];
     let sessionToken = '';
     let ignoreStoredToken = false;

@@ -410,6 +410,27 @@ html[data-lead-embed] .lead-dialog::backdrop { background:transparent; backdrop-
 #editor.sheet-editor .sheet-chat-fill-button[aria-busy="true"] { opacity:.7; cursor:progress; }
 #editor.sheet-editor .sheet-chat-fill-status { color:#64748b; font-size:12px; line-height:1.5; }
 #editor.sheet-editor .sheet-chat-filled input, #editor.sheet-editor .sheet-chat-filled summary, #editor.sheet-editor .sheet-chat-filled .sheet-auto-value { border-color:#60a5fa; background:#eff6ff; }
+/* "ช่องทางเพิ่มเติม": one row per other channel (channel, name, remove), and the "ผูกกับลีดเดิม" search for a chat. */
+.sheet-extra-channels { display:flex; flex-direction:column; gap:6px; }
+.sheet-extra-list { display:flex; flex-direction:column; gap:6px; }
+.sheet-extra-list:empty { display:none; }
+.sheet-extra-row { display:grid; grid-template-columns:110px minmax(0,1fr) 34px; gap:6px; align-items:center; }
+.sheet-editor .sheet-section-grid .sheet-extra-row select,.sheet-editor .sheet-section-grid .sheet-extra-row input { min-width:0; }
+.sheet-extra-remove { width:34px; height:34px; border:1px solid #dce4ee; border-radius:9px; background:#fff; color:#64748b; font-size:16px; line-height:1; cursor:pointer; }
+.sheet-extra-remove:hover { border-color:#fca5a5; background:#fef2f2; color:#b91c1c; }
+.sheet-extra-actions { display:flex; flex-wrap:wrap; gap:6px; }
+#editor.sheet-editor .sheet-extra-actions .lead-button { padding:6px 12px; border-radius:10px; font-size:12px; min-height:32px; color:#1d4ed8; border-color:#bfdbfe; background:#fff; }
+#editor.sheet-editor .sheet-extra-actions .lead-button:hover { background:#eff6ff; }
+.sheet-extra-channels small { color:#64748b; font-size:11px; }
+.sheet-extra-status { color:#1d4ed8; font-size:12px; line-height:1.5; }
+.sheet-extra-status:empty { display:none; }
+.sheet-link-panel { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px solid #bfdbfe; border-radius:10px; background:#eff6ff; }
+.sheet-link-panel[hidden] { display:none; }
+.sheet-link-results { display:flex; flex-direction:column; gap:4px; }
+.sheet-link-item { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; padding:5px 8px; border-radius:8px; background:#fff; color:#182b46; font-size:12px; line-height:1.5; }
+#editor.sheet-editor .sheet-link-item .lead-button { flex-shrink:0; padding:3px 10px; min-height:0; border-radius:8px; font-size:12px; }
+.sheet-link-results .lead-muted { margin:0; font-size:12px; }
+@media(max-width:420px) { .sheet-extra-row { grid-template-columns:92px minmax(0,1fr) 34px; } }
 .sheet-editor .sheet-status-card label:has([name="followUp"]) { font-size:14px; gap:9px; }
 
 /* Compact status and history cards. */

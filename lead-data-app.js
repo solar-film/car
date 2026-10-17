@@ -601,7 +601,7 @@
             || (Date.parse(b.createdAt)||0)-(Date.parse(a.createdAt)||0)
             || Number(String(b.id).replace('sheet-lead:',''))-Number(String(a.id).replace('sheet-lead:',''))
             || String(b.id).localeCompare(String(a.id));
-        const list = sheetLeads.filter(l => (!followUps || isFollowUp(l)) && (!status || l.status === status) && [l.name,l.phone,l.salesperson,l.sheetData?.contact,l.sheetData?.admin].join(' ').toLowerCase().includes(query));
+        const list = sheetLeads.filter(l => (!followUps || isFollowUp(l)) && (!status || l.status === status) && [l.name,l.phone,l.salesperson,l.sheetData?.contact,l.sheetData?.admin,l.sheetData?.extraChannels].join(' ').toLowerCase().includes(query));
         // Follow-ups run from the oldest update to the latest and are grouped by Bangkok update date; leads without a usable date stay on top.
         const updatedAt = new Map(followUps ? sheetLeads.map(l => { const {at}=latestContactTimestamp(l,now); return [l,Number.isFinite(at) ? at : -Infinity]; }) : []);
         const groupDate = l => followUps ? (Number.isFinite(updatedAt.get(l)) ? new Date(updatedAt.get(l)+7*3600000).toISOString().slice(0,10) : '') : contactDate(l);
@@ -683,10 +683,10 @@
         if (digits.length === 11 && digits.startsWith('66')) digits = '0' + digits.slice(2);
         return digits.length === 10 ? digits.slice(0,3)+'-'+digits.slice(3,6)+'-'+digits.slice(6) : original;
     }
-    const sheetLabels = {admin:'ฝ่ายขาย',contact:'ชื่อช่องทางติดต่อ',positions:'ตำแหน่งติดตั้ง',filmBrand:'ยี่ห้อฟิล์ม',filmModel:'รุ่นฟิล์ม',knownFrom:'รู้จักเราจาก',note:'หมายเหตุ'};
+    const sheetLabels = {admin:'ฝ่ายขาย',contact:'ชื่อช่องทางติดต่อ',positions:'ตำแหน่งติดตั้ง',filmBrand:'ยี่ห้อฟิล์ม',filmModel:'รุ่นฟิล์ม',knownFrom:'รู้จักเราจาก',note:'หมายเหตุ',extraChannels:'ช่องทางเพิ่มเติม'};
     function sheetSections(renderField, leadId = '', customerId = '') {
         return [
-            ['01','ข้อมูลผู้ติดต่อ',['name','date','phone','channel','admin','contact','customerType','knownFrom']],
+            ['01','ข้อมูลผู้ติดต่อ',['name','date','phone','channel','admin','contact','extraChannels','customerType','knownFrom']],
             ['02','รถยนต์และฟิล์มที่สนใจ',['carBrand','carModel','positions','filmBrand','filmModel','budget','note']],
 
         ].map(([number,title,names]) => `<section class="sheet-form-section"><h3><span>${number}</span>${title}${number === '01' ? `<small class="sheet-lead-id">Lead ID: ${esc(leadId || 'ยังไม่สร้าง')}${customerId ? `<span class="sheet-customer-id">Customer ID: ${esc(customerId)}</span>` : ''}</small>` : ''}</h3><div class="sheet-section-grid">${names.map(renderField).join('')}</div></section>`).join('');
@@ -708,10 +708,13 @@
             installationDate:previous?.installationDate || '—', pendingCustomerCheck:true};
         sheetLeads = sheetLeads.filter(item => item.id !== confirmed.id && item.leadId !== confirmed.leadId);
         sheetLeads.push(confirmed);
-        if (sheetChecked && data.contact) {
-            const sameContact = item => String(item.channel).trim().toLowerCase() === data.channel.toLowerCase()
-                && String(item.contact).trim().toLowerCase() === data.contact.toLowerCase();
-            sheetContacts = [...sheetContacts.filter(item => !sameContact(item)),{channel:data.channel,contact:data.contact}];
+        if (sheetChecked) {
+            // The saved names (main channel and other channels) count at once on the Line/Facebook tabs.
+            for (const entry of [{channel:data.channel,contact:data.contact},...parseExtraChannels(data.extraChannels)].filter(item => item.contact)) {
+                const sameContact = item => String(item.channel).trim().toLowerCase() === entry.channel.toLowerCase()
+                    && String(item.contact).trim().toLowerCase() === entry.contact.toLowerCase();
+                sheetContacts = [...sheetContacts.filter(item => !sameContact(item)),entry];
+            }
         }
         renderStatusOptions(); renderLeads(); renderInbox();
     }
@@ -781,6 +784,112 @@
         customer.disabled = !!blocked;
         customer.title = blocked || 'เปิดฟอร์มบันทึกข้อมูลลูกค้าจากลีดนี้';
         customer.onclick = () => openCustomerFromLead(lead);
+    }
+    // Other channels of the same person ("ช่องทางเพิ่มเติม"), one "Channel: name" per line, e.g. a lead who phoned first and
+    // wrote on Line later. The Line/Facebook tabs and the automatic lead capture treat these names as this lead.
+    // A line in another form (typed in the sheet) is kept as an "Other" entry, so opening the form never drops it.
+    const extraChannelChoices = ['Line','FB','IG','Tel','WalkIn','Email','Tiktok','Other'];
+    function parseExtraChannels(value) {
+        return String(value || '').split('\n').map(line => line.trim()).filter(Boolean).map(line => {
+            const match = /^([A-Za-z]+)\s*:\s*(.+)$/.exec(line);
+            return match ? {channel:match[1],contact:match[2].trim()} : {channel:'Other',contact:line};
+        });
+    }
+    const channelGroup = value => { const text = String(value || '').trim().toLowerCase(); return text === 'facebook' ? 'fb' : text === 'instagram' ? 'ig' : text; };
+    const sameChannelName = (a, b) => channelGroup(a.channel) === channelGroup(b.channel) && String(a.contact || '').trim().toLowerCase() === String(b.contact || '').trim().toLowerCase();
+    let extraChannelsControl = null;
+    function extraChannelsField(value) {
+        return '<div class="sheet-extra-channels full" data-extra-channels><span class="sheet-control-label" id="extra-channels-label">ช่องทางเพิ่มเติม</span>'
+            + '<input type="hidden" name="extraChannels" value="' + esc(value) + '"><div class="sheet-extra-list" role="group" aria-labelledby="extra-channels-label"></div>'
+            + '<div class="sheet-extra-actions"><button type="button" class="lead-button sheet-extra-add">+ เพิ่มช่องทาง</button></div>'
+            + '<small>ช่องทางอื่นของลูกค้าคนเดียวกัน เช่น โทรมาก่อนแล้วทัก Line ทีหลัง</small><span class="sheet-extra-status" role="status"></span></div>';
+    }
+    function watchExtraChannels() {
+        const box = $('editor-fields').querySelector('[data-extra-channels]');
+        extraChannelsControl = null;
+        if (!box) return;
+        const hidden = box.querySelector('input[name="extraChannels"]'), list = box.querySelector('.sheet-extra-list'), status = box.querySelector('.sheet-extra-status');
+        const row = (channel = 'Line', contact = '') => '<div class="sheet-extra-row"><select aria-label="ช่องทาง">'
+            + [...new Set([...extraChannelChoices,channel])].map(choice => '<option' + (choice === channel ? ' selected' : '') + '>' + esc(choice) + '</option>').join('')
+            + '</select><input type="text" maxlength="200" aria-label="ชื่อในช่องทางนี้" placeholder="ชื่อโปรไฟล์ / เบอร์" value="' + esc(contact) + '">'
+            + '<button type="button" class="sheet-extra-remove" aria-label="ลบช่องทางนี้">×</button></div>';
+        const sync = () => {
+            hidden.value = [...list.querySelectorAll('.sheet-extra-row')]
+                .map(item => [item.querySelector('select').value,item.querySelector('input').value.replace(/\s+/g,' ').trim()])
+                .filter(([,contact]) => contact).map(([channel,contact]) => channel + ': ' + contact).join('\n');
+        };
+        list.innerHTML = parseExtraChannels(hidden.value).map(item => row(item.channel,item.contact)).join('');
+        box.querySelector('.sheet-extra-add').addEventListener('click',() => {
+            if ($('editor-form').getAttribute('aria-busy') === 'true') return;
+            list.insertAdjacentHTML('beforeend',row());
+            list.lastElementChild.querySelector('input').focus();
+        });
+        list.addEventListener('input',sync); list.addEventListener('change',sync);
+        list.addEventListener('click',event => {
+            const remove = event.target.closest('.sheet-extra-remove');
+            if (!remove || $('editor-form').getAttribute('aria-busy') === 'true') return;
+            remove.closest('.sheet-extra-row').remove(); sync();
+        });
+        extraChannelsControl = {
+            // Adds a channel unless it is already listed; the lead is linked once the form is saved.
+            add(channel, contact) {
+                if (!parseExtraChannels(hidden.value).some(item => sameChannelName(item,{channel,contact}))) { list.insertAdjacentHTML('beforeend',row(channel,contact)); sync(); }
+                status.textContent = 'เพิ่ม ' + channel + ': ' + contact + ' แล้ว · กดบันทึกการแก้ไขเพื่อผูกแชตนี้กับลีด';
+            }
+        };
+    }
+    // Checked before saving: at most 10 entries, none repeated, none the same as the main channel name.
+    function checkExtraChannels(values) {
+        const extras = parseExtraChannels(values.extraChannels);
+        if (extras.length > 10) throw new Error('ช่องทางเพิ่มเติมใส่ได้ไม่เกิน 10 รายการ');
+        if (extras.some(item => item.channel.length > 20 || item.contact.length > 200)) throw new Error('ชื่อในช่องทางเพิ่มเติมยาวเกิน 200 ตัวอักษร');
+        if (extras.some((item,index) => extras.findIndex(other => sameChannelName(item,other)) !== index)) throw new Error('ช่องทางเพิ่มเติมมีรายการซ้ำกัน');
+        if (extras.some(item => sameChannelName(item,{channel:values.channel,contact:values.contact}))) throw new Error('ช่องทางเพิ่มเติมซ้ำกับช่องทางติดต่อหลัก');
+        values.extraChannels = extras.map(item => item.channel + ': ' + item.contact).join('\n');
+    }
+    // Leads whose main channel name or other channels match a Line/Facebook chat (a chat saved without its contact key).
+    function contactSheetLeads(row) {
+        if (!row || !Array.isArray(records.sheetLeads)) return [];
+        const channel = tab === 'instagram' ? 'IG' : tab === 'line' ? 'Line' : 'FB';
+        const names = [row.display_name,tab === 'instagram' ? row.instagram_user_id : tab === 'line' ? row.line_user_id : row.facebook_user_id].map(value => String(value || '').trim()).filter(Boolean);
+        return records.sheetLeads.filter(lead => [{channel:lead.sheetData?.channel,contact:lead.sheetData?.contact},...parseExtraChannels(lead.sheetData?.extraChannels)]
+            .some(item => names.some(contact => sameChannelName(item,{channel,contact}))));
+    }
+    // A chat from someone who already has a lead: pick that lead, and the chat's name is added to its other channels
+    // (saved with the lead) instead of saving a second lead for the same person.
+    function linkChatButton(channel, name) {
+        const box = $('editor-fields').querySelector('[data-extra-channels] .sheet-extra-actions');
+        if (!box || !name) return;
+        box.insertAdjacentHTML('beforeend','<button type="button" class="lead-button sheet-link-open" aria-expanded="false" aria-controls="sheet-link-panel">ผูกกับลีดเดิม</button>');
+        box.parentElement.insertAdjacentHTML('beforeend','<div class="sheet-link-panel" id="sheet-link-panel" hidden><input type="search" placeholder="ค้นหาชื่อ เบอร์โทร หรือ Lead ID" aria-label="ค้นหาลีดเดิม" autocomplete="off"><div class="sheet-link-results" role="list"></div><small>เลือกแล้วจะเปิดลีดเดิมพร้อมเพิ่ม ' + esc(channel + ': ' + name) + ' · ข้อมูลที่กรอกในฟอร์มนี้จะไม่ถูกบันทึก</small></div>');
+        const open = box.querySelector('.sheet-link-open'), panel = $('sheet-link-panel'), search = panel.querySelector('input'), results = panel.querySelector('.sheet-link-results');
+        let leads = null;
+        const render = () => {
+            const query = search.value.trim().toLowerCase(), digits = query.replace(/\D/g,'');
+            if (!leads) { results.innerHTML = '<p class="lead-muted">กำลังโหลดรายการลีด…</p>'; return; }
+            if (!query) { results.innerHTML = ''; return; }
+            const found = leads.filter(lead => [lead.leadId,lead.name,lead.sheetData?.contact].some(value => String(value || '').toLowerCase().includes(query))
+                || digits.length >= 4 && String(lead.phone || '').replace(/\D/g,'').includes(digits)).slice(0,8);
+            results.innerHTML = found.map(lead => '<div class="sheet-link-item" role="listitem"><span>' + esc([lead.leadId,lead.name,lead.phone,lead.sheetData?.channel,customerFollowUp(lead)].filter(Boolean).join(' · ')) + '</span><button type="button" class="lead-button" data-link-lead="' + esc(lead.id) + '">เลือก</button></div>').join('') || '<p class="lead-muted">ไม่พบลีดที่ค้นหา</p>';
+        };
+        open.addEventListener('click',guard(async () => {
+            panel.hidden = !panel.hidden; open.setAttribute('aria-expanded',String(!panel.hidden));
+            if (panel.hidden) return;
+            search.focus(); render();
+            if (!leads) { await intakeRecords(); leads = Array.isArray(records.sheetLeads) ? records.sheetLeads : []; if (panel.isConnected) render(); }
+        }));
+        search.addEventListener('input',render);
+        results.addEventListener('click',guard(async event => {
+            const button = event.target.closest('[data-link-lead]');
+            if (!button || $('editor-form').getAttribute('aria-busy') === 'true') return;
+            const target = (leads || []).find(lead => lead.id === button.dataset.linkLead);
+            if (!target) return;
+            $('editor').close();
+            if (await editLead({...target,status:customerFollowUp(target)})) {
+                $('editor-title').textContent = 'รายละเอียดข้อมูลผู้ติดต่อ';
+                extraChannelsControl?.add(channel,name);
+            }
+        }));
     }
     // Facebook leads: the customer's Facebook id from the inbox contact, the saved contact key or the lead's intake source.
     function facebookChatUser(lead, source) {
@@ -1070,6 +1179,7 @@
         };
         const placeholders = {admin:'ชื่อฝ่ายขาย',name:'ชื่อ-นามสกุล',contact:'ชื่อโปรไฟล์ เช่น Weerachon',phone:'เบอร์โทรศัพท์',carBrand:'เช่น Toyota',carModel:'เช่น Vios',positions:'เช่น เต็มคัน, ซันรูฟ',filmBrand:'ยี่ห้อที่สนใจ',filmModel:'รุ่นที่สนใจ',budget:'เช่น 3,200',knownFrom:'เช่น Facebook',note:'รายละเอียดเพิ่มเติม / สิ่งที่ต้องติดตาม'};
         const renderField = name => {
+            if (name === 'extraChannels') return extraChannelsField(previous.extraChannels ?? '');
             if (name === 'positions') {
                 const selected = String(previous.positions || '').split(',').map(value => value.trim()).filter(Boolean);
                 const choices = [...new Set([...lists['ตำแหน่งกระจก'],...selected])];
@@ -1131,6 +1241,7 @@
         editor('เพิ่มข้อมูลผู้ติดต่อ', html, async values => {
             values.phone = formatLeadPhone(values.phone);
             if (values.phone && !/^\d{3}-\d{3}-\d{4}$/.test(values.phone)) throw new Error('กรุณากรอกเบอร์โทร 10 หลัก รูปแบบ xxx-xxx-xxxx');
+            checkExtraChannels(values);
             const phoneCheck = duplicatePhone.confirm(values.phone);
             if (phoneCheck) await phoneCheck;
             if ($('history-text').value.trim()) throw new Error('กรุณากดเพิ่มประวัติก่อนบันทึก หรือเคลียร์ข้อความประวัติที่ยังไม่ได้เพิ่ม');
@@ -1194,6 +1305,9 @@
         });
         phoneInput.addEventListener('blur',() => { phoneInput.value = formatLeadPhone(phoneInput.value); });
         duplicatePhone.watch(phoneInput);
+        watchExtraChannels();
+        // Only a new lead from a chat offers the link; the embedded form (booking page) has no lead lists.
+        if (contact && isNewLead && !embeddedNewLead && typeof cloudLead !== 'undefined' && cloudLead) linkChatButton(defaults.channel,profileName);
         const facebookUser = typeof cloudLead !== 'undefined' && cloudLead ? facebookChatUser(lead, platform === 'facebook' ? source : null) : '';
         if (facebookUser) chatFillButton(facebookUser, lists);
         const bookingHistory = document.createElement('div');
@@ -1388,8 +1502,10 @@
             finally { button.disabled = false; button.textContent = label; button.removeAttribute('aria-busy'); }
         }
         const row = contacts.find(c => c.id === button.dataset.contact && day(c.last_seen_at) === button.dataset.contactDay); const lead = selectedLead(row);
-        // A contact already saved in the lead sheet opens that saved row for editing, never a blank form.
-        const savedLeads = lead ? [] : savedSheetLeads(row);
+        // A contact already saved in the lead sheet opens that saved row for editing, never a blank form:
+        // by its contact key, otherwise by its channel name (main or "ช่องทางเพิ่มเติม").
+        const keyLeads = lead ? [] : savedSheetLeads(row);
+        const savedLeads = lead || keyLeads.length ? keyLeads : contactSheetLeads(row);
         if (!lead && existsInLeadSheet(row,null) && savedLeads.length !== 1) {
             notice(savedLeads.length > 1 ? 'พบข้อมูลลีดของผู้ติดต่อนี้หลายรายการ กรุณาแก้ไขจากแท็บรายชื่อผู้ติดต่อ' : 'ไม่พบข้อมูลลีดที่ผูกกับผู้ติดต่อนี้ กรุณาเปิดแก้ไขจากแท็บรายชื่อผู้ติดต่อ หรือกดอัปเดตข้อมูลล่าสุดแล้วลองอีกครั้ง',true);
             return;
