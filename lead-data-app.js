@@ -781,6 +781,170 @@
         customer.title = blocked || 'เปิดฟอร์มบันทึกข้อมูลลูกค้าจากลีดนี้';
         customer.onclick = () => openCustomerFromLead(lead);
     }
+    // Facebook leads: the customer's Facebook id from the inbox contact, the saved contact key or the lead's intake source.
+    function facebookChatUser(lead, source) {
+        if (source?.platform === 'facebook' && /^\d{5,30}$/.test(source.userId || '')) return source.userId;
+        const key = /^facebook:[^:]+:(\d{5,30})$/.exec(lead.sheetKey || '');
+        if (key) return key[1];
+        return lead.intakeSource?.platform === 'facebook' && /^\d{5,30}$/.test(lead.intakeSource.userId || '') ? lead.intakeSource.userId : '';
+    }
+    // Reads a customer's own chat messages for the lead form. A value is taken only when it is certain enough:
+    // a 10-digit mobile number, names from the form's own lists (car models, film brands and models, window positions),
+    // a number right after "งบ", or a name right after "ชื่อ". Two different cars or numbers are reported, not chosen.
+    function chatLeadDetails(messages, lists) {
+        const arabic = text => String(text || '').replace(/[๐-๙]/g, digit => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(digit)));
+        const key = text => arabic(text).toLowerCase().replace(/[\s\-_.()/,:'"]+/g, '');
+        const texts = (messages || []).map(item => arabic(item && item.text)).filter(Boolean);
+        const newestFirst = texts.slice().reverse();
+        const joined = texts.map(key).join('|');
+        // Short English names (HRV, GLE, 3M) count only as a whole word or two joined words ("C 200"), never inside "google".
+        const words = new Set(texts.flatMap(text => {
+            const runs = (text.toLowerCase().match(/[a-z0-9]+(?:[-.][a-z0-9]+)*/g) || []).map(run => run.replace(/[-.]/g, ''));
+            return runs.concat(runs.slice(1).map((run, index) => runs[index] + run));
+        }));
+        const appears = item => /^[a-z0-9]{1,5}$/.test(item) ? words.has(item) : joined.includes(item);
+        const hasLetter = value => /[a-zก-๙]/i.test(value);
+        // Longest match per list value; a value whose match sits inside a longer match of another value gives way to it.
+        const matchValues = (values, keysOf) => {
+            const hits = [];
+            for (const value of new Set(values.map(item => String(item || '').trim()).filter(Boolean))) {
+                const found = keysOf(value).filter(appears).sort((a, b) => b.length - a.length)[0];
+                if (found) hits.push({value, found});
+            }
+            return hits.filter(hit => !hits.some(other => other.found !== hit.found && other.found.includes(hit.found))).map(hit => hit.value);
+        };
+        const phones = [];
+        for (const text of texts) {
+            for (const match of text.matchAll(/(?<!\d)(?:\+?66[\s.-]?|0)([689](?:[\s.-]?\d){8})(?!\d)/g)) {
+                const digits = '0' + match[1].replace(/\D/g, '');
+                if (digits.length === 10 && !phones.includes(digits)) phones.push(digits);
+            }
+        }
+        const modelBrands = lists.Car_model_brand || {};
+        // A model name that is also a film brand (Mini "Cooper") counts only with its car brand.
+        const filmBrandKeys = (lists.film_Brand || []).map(key);
+        const cars = matchValues(lists.Car_model || [], model => {
+            const brand = String(modelBrands[model] || '').trim();
+            const rest = brand && model.toLowerCase().startsWith(brand.toLowerCase()) ? model.slice(brand.length) : model.split(/\s+/).slice(1).join(' ');
+            return [key(model), key(rest)].filter((item, index) => item.length >= 3 && hasLetter(item) && !(index && filmBrandKeys.includes(item)));
+        });
+        // "Mini Cooper" is a car, not the Cooper film.
+        const cooperCar = cars.some(car => key(car).includes('cooper'));
+        const filmBrandList = (lists.film_Brand || []).filter(brand => brand && brand !== 'อื่นๆ' && !(cooperCar && key(brand).includes('cooper')));
+        const filmBrandOf = model => filmBrandList.find(brand => key(model).startsWith(key(brand)));
+        const filmModels = matchValues((lists.film_series || []).filter(model => !['ผสม','No Brand','รอเลือก'].includes(String(model).trim()) && !(cooperCar && key(model).includes('cooper'))), model => {
+            const brand = filmBrandOf(model), whole = key(model), rest = brand ? whole.slice(key(brand).length) : '';
+            return [whole, rest].filter(item => item.length >= (item === whole ? 3 : 4) && hasLetter(item));
+        });
+        const filmBrands = [...new Set([...matchValues(filmBrandList, brand => [key(brand)].filter(item => item.length >= 2)), ...filmModels.map(filmBrandOf).filter(Boolean)])];
+        const positions = matchValues(lists['ตำแหน่งกระจก'] || [], value => [key(value)].filter(item => item.length >= 3));
+        let budget = '';
+        for (const text of newestFirst) {
+            const match = /งบ(?:ประมาณ)?[^0-9]{0,15}?(\d[\d,]*(?:\.\d+)?)\s*(k|พัน|หมื่น|แสน)?/i.exec(text);
+            if (!match) continue;
+            const amount = Number(match[1].replace(/,/g, '')) * ({k:1000, 'พัน':1000, 'หมื่น':10000, 'แสน':100000}[String(match[2] || '').toLowerCase()] || 1);
+            if (Number.isFinite(amount) && amount >= 100 && amount <= 1000000) { budget = String(Math.round(amount)); break; }
+        }
+        let name = '';
+        for (const text of newestFirst) {
+            const match = /ชื่อ(?:จริง|เล่น)?\s*(?:คือ|ว่า)?\s*[:：]?\s*(?:คุณ|นางสาว|นาย|นาง|น\.ส\.)?\s*([A-Za-zก-๙][A-Za-zก-๙.]*(?:\s+[A-Za-zก-๙][A-Za-zก-๙.]*)?)/.exec(text);
+            if (!match) continue;
+            const value = match[1].replace(/\s+(เบอร์|โทร|รถ|tel|ครับ|ค่ะ|คะ|นะ)\S*$/i, '').replace(/(ค่ะ|คะ|ครับ|คับ|นะคะ|นะครับ|นะ|จ้า|จ้ะ|ค่า|ฮะ)+$/, '').trim();
+            if (value.length >= 2 && value.length <= 60 && !/^(รุ่น|ร้าน|ฟิล์ม|เพจ|ไลน์|line|facebook|เฟส|อะไร|ลูกค้า)/i.test(value)) { name = value; break; }
+        }
+        return {
+            phone:{value:phones.length === 1 ? phones[0] : '', candidates:phones},
+            carModel:{value:cars.length === 1 ? cars[0] : '', brand:cars.length === 1 ? String(modelBrands[cars[0]] || '') : '', candidates:cars},
+            filmBrand:filmBrands, filmModel:filmModels, positions, budget, name
+        };
+    }
+    // Puts the chat values into empty fields of the open lead form only, marks them, and returns the status text.
+    function applyChatDetails(details) {
+        const fields = $('editor-fields'), filled = [], kept = [], notes = [];
+        const mark = element => element?.classList.add('sheet-chat-filled');
+        const nameInput = fields.querySelector('input[name="name"]'), contactInput = fields.querySelector('input[name="contact"]');
+        if (details.name && nameInput) {
+            const current = nameInput.value.trim();
+            if (!current || current === String(contactInput?.value || '').trim()) { if (current !== details.name) { nameInput.value = details.name; mark(nameInput.closest('label')); filled.push('ชื่อ'); } }
+            else if (current !== details.name) kept.push('ชื่อ');
+        }
+        const phoneInput = fields.querySelector('input[name="phone"]');
+        if (details.phone.value && phoneInput) {
+            if (!phoneInput.value.trim()) {
+                phoneInput.value = formatLeadPhone(details.phone.value);
+                phoneInput.dispatchEvent(new Event('input', {bubbles:true}));
+                mark(phoneInput.closest('label')); filled.push('เบอร์โทร');
+            } else if (formatLeadPhone(phoneInput.value) !== formatLeadPhone(details.phone.value)) kept.push('เบอร์โทร');
+        }
+        if (details.phone.candidates.length > 1) notes.push('พบหลายเบอร์ ' + details.phone.candidates.map(formatLeadPhone).join(', ') + ' (ยังไม่เติม)');
+        const modelField = fields.querySelector('input[name="carModel"]')?.closest('.sheet-search-field');
+        if (details.carModel.value && modelField) {
+            const current = modelField.querySelector('input[type="hidden"]').value;
+            if (!current) {
+                setSearchValue(modelField, details.carModel.value);
+                setCarBrand(details.carModel.brand);
+                mark(modelField); mark(fields.querySelector('.sheet-auto-field')); filled.push('รุ่นรถ');
+            } else if (current !== details.carModel.value) kept.push('รุ่นรถ');
+        }
+        if (details.carModel.candidates.length > 1) notes.push('พบหลายรุ่นรถ ' + details.carModel.candidates.join(', ') + ' (ยังไม่เติม)');
+        for (const [name, label] of [['filmBrand','ยี่ห้อฟิล์ม'],['filmModel','รุ่นฟิล์ม']]) {
+            const container = fields.querySelector('input[name="' + name + '"]')?.closest('.sheet-search-field');
+            if (!details[name].length || !container) continue;
+            const input = container.querySelector('input[type="hidden"]');
+            if (input.value.trim()) { kept.push(label); continue; }
+            input.value = details[name].join(', ');
+            container.querySelector('.sheet-search-value').textContent = input.value;
+            for (const option of container.querySelectorAll('[data-option-value]')) {
+                const checked = details[name].includes(option.dataset.optionValue);
+                option.setAttribute('aria-pressed', String(checked));
+                const box = option.querySelector('span');
+                if (box) box.textContent = checked ? '☑' : '☐';
+            }
+            mark(container); filled.push(label);
+        }
+        const positionsField = fields.querySelector('.sheet-positions-field');
+        if (details.positions.length && positionsField) {
+            if (positionsField.querySelector('[name="positions"]').value.trim()) kept.push('ตำแหน่งติดตั้ง');
+            else {
+                const boxes = [...positionsField.querySelectorAll('[data-position-value]')].filter(input => details.positions.includes(input.dataset.positionValue));
+                boxes.forEach(input => { input.checked = true; });
+                if (boxes.length) { boxes[boxes.length - 1].dispatchEvent(new Event('change', {bubbles:true})); mark(positionsField); filled.push('ตำแหน่งติดตั้ง'); }
+            }
+        }
+        const budgetInput = fields.querySelector('input[name="budget"]');
+        if (details.budget && budgetInput) {
+            if (!budgetInput.value.trim()) { budgetInput.value = details.budget; mark(budgetInput.closest('label')); filled.push('งบประมาณ'); }
+            else if (budgetInput.value.replace(/,/g, '').trim() !== details.budget) kept.push('งบประมาณ');
+        }
+        const parts = [filled.length ? 'เติมจากแชตแล้ว: ' + filled.join(', ') + ' · กรุณาตรวจก่อนกดบันทึก' : 'ไม่พบข้อมูลใหม่ที่เติมได้จากแชต'];
+        if (kept.length) parts.push('ไม่ทับช่องที่กรอกไว้แล้ว: ' + kept.join(', '));
+        return parts.concat(notes).join(' · ');
+    }
+    // Adds the button above the form. The request reads only this customer's Facebook messages; nothing is saved.
+    function chatFillButton(user, lists) {
+        const column = $('editor-fields').querySelector('.sheet-main-column');
+        if (!column) return;
+        const box = document.createElement('div');
+        box.className = 'sheet-chat-fill';
+        box.innerHTML = '<button type="button" class="lead-button sheet-chat-fill-button">ดึงข้อมูลจากแชต Facebook</button><span class="sheet-chat-fill-status" role="status"></span>';
+        column.prepend(box);
+        const button = box.querySelector('button'), status = box.querySelector('[role="status"]');
+        button.addEventListener('click', async () => {
+            if (button.disabled || $('editor-form').getAttribute('aria-busy') === 'true') return;
+            button.disabled = true; button.setAttribute('aria-busy','true'); status.textContent = 'กำลังอ่านแชต…';
+            try {
+                const result = await api('facebook-chat?user=' + encodeURIComponent(user));
+                if (!box.isConnected) return;
+                const messages = Array.isArray(result.messages) ? result.messages : [];
+                status.textContent = !messages.length ? 'ยังไม่มีข้อความจากลูกค้าในแชตนี้'
+                    : applyChatDetails(chatLeadDetails(messages, lists)) + (result.truncated ? ' · อ่าน 200 ข้อความล่าสุด' : '');
+            } catch (error) {
+                if (box.isConnected) status.textContent = 'ดึงข้อมูลจากแชตไม่สำเร็จ: ' + error.message;
+            } finally {
+                button.disabled = false; button.removeAttribute('aria-busy');
+            }
+        });
+    }
     // Same phone in another lead: a note under the phone field, and the first save with that number stops once.
     // A second save goes ahead, since one customer can have more than one car. The leads come from the loaded list,
     // this tab's snapshot, or (e.g. on the Line/Facebook tabs before the list is read) one fresh read per editor.
@@ -1029,6 +1193,8 @@
         });
         phoneInput.addEventListener('blur',() => { phoneInput.value = formatLeadPhone(phoneInput.value); });
         duplicatePhone.watch(phoneInput);
+        const facebookUser = typeof cloudLead !== 'undefined' && cloudLead ? facebookChatUser(lead, platform === 'facebook' ? source : null) : '';
+        if (facebookUser) chatFillButton(facebookUser, lists);
         const bookingHistory = document.createElement('div');
         bookingHistory.className = 'booking-history-list';
         $('contact-history-list').after(bookingHistory);

@@ -403,6 +403,13 @@ html[data-lead-embed] .lead-dialog::backdrop { background:transparent; backdrop-
 .sheet-phone-duplicate-item { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
 .sheet-phone-duplicate button { flex-shrink:0; padding:3px 10px; border:1px solid #fcd34d; border-radius:8px; background:#fff; color:#92400e; font-size:12px; font-weight:600; }
 .sheet-phone-duplicate button:hover { background:#fef3c7; }
+/* "ดึงข้อมูลจากแชต Facebook": a quiet button above the form; the fields it fills stay marked until the form closes. */
+#editor.sheet-editor .sheet-chat-fill { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; margin-bottom:10px; }
+#editor.sheet-editor .sheet-chat-fill-button { padding:6px 12px; border-radius:10px; font-size:13px; color:#1d4ed8; border-color:#bfdbfe; background:#fff; }
+#editor.sheet-editor .sheet-chat-fill-button:hover { background:#eff6ff; }
+#editor.sheet-editor .sheet-chat-fill-button[aria-busy="true"] { opacity:.7; cursor:progress; }
+#editor.sheet-editor .sheet-chat-fill-status { color:#64748b; font-size:12px; line-height:1.5; }
+#editor.sheet-editor .sheet-chat-filled input, #editor.sheet-editor .sheet-chat-filled summary, #editor.sheet-editor .sheet-chat-filled .sheet-auto-value { border-color:#60a5fa; background:#eff6ff; }
 .sheet-editor .sheet-status-card label:has([name="followUp"]) { font-size:14px; gap:9px; }
 
 /* Compact status and history cards. */
