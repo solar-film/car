@@ -2213,6 +2213,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
         // ============= Booking Modal =============
         let currentEditingBookingId = null; // null = เพิ่มใหม่, JobID = แก้ไข
+        let bookingLeadId = ''; // Lead ID เมื่อเปิดนัดคิวจากหน้าข้อมูลการติดต่อ บันทึกไปกับคิวใหม่เท่านั้น
 
         // แปลงวันที่ไทย D/M/YYYY+543 → ISO YYYY-MM-DD
         function thaiDateToIso(thaiDate) {
@@ -2419,12 +2420,13 @@ document.addEventListener('DOMContentLoaded',()=>{
             list.appendChild(history);
         }
 
-        function openBookingModal(custId, custName) {
+        function openBookingModal(custId, custName, leadId = '') {
             if (!custId || custId === '-' ) {
                 showAlert('ไม่สามารถเพิ่มคิวจองได้', 'ไม่พบ CustID ของลูกค้ารายนี้', 'error');
                 return;
             }
             currentEditingBookingId = null;
+            bookingLeadId = /^L-\d{6}-[0-9A-F]{3}$/.test(String(leadId || '')) ? String(leadId) : '';
             document.getElementById('bk-custId').value = custId;
             document.getElementById('bk-customerInfo').innerText = `ลูกค้า: ${custName} (${custId})`;
             const customer = allCustomers.find(item => String(item.id).trim() === String(custId).trim());
@@ -2640,6 +2642,8 @@ document.addEventListener('DOMContentLoaded',()=>{
                 'Status': document.getElementById('bk-status').value || 'คิวใหม่'
             };
 
+            if (!currentEditingBookingId && bookingLeadId) payload['Lead ID'] = bookingLeadId;
+
             document.getElementById('loadingOverlay').classList.remove('hidden');
             document.getElementById('loadingText').innerText = currentEditingBookingId ? 'กำลังอัปเดตคิวจอง...' : 'กำลังบันทึกคิวจอง...';
 
@@ -2687,10 +2691,11 @@ document.addEventListener('DOMContentLoaded',()=>{
                     : 'ไม่พบรหัสลูกค้าที่ต้องการ กรุณาตรวจสอบข้อมูลลูกค้า', 'error');
                 return;
             }
-            openBookingModal(matches[0].id, matches[0].name);
+            openBookingModal(matches[0].id, matches[0].name, params.get('lead') || '');
             if (window.history && window.history.replaceState) {
                 const url = new URL(window.location.href);
                 url.searchParams.delete('bookingCustomer');
+                url.searchParams.delete('lead');
                 window.history.replaceState(window.history.state, document.title, `${url.pathname}${url.search}${url.hash}`);
             }
         }

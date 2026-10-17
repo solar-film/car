@@ -748,7 +748,8 @@
             $('editor-error').textContent = 'กรุณาบันทึกข้อมูลที่แก้ไขก่อนนัดคิวติดตั้ง';
             return;
         }
-        location.href = 'customer-data.html?bookingCustomer=' + encodeURIComponent(customerId);
+        // The queue keeps the lead's ID, so its status changes move only this lead.
+        location.href = 'customer-data.html?bookingCustomer=' + encodeURIComponent(customerId) + (lead.leadId ? '&lead=' + encodeURIComponent(lead.leadId) : '');
     }
     // The customer page opens a new customer form prefilled from the saved lead row.
     function startCustomerFromLead(lead) {
