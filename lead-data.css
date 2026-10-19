@@ -403,6 +403,13 @@ html[data-lead-embed] .lead-dialog::backdrop { background:transparent; backdrop-
 .sheet-phone-duplicate-item { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
 .sheet-phone-duplicate button { flex-shrink:0; padding:3px 10px; border:1px solid #fcd34d; border-radius:8px; background:#fff; color:#92400e; font-size:12px; font-weight:600; }
 .sheet-phone-duplicate button:hover { background:#fef3c7; }
+/* The phone belongs to an existing customer: a quiet note with a button that fills the lead's empty fields. */
+.sheet-customer-fill { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px 8px; margin-top:6px; padding:8px 10px; border:1px solid #bfdbfe; border-radius:10px; background:#eff6ff; color:#1e3a8a; font-size:12px; line-height:1.5; }
+.sheet-customer-fill[hidden] { display:none; }
+.sheet-customer-fill button { flex-shrink:0; padding:3px 10px; border:1px solid #bfdbfe; border-radius:8px; background:#fff; color:#1d4ed8; font-size:12px; font-weight:600; }
+.sheet-customer-fill button:hover { background:#dbeafe; }
+.sheet-customer-fill-status { flex-basis:100%; color:#1d4ed8; font-size:11px; }
+.sheet-customer-fill-status:empty { display:none; }
 /* "ดึงข้อมูลจากแชต Facebook": a quiet button above the form; the fields it fills stay marked until the form closes. */
 #editor.sheet-editor .sheet-chat-fill { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; margin-bottom:10px; }
 #editor.sheet-editor .sheet-chat-fill-button { padding:6px 12px; border-radius:10px; font-size:13px; color:#1d4ed8; border-color:#bfdbfe; background:#fff; }

@@ -1134,6 +1134,56 @@
             }
         };
     }
+    // The phone already belongs to a customer: a note under the phone with a button that fills the lead form's empty
+    // fields from that customer (name, channel name, first-known source) and marks the lead as an existing customer.
+    // The customer list is read once per page (the same public sheet read as the booking list) and only when needed.
+    let customerListRequest = null;
+    function customerList() {
+        customerListRequest ||= fetch('https://docs.google.com/spreadsheets/d/1u__xYWoWZpmrnquc-Fpk19WtpcrckxSd0-_G35NWxXQ/gviz/tq?tqx=out:csv&sheet=Customer', {cache:'no-store',signal:AbortSignal.timeout(30000)})
+            .then(response => { if (!response.ok) throw new Error('โหลดข้อมูลลูกค้าไม่สำเร็จ'); return response.text(); })
+            .then(text => core.csv(text))
+            .catch(error => { customerListRequest = null; throw error; });
+        return customerListRequest;
+    }
+    function customerPhoneFill(input) {
+        const key = value => { const digits = String(value || '').replace(/\D/g,''); return digits.startsWith('66') && digits.length === 11 ? '0' + digits.slice(2) : digits; };
+        const label = input.closest('label');
+        const box = document.createElement('span');
+        box.className = 'sheet-customer-fill'; box.hidden = true; box.setAttribute('role','status');
+        (label || input.parentElement).append(box);
+        const form = $('editor-fields');
+        const field = name => form.querySelector('[name="' + name + '"]');
+        const filled = value => { const text = String(value || '').trim(); return text && text !== '-' && text !== '—' ? text : ''; };
+        let customer = null, request = 0;
+        const check = async () => {
+            const current = ++request, target = key(input.value);
+            customer = null; box.hidden = true;
+            if (target.length !== 10) return;
+            let rows;
+            try { rows = await customerList(); } catch { return; }
+            if (current !== request || !box.isConnected) return;
+            const matches = rows.filter(row => key(row['เบอร์โทรศัพท์']) === target);
+            if (matches.length !== 1) return;
+            customer = matches[0];
+            box.innerHTML = '<span>เบอร์นี้เป็นลูกค้าเดิม: ' + esc([customer.CustID, filled(customer['ชื่อลูกค้า']), filled(customer['ช่องทางติดต่อ'])].filter(Boolean).join(' · ')) + '</span>'
+                + '<button type="button" data-customer-fill>ดึงข้อมูลลูกค้า</button><small class="sheet-customer-fill-status"></small>';
+            box.hidden = false;
+        };
+        box.addEventListener('click', event => {
+            if (!event.target.closest('[data-customer-fill]') || !customer || $('editor-form').getAttribute('aria-busy') === 'true') return;
+            const done = [];
+            const setIfEmpty = (name, value, text) => { const el = field(name); if (el && value && !filled(el.value)) { el.value = value; el.dispatchEvent(new Event('input',{bubbles:true})); done.push(text); } };
+            setIfEmpty('name', filled(customer['ชื่อลูกค้า']), 'ชื่อลูกค้า');
+            setIfEmpty('contact', filled(customer['ชื่อช่องทางติดต่อ']), 'ชื่อช่องทาง');
+            const known = field('knownFrom'), source = filled(customer['รู้จักครั้งแรก']);
+            if (known && source && !known.value && [...known.options].some(option => option.value === source)) { known.value = source; done.push('รู้จักเราจาก'); }
+            const old = form.querySelector('input[name="customerType"][value="ลค.เก่า"]');
+            if (old && !old.checked) { old.checked = true; done.push('ประเภทลูกค้า = ลค.เก่า'); }
+            box.querySelector('.sheet-customer-fill-status').textContent = done.length ? 'เติมแล้ว: ' + done.join(', ') + ' · กดบันทึกเพื่อเก็บ' : 'ไม่มีช่องว่างให้เติม';
+        });
+        input.addEventListener('input', check);
+        void check();
+    }
     async function editLead(lead = {}, contact = null) {
         requireSession();
         const openRequest = ++editorOpenRequest;
@@ -1310,6 +1360,7 @@
         });
         phoneInput.addEventListener('blur',() => { phoneInput.value = formatLeadPhone(phoneInput.value); });
         duplicatePhone.watch(phoneInput);
+        customerPhoneFill(phoneInput);
         watchExtraChannels();
         // Only a new lead from a chat offers the link; the embedded form (booking page) has no lead lists.
         if (contact && isNewLead && !embeddedNewLead && typeof cloudLead !== 'undefined' && cloudLead) linkChatButton(defaults.channel,profileName);

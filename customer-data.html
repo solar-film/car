@@ -283,6 +283,10 @@ window.applyLeadCustomerDraft = function () {
 .customer-drawer-heading button:focus-visible { outline:3px solid #bfdbfe; outline-offset:2px; }
 #customerDrawer #customerForm { display:flex; flex-direction:column; flex:1; min-height:0; padding:0; margin:0; background:#f7f9fc; }
 #customerLeadHint { flex-shrink:0; margin:10px 18px 0; padding:7px 10px; border:1px solid #dce6f6; border-radius:8px; background:#eff6ff; color:#64748b; font-size:11px; }
+.customer-lead-fill { margin-top:6px; padding:4px 10px; border:1px solid #bfdbfe; border-radius:8px; background:#fff; color:#1d4ed8; font-size:11px; font-weight:600; cursor:pointer; }
+.customer-lead-fill:hover { background:#eff6ff; }
+.customer-lead-fill-status { display:block; margin-top:4px; color:#1d4ed8; font-size:11px; }
+.customer-lead-fill-status:empty { display:none; }
 .customer-editor-fields { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,.9fr); grid-template-rows:minmax(0,1fr); gap:12px; flex:1; min-height:0; padding:12px 18px; overflow:hidden; }
 .customer-main-column,.customer-side-column { display:flex; flex-direction:column; gap:10px; min-width:0; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-gutter:stable; container-type:inline-size; }
 .customer-main-column:focus-visible,.customer-side-column:focus-visible { outline:2px solid #93b9fa; outline-offset:-2px; border-radius:12px; }
@@ -2268,7 +2272,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             requestAnimationFrame(() => requestAnimationFrame(() => postCustomerEmbed('opened')));
         };
 
-        // ข้อมูลลีดของลูกค้า (อ่านอย่างเดียว): จับคู่ด้วยเบอร์โทร หรือช่องทาง + ชื่อช่องทาง แบบเดียวกับหน้าข้อมูลลีด
+        // ข้อมูลลีดของลูกค้า: จับคู่ด้วยเบอร์โทรอย่างเดียว แบบเดียวกับหน้าข้อมูลลีด; ปุ่มในแต่ละลีดเติมเฉพาะช่องที่ว่างของฟอร์มลูกค้า
         const LEAD_COLUMNS = ['วันที่','Admin','ช่องทางติดต่อ','ชื่อช่องทางติดต่อ','ชื่อลูกค้า','เบอร์โทร','ยี่ห้อรถยนต์','รุ่นรถยนต์','ตำแหน่งติดตั้ง * (เลือกได้หลายตำแหน่ง)','ยี่ห้อที่สนใจ','รุ่นที่สนใจ','งบประมาณ','ประเภทลูกค้า','รู้จักเราจาก','สถานะการติดตาม','*หมายเหตุ','Lead ID'];
         let customerLeadsState = 'idle', customerLeads = [];
         const leadPhoneKey = value => { const digits = String(value || '').replace(/\D/g, ''); return digits.length === 11 && digits.startsWith('66') ? '0' + digits.slice(2) : digits; };
@@ -2341,9 +2345,43 @@ document.addEventListener('DOMContentLoaded',()=>{
                 if (summary) item.append(textNode('p', 'br-history-meta', summary));
                 const note = leadNote(lead['*หมายเหตุ']);
                 if (note && note !== '-') item.append(textNode('p', 'br-history-note', note));
+                const fill = textNode('button', 'customer-lead-fill', 'เติมข้อมูลที่ว่างจากลีดนี้');
+                fill.type = 'button';
+                fill.title = 'เติมเฉพาะช่องที่ยังว่าง ไม่ทับข้อมูลเดิม · ต้องกดบันทึกเพื่อเก็บ';
+                const fillStatus = textNode('span', 'customer-lead-fill-status', '');
+                fillStatus.setAttribute('role', 'status');
+                fill.addEventListener('click', () => { fillStatus.textContent = fillCustomerFromLead(lead); });
+                item.append(fill, fillStatus);
                 history.appendChild(item);
             });
             list.appendChild(history);
+        }
+
+        // Fills only the customer form's empty fields from a lead (the customer's data already typed is never replaced).
+        function fillCustomerFromLead(lead) {
+            const value = name => { const text = String(lead[name] || '').trim(); return text && text !== '-' && text !== '—' ? text : ''; };
+            const empty = el => el && (!String(el.value || '').trim() || String(el.value).trim() === '-');
+            const filled = [];
+            const setIfEmpty = (id, text, label) => { const el = document.getElementById(id); if (text && empty(el)) { el.value = text; filled.push(label); } };
+            setIfEmpty('custName', value('ชื่อลูกค้า'), 'ชื่อลูกค้า');
+            setIfEmpty('contactName', value('ชื่อช่องทางติดต่อ'), 'ชื่อช่องทาง');
+            const leadChannel = value('ช่องทางติดต่อ'), channel = leadChannel === 'FB' ? 'Facebook' : leadChannel === 'Instagram' ? 'IG' : leadChannel;
+            if (channel && !document.querySelector('#customerForm input[name="channel"]:checked')) {
+                const choice = [...document.querySelectorAll('#customerForm input[name="channel"]')].find(el => el.value === channel);
+                if (choice) { choice.checked = true; filled.push('ช่องทาง'); }
+            }
+            const known = document.getElementById('firstKnown');
+            if (known && !known.value && value('รู้จักเราจาก') && window.CarFirstKnownOptions) { window.CarFirstKnownOptions.populate(known, value('รู้จักเราจาก')); if (known.value) filled.push('รู้จักครั้งแรก'); }
+            const note = document.getElementById('note');
+            if (empty(note)) {
+                const sheet = window.CarLeadSheet, raw = String(lead['*หมายเหตุ'] || '');
+                const plain = (sheet ? sheet.splitReminder(sheet.splitHistory(raw).note).note : raw).trim();
+                const extra = [['รถยนต์', [value('ยี่ห้อรถยนต์'), value('รุ่นรถยนต์')].filter(Boolean).join(' ')], ['ตำแหน่งติดตั้ง', value('ตำแหน่งติดตั้ง * (เลือกได้หลายตำแหน่ง)')],
+                    ['ฟิล์มที่สนใจ', [value('ยี่ห้อที่สนใจ'), value('รุ่นที่สนใจ')].filter(Boolean).join(' ')], ['งบประมาณ', value('งบประมาณ')], ['ผู้ดูแล', value('Admin')]];
+                const lines = [plain && plain !== '-' ? plain : '', ...extra.filter(([, text]) => text).map(([label, text]) => label + ': ' + text)].filter(Boolean);
+                if (lines.length) { note.value = lines.join('\n'); filled.push('หมายเหตุ'); resizeCustomerNote(); }
+            }
+            return filled.length ? 'เติมแล้ว: ' + filled.join(', ') + ' · กดบันทึกเพื่อเก็บ' : 'ไม่มีช่องว่างให้เติม';
         }
 
         function renderCustomerEditorHistory() {
