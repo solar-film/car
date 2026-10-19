@@ -928,7 +928,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                                 <p class="text-sm font-medium text-slate-500" id="tableCount">กำลังโหลด...</p>
                             </div>
                             <div class="relative w-full sm:w-[28rem] xl:max-w-md sm:ml-auto">
-                                <input type="text" id="searchInput" placeholder="ค้นหาจาก ID, ชื่อลูกค้า หรือเบอร์โทร..."
+                                <input type="text" id="searchInput" placeholder="ค้นหาชื่อ เบอร์โทร ชื่อช่องทาง ID ทะเบียนรถ..." aria-label="ค้นหาลูกค้าจากชื่อ เบอร์โทร ชื่อช่องทาง รหัสลูกค้า ทะเบียนหรือรุ่นรถ ที่อยู่ หรือหมายเหตุ"
                                     class="w-full rounded-full border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
                                     oninput="filterTable()">
                                 <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
@@ -1443,6 +1443,26 @@ document.addEventListener('DOMContentLoaded',()=>{
             document.getElementById('customerTableScroll').scrollTop = 0;
         }
 
+        // Search text of one customer: every saved field, plus the JobID, car model and plate of each of its queues.
+        // Thai digits count as 0-9, and a phone matches with or without dashes, spaces or the +66 / 66 prefix.
+        const searchDigits = value => String(value || '').replace(/[๐-๙]/g, digit => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(digit)));
+        const searchText = value => searchDigits(value).normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
+        const searchPhone = value => { const digits = searchDigits(value).replace(/\D/g, ''); return digits.startsWith('66') && digits.length >= 10 ? '0' + digits.slice(2) : digits; };
+        function customerSearchFields(c) {
+            const queues = (bookingsByCustId[String(c.id || '').trim()] || []).flatMap(b => [b.jobId, b.carModel, b.plate]);
+            return searchText([c.id, c.name, c.phone, c.channel, c.contactName, c.billingName, c.billingAddress, c.address, c.taxId, c.note, c.firstKnown, ...queues]
+                .filter(value => value && value !== '-').join(' | '));
+        }
+        // The whole search as a phone number, or else every word of it found in some field (a number word also in the phone digits).
+        function customerMatchesSearch(c, term) {
+            const fields = customerSearchFields(c), phones = String(c.phoneClean || ''), phone = searchPhone(term);
+            if (phone.length >= 6 && phones.includes(phone)) return true;
+            return searchText(term).split(' ').filter(Boolean).every(word => {
+                if (fields.includes(word)) return true;
+                const digits = searchPhone(word);
+                return digits.length >= 3 && phones.includes(digits);
+            });
+        }
         function filterTable(forcePhoneSearch = null) {
             const term = forcePhoneSearch !== null
                 ? String(forcePhoneSearch).toLowerCase().trim()
@@ -1451,25 +1471,13 @@ document.addEventListener('DOMContentLoaded',()=>{
                 customerSearchTerm = term; customerPage = 0;
                 document.getElementById('customerTableScroll').scrollTop = 0;
             }
-            const phoneTerm = term.replace(/\D/g, '');
             
             if (!term) {
                 renderTable(allCustomers);
                 return;
             }
 
-            const filtered = allCustomers.filter(c => {
-                const id = String(c.id || '').toLowerCase();
-                const name = String(c.name || '').toLowerCase();
-                const phone = String(c.phone || '').toLowerCase();
-                const phoneClean = String(c.phoneClean || '');
-                const address = String(c.address || '').toLowerCase();
-                return id.includes(term) ||
-                       name.includes(term) ||
-                       phone.includes(term) ||
-                       address.includes(term) ||
-                       (phoneTerm.length > 0 && phoneClean.includes(phoneTerm));
-            });
+            const filtered = allCustomers.filter(c => customerMatchesSearch(c, term));
 
             renderTable(filtered);
         }
