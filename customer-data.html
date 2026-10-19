@@ -2264,7 +2264,6 @@ document.addEventListener('DOMContentLoaded',()=>{
         const LEAD_COLUMNS = ['วันที่','Admin','ช่องทางติดต่อ','ชื่อช่องทางติดต่อ','ชื่อลูกค้า','เบอร์โทร','ยี่ห้อรถยนต์','รุ่นรถยนต์','ตำแหน่งติดตั้ง * (เลือกได้หลายตำแหน่ง)','ยี่ห้อที่สนใจ','รุ่นที่สนใจ','งบประมาณ','ประเภทลูกค้า','รู้จักเราจาก','สถานะการติดตาม','*หมายเหตุ','Lead ID'];
         let customerLeadsState = 'idle', customerLeads = [];
         const leadPhoneKey = value => { const digits = String(value || '').replace(/\D/g, ''); return digits.length === 11 && digits.startsWith('66') ? '0' + digits.slice(2) : digits; };
-        const leadText = value => String(value || '').normalize('NFKC').trim().toLowerCase().replace(/\s+/g, ' ');
         function loadCustomerLeads() {
             if (customerLeadsState === 'loading' || customerLeadsState === 'ready') return;
             customerLeadsState = 'loading';
@@ -2281,10 +2280,9 @@ document.addEventListener('DOMContentLoaded',()=>{
                 .finally(renderCustomerLeads);
         }
         function customerLeadMatches(customer, lead) {
+            // A lead belongs to this customer by phone number only (never by name or channel name).
             const phone = leadPhoneKey(lead['เบอร์โทร']);
-            if (phone && phone === leadPhoneKey(customer.phone)) return true;
-            const contact = leadText(lead['ชื่อช่องทางติดต่อ']), channel = leadText(lead['ช่องทางติดต่อ']);
-            return Boolean(contact) && !['-', '—'].includes(contact) && Boolean(channel) && channel === leadText(customer.channel) && contact === leadText(customer.contactName);
+            return Boolean(phone) && phone === leadPhoneKey(customer.phone);
         }
         function renderCustomerLeads() {
             const card = document.getElementById('customerLeadCard'), list = document.getElementById('customerLeadList'), count = document.getElementById('customerLeadCount');

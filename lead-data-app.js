@@ -641,7 +641,7 @@
                 ['วันที่นัดติดตั้ง',l.installationDate||'—'],
                 ['ประวัติการติดต่อล่าสุด',latestContact?.text || '—']
             ];
-            return `<article class="contact-timeline-item${{today:' followup-overdue',tomorrow:' followup-due-tomorrow'}[highlight] || ''}" title="${esc(({today:'ต้องติดตามวันนี้ · ',tomorrow:'ต้องติดตามพรุ่งนี้ · '}[highlight] || '') + age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}></div>`).join('')}${tab === 'followups' ? renderFollowUpUpdated(l) : ''}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck ? 'disabled' : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
+            return `<article class="contact-timeline-item${{today:' followup-overdue',tomorrow:' followup-due-tomorrow'}[highlight] || ''}" title="${esc(({today:'ต้องติดตามวันนี้ · ',tomorrow:'ต้องติดตามพรุ่งนี้ · '}[highlight] || '') + age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}></div>`).join('')}${tab === 'followups' ? renderFollowUpUpdated(l) : ''}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck || !leadHasPhone(l) ? 'disabled' : ''}${!l.isCustomer && !l.pendingCustomerCheck && !leadHasPhone(l) ? ` title="${esc(noPhoneCustomerHint)}"` : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : !leadHasPhone(l) ? 'ใส่เบอร์โทรก่อน' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
         };
         const track = items => `<div class="contact-day-track">${items.map(renderLead).join('')}</div>`;
         const groups = new Map();
@@ -754,6 +754,10 @@
         // The queue keeps the lead's ID, so its status changes move only this lead.
         location.href = 'customer-data.html?bookingCustomer=' + encodeURIComponent(customerId) + (lead.leadId ? '&lead=' + encodeURIComponent(lead.leadId) : '');
     }
+    // A lead is tied to its customer by phone number only, so a customer is added from a lead that has a saved phone;
+    // otherwise the new customer's phone would exist on the customer alone and the lead would never be tied to it.
+    const noPhoneCustomerHint = 'กรุณาใส่เบอร์โทรในลีดและบันทึกก่อนเพิ่มข้อมูลลูกค้า';
+    function leadHasPhone(lead) { return String(lead?.phone || lead?.sheetData?.phone || '').replace(/\D/g,'').length >= 9; }
     // The customer page opens a new customer form prefilled from the saved lead row.
     function startCustomerFromLead(lead) {
         const draft = {...lead.sheetData,note:window.CarLeadSheet.splitReminder(window.CarLeadSheet.splitHistory(lead.sheetData?.note).note).note};
@@ -780,7 +784,8 @@
         // Same limits as the list button, so a matched customer is never added twice.
         const blocked = platform !== 'sheet-lead' ? 'บันทึกข้อมูลลีดก่อนบันทึกข้อมูลลูกค้า'
             : lead.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า'
-            : lead.isCustomer ? 'พบข้อมูลลูกค้าที่ตรงกันมากกว่า 1 รายการ กรุณาตรวจในหน้าข้อมูลลูกค้า' : '';
+            : lead.isCustomer ? 'พบข้อมูลลูกค้าที่ตรงกันมากกว่า 1 รายการ กรุณาตรวจในหน้าข้อมูลลูกค้า'
+            : !leadHasPhone(lead) ? noPhoneCustomerHint : '';
         customer.disabled = !!blocked;
         customer.title = blocked || 'เปิดฟอร์มบันทึกข้อมูลลูกค้าจากลีดนี้';
         customer.onclick = () => openCustomerFromLead(lead);
@@ -1555,7 +1560,7 @@
         const edit = event.target.closest('[data-lead]'), install = event.target.closest('[data-install-lead]');
         if (edit) {
             const lead=sheetLeads.find(l=>l.id===edit.dataset.lead);
-            if (!lead || lead.isCustomer || lead.pendingCustomerCheck || edit.disabled) return;
+            if (!lead || lead.isCustomer || lead.pendingCustomerCheck || edit.disabled || !leadHasPhone(lead)) return;
             startCustomerFromLead(lead);
             return;
         }
