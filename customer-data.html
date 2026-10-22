@@ -1085,9 +1085,39 @@ document.addEventListener('DOMContentLoaded',()=>{
         let currentEditingPhone = null; // ติดตามสถานะว่ากำลังแก้ไขเบอร์อะไรอยู่
         let currentEditingId = null;    // เก็บ CustID ที่กำลังแก้
 
+        // เทียบเบอร์เฉพาะตัวเลข และให้เบอร์ไทยแบบ +66 (66 ตามด้วย 9 หลัก) เป็นเบอร์เดียวกับที่ขึ้นต้นด้วย 0 เหมือนฝั่งลีดและ backend
         function normalizePhone(phone) {
-            return String(phone || '').replace(/\D/g, '');
+            const digits = String(phone || '').replace(/\D/g, '');
+            return /^66\d{9}$/.test(digits) ? '0' + digits.slice(2) : digits;
         }
+
+        // ===== รหัสคำขอกันบันทึกซ้ำ (โค้ดชุดเดียวกันใน index.html, customer-data.html) =====
+        // ส่งข้อมูลชุดเดิมซ้ำ (เช่น เน็ตหลุดแล้วกดบันทึกใหม่) จะใช้รหัสเดิม backend จึงตอบผลครั้งแรกโดยไม่เพิ่มแถวใหม่
+        // ถ้าแก้ข้อมูลก่อนกดใหม่จะได้รหัสใหม่ และหน้าที่เรียกใช้ต้องล้างรหัสเมื่อบันทึกสำเร็จ
+        function insertMutationId(request, payload) {
+            const fingerprint = JSON.stringify(payload);
+            if (!request.id || request.fingerprint !== fingerprint) {
+                request.fingerprint = fingerprint;
+                request.id = window.crypto?.randomUUID ? window.crypto.randomUUID() : `m-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+            }
+            return request.id;
+        }
+        // ===== จบส่วนรหัสคำขอกันบันทึกซ้ำ =====
+
+        // ===== คำเตือนหลังบันทึกคิว (โค้ดชุดเดียวกันใน index.html, customer-data.html) =====
+        // คิวบันทึกสำเร็จแล้ว แต่ขั้นต่อท้ายฝั่งลีดอาจไม่สำเร็จ ต้องบอกแยก ไม่รวมเป็นสำเร็จทั้งหมด
+        function bookingSaveWarning(result) {
+            const warnings = [];
+            if (result && result.leadIdSaved === false) warnings.push('ผูกคิวนี้กับลีดไม่สำเร็จ');
+            if (result && result.leadSync && result.leadSync.error) {
+                warnings.push(`ปรับสถานะลีดตามคิวไม่สำเร็จ (${String(result.leadSync.error).slice(0, 160)})`);
+            }
+            return warnings.length ? `${warnings.join(' และ ')} กรุณาตรวจสถานะในหน้าข้อมูลการติดต่อ` : '';
+        }
+        // ===== จบส่วนคำเตือนหลังบันทึกคิว =====
+
+        const customerInsertRequest = { id: '', fingerprint: '' }; // ลูกค้าใหม่
+        const bookingInsertRequest = { id: '', fingerprint: '' };  // คิวใหม่
 
         // คืนข้อมูลลูกค้าที่ใช้เบอร์นี้ โดยข้ามรายการที่กำลังแก้ไขอยู่
         function findCustomerByPhone(phone, excludedCustomerId = '') {
@@ -1302,7 +1332,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                         const r = rows[i];
                         if (r && r.length > 0 && r[0]) {
                             const phoneRaw = phoneIdx >= 0 && r[phoneIdx] ? r[phoneIdx] : '';
-                            const phoneNum = phoneRaw.replace(/\D/g, '');
+                            const phoneNum = normalizePhone(phoneRaw);
                             if (phoneNum.length >= 9) existingPhones.add(phoneNum);
 
                             allCustomers.push({
@@ -1699,9 +1729,11 @@ document.addEventListener('DOMContentLoaded',()=>{
                 }
 
                 showCustomerSaveStatus(isNewCustomer ? 'กำลังบันทึกข้อมูลลูกค้าใหม่ กรุณารอสักครู่ ไม่ต้องกดซ้ำ' : 'กำลังบันทึกการแก้ไขข้อมูลลูกค้า กรุณารอสักครู่ ไม่ต้องกดซ้ำ');
+                if (isNewCustomer) payload.mutationId = insertMutationId(customerInsertRequest, payload);
                 const result = await postWithWriteToken(payload);
-                
+
                 if (result.success) {
+                    if (isNewCustomer) customerInsertRequest.id = '';
                     const savedCustomerId = result.id || currentEditingId || '';
                     // ในกรอบของหน้าคิวจอง: ปิดฟอร์มแล้วให้หน้าคิวจองโหลดข้อมูลใหม่เอง
                     if (customerEmbedded) { customerEmbedSaved = true; await closeCustomerDrawer(true); return; }
@@ -1734,6 +1766,10 @@ document.addEventListener('DOMContentLoaded',()=>{
             if (type === 'success') {
                 iconWrap.className = 'mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-inner';
                 iconWrap.innerHTML = '<i class="fas fa-check text-3xl"></i>';
+            } else if (type === 'warning') {
+                // บันทึกสำเร็จแล้วแต่มีเรื่องต้องตรวจ: ใช้สีเตือนของ Design System ไม่ใช่สีผิดพลาด
+                iconWrap.className = 'mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-700 shadow-inner';
+                iconWrap.innerHTML = '<i class="fas fa-exclamation text-3xl"></i>';
             } else {
                 iconWrap.className = 'mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 text-rose-600 shadow-inner';
                 iconWrap.innerHTML = '<i class="fas fa-times text-3xl"></i>';
@@ -2244,6 +2280,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
         // ============= Booking Modal =============
         let currentEditingBookingId = null; // null = เพิ่มใหม่, JobID = แก้ไข
+        let currentEditingBookingOriginal = null; // สถานะ วันที่ และเวลาของคิวตอนเปิดฟอร์มแก้ไข
         let bookingLeadId = ''; // Lead ID เมื่อเปิดนัดคิวจากหน้าข้อมูลการติดต่อ บันทึกไปกับคิวใหม่เท่านั้น
 
         // แปลงวันที่ไทย D/M/YYYY+543 → ISO YYYY-MM-DD
@@ -2489,6 +2526,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                 return;
             }
             currentEditingBookingId = null;
+            currentEditingBookingOriginal = null;
             bookingLeadId = /^L-\d{6}-[0-9A-F]{3}$/.test(String(leadId || '')) ? String(leadId) : '';
             document.getElementById('bk-custId').value = custId;
             document.getElementById('bk-customerInfo').innerText = `ลูกค้า: ${custName} (${custId})`;
@@ -2548,6 +2586,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             // เปิดฟอร์มก่อน (จะ reset ค่า) แล้วค่อยใส่ค่าทับ
             openBookingModal(custId, custName);
             currentEditingBookingId = jobId;
+            currentEditingBookingOriginal = { status: c.status || '', date: c.installDate, time: c.apptTime };
 
             // อัปเดต header modal
             const modalHeader = document.getElementById('bookingModal').querySelector('h3');
@@ -2662,6 +2701,17 @@ document.addEventListener('DOMContentLoaded',()=>{
             return `${d}/${m}/${y}`;
         }
 
+        // มีคิวอื่นที่ยังไม่ยกเลิกในวันและเวลาเดียวกันหรือไม่ (ใช้ประวัติคิวที่หน้านี้โหลดไว้ ถ้ายังโหลดไม่เสร็จถือว่าไม่ทราบ)
+        function hasActiveBookingAtOnCustomerPage(isoDate, time, excludedJobId = '') {
+            if (bookingHistoryLoadState !== 'ready' || !isoDate) return false;
+            const targetTime = normalizeTime(time);
+            return Object.values(bookingsByCustId).some(cases => cases.some(item =>
+                String(item.jobId) !== String(excludedJobId || '') &&
+                !String(item.status || '').includes('ยกเลิก') &&
+                thaiDateToIso(item.installDate) === isoDate &&
+                normalizeTime(item.apptTime) === targetTime));
+        }
+
         async function submitBooking(e) {
             e.preventDefault();
             if (!FilmBrands.validate()) {
@@ -2706,6 +2756,20 @@ document.addEventListener('DOMContentLoaded',()=>{
             };
 
             if (!currentEditingBookingId && bookingLeadId) payload['Lead ID'] = bookingLeadId;
+            // แก้คิวเดิม: ส่งสถานะที่เห็นตอนเปิดฟอร์ม ถ้ามีคนเปลี่ยนสถานะไปแล้ว backend จะไม่บันทึกทับ
+            if (currentEditingBookingId && currentEditingBookingOriginal) payload.expectedStatus = currentEditingBookingOriginal.status;
+
+            // เตือนเวลาชนเมื่อเพิ่มคิวใหม่ หรือย้ายวัน/เวลาของคิวเดิม (คิวเดิมที่ไม่ได้ย้ายไม่เตือนซ้ำ)
+            const installIsoDate = document.getElementById('bk-installDate').value;
+            const movedEditedBooking = currentEditingBookingId && currentEditingBookingOriginal && (
+                thaiDateToIso(currentEditingBookingOriginal.date) !== installIsoDate ||
+                normalizeTime(currentEditingBookingOriginal.time) !== normalizeTime(payload['เวลานัด']));
+            if ((!currentEditingBookingId || movedEditedBooking) &&
+                hasActiveBookingAtOnCustomerPage(installIsoDate, payload['เวลานัด'], currentEditingBookingId)) {
+                const shouldContinue = window.confirm('มีคิวที่ยังไม่ยกเลิกในวันและเวลาเดียวกัน ต้องการบันทึกคิวนี้ต่อหรือไม่?');
+                if (!shouldContinue) return;
+            }
+            if (!currentEditingBookingId) payload.mutationId = insertMutationId(bookingInsertRequest, payload);
 
             document.getElementById('loadingOverlay').classList.remove('hidden');
             document.getElementById('loadingText').innerText = currentEditingBookingId ? 'กำลังอัปเดตคิวจอง...' : 'กำลังบันทึกคิวจอง...';
@@ -2714,9 +2778,14 @@ document.addEventListener('DOMContentLoaded',()=>{
             try {
                 const data = await postWithWriteToken(payload);
                 if (data.success) {
+                    if (!isUpdate) bookingInsertRequest.id = '';
                     closeBookingModal();
                     currentEditingBookingId = null;
-                    showAlert('สำเร็จ', isUpdate ? `อัปเดตคิวจองเรียบร้อย (${data.id})` : `บันทึกคิวจองเรียบร้อย (${data.id})`, 'success');
+                    currentEditingBookingOriginal = null;
+                    const savedMessage = isUpdate ? `อัปเดตคิวจองเรียบร้อย (${data.id})` : `บันทึกคิวจองเรียบร้อย (${data.id})`;
+                    const leadWarning = bookingSaveWarning(data);
+                    if (leadWarning) showAlert('บันทึกคิวแล้ว แต่มีเรื่องต้องตรวจ', `${savedMessage}\n${leadWarning}`, 'warning');
+                    else showAlert('สำเร็จ', savedMessage, 'success');
                     if (isUpdate) {
                         // โหลด bookings ใหม่ทั้งหมดเพื่อให้ข้อมูลตรงกับชีต
                         await fetchBookingCounts();

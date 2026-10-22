@@ -324,6 +324,9 @@
             </div>
         </section>
 
+        <!-- คำเตือนข้อมูลไม่ครบ: แหล่งเสริมโหลดไม่สำเร็จ หรือรุ่นรถที่ไม่มีกลุ่มราคา (สีเตือนตาม Design System) -->
+        <div id="dataWarning" class="mb-4 hidden space-y-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-[13px] leading-[1.7] text-amber-800" role="status"></div>
+
         <section class="metric-grid mb-4" aria-label="ยอดสรุป">
             <article class="metric-card bg-emerald-50">
                 <p class="metric-label text-emerald-700">รวมค่าคอม</p>
@@ -450,7 +453,7 @@
             'loginForm', 'loginUser', 'loginPass', 'loginError', 'monthFilter',
             'summaryTotal', 'summaryNew', 'summaryClaim', 'summaryFix',
             'loadingMessage', 'errorMessage', 'tableWrap', 'summaryHead', 'summaryBody',
-            'lastUpdated', 'connectionStatus',
+            'lastUpdated', 'connectionStatus', 'dataWarning',
             'filterMode', 'monthFilterContainer', 'customDateContainer', 'startDateInput', 'endDateInput',
             'typeFilter', 'damageTableWrap', 'damageSummaryHead', 'damageSummaryBody', 'damageLoadingMessage'
         ];
@@ -463,6 +466,8 @@
         let rawReason = [];
         let rawOtherDamage = [];
         let filmCostMap = {};
+        // ชื่อชีตเสริมที่โหลดไม่สำเร็จในรอบล่าสุด (ระบบยังนับส่วนนั้นเป็น 0 ตามเดิม แต่ต้องแจ้งผู้ใช้)
+        let missingSources = [];
         let summaryRows = [];
         let allSummaryRows = [];
         let appHasStarted = false;
@@ -777,7 +782,8 @@
             }, {});
         }
 
-        function buildSummaryRows(bookingRows, carModelRows, commissionRateRows) {
+        // rateIssues (ไม่บังคับ) ใช้เก็บรุ่นรถ/กลุ่มราคาที่ได้เรท 0 เพราะจับคู่ไม่ได้ เพื่อแจ้งเตือน ไม่เปลี่ยนวิธีคำนวณ
+        function buildSummaryRows(bookingRows, carModelRows, commissionRateRows, rateIssues = null) {
             const carModelMap = createCarModelMap(carModelRows);
             const rateMap = createCommissionRateMap(commissionRateRows);
             const summary = {};
@@ -807,6 +813,10 @@
                 const priceGroup = mappedPriceGroup || (rateMap[normalizeLookupId(carModel)] ? carModel : 'ไม่ระบุกลุ่มราคา');
                 const monthKey = monthKeyFromDate(date);
                 const rates = rateMap[normalizeLookupId(priceGroup)] || { fullRate: 0, fullSunroofRate: 0 };
+                if (rateIssues && !rateMap[normalizeLookupId(priceGroup)]) {
+                    if (priceGroup === 'ไม่ระบุกลุ่มราคา') rateIssues.unmatchedModels.add(carModel || 'ไม่ระบุรุ่นรถ');
+                    else rateIssues.groupsWithoutRate.add(priceGroup);
+                }
                 const posValue = normalizeText(installType);
                 const isFull = posValue.includes('เต็มคัน') || posValue.includes('รอบคัน') || posValue.includes('ทั้งคัน') || posValue.includes('full') || posValue.includes('whole');
                 const isSunroof = posValue.includes('ซันรูฟ') || posValue.includes('sunroof');
@@ -1039,6 +1049,27 @@
             dom.summaryBody.innerHTML = html;
         }
 
+        // แสดงคำเตือนเมื่อข้อมูลไม่ครบ: ชีตเสริมโหลดไม่สำเร็จ หรือรุ่นรถในตัวกรองปัจจุบันได้เรท 0 เพราะจับคู่ไม่ได้
+        function renderDataWarning(rateIssues = null) {
+            if (!dom.dataWarning) return;
+            const sortedList = values => [...(values || [])].sort((a, b) => a.localeCompare(b, 'th'));
+            const block = (title, detail) => `<div><strong class="block text-sm font-semibold">${escapeHtml(title)}</strong><p class="mt-1">${escapeHtml(detail)}</p></div>`;
+            const blocks = [];
+            if (missingSources.length) {
+                blocks.push(block('โหลดข้อมูลบางส่วนไม่สำเร็จ', `ยังไม่ได้ข้อมูลจาก ${missingSources.join(', ')} ระบบนับส่วนนี้เป็น 0 ยอดหักความเสียหายและค่าคอมสุทธิอาจไม่ตรงจริง กดรีเฟรชเพื่อลองใหม่`));
+            }
+            const unmatchedModels = sortedList(rateIssues?.unmatchedModels);
+            if (unmatchedModels.length) {
+                blocks.push(block(`รุ่นรถที่ไม่มีกลุ่มราคาใน ${CAR_MODEL_SHEET_NAME} คิดเรทเป็น 0 (${unmatchedModels.length} รุ่น)`, unmatchedModels.join(', ')));
+            }
+            const groupsWithoutRate = sortedList(rateIssues?.groupsWithoutRate);
+            if (groupsWithoutRate.length) {
+                blocks.push(block(`กลุ่มราคาที่ไม่มีเรทใน ${COMMISSION_RATE_SHEET_NAME} คิดเรทเป็น 0`, groupsWithoutRate.join(', ')));
+            }
+            dom.dataWarning.innerHTML = blocks.join('');
+            dom.dataWarning.classList.toggle('hidden', !blocks.length);
+        }
+
         function processAndRenderSummary() {
             const filterMode = dom.filterMode.value;
             let filteredBookings = rawBookings;
@@ -1084,7 +1115,9 @@
                 });
             }
 
-            summaryRows = buildSummaryRows(tableBookings, rawCarModels, rawCommissionRates);
+            const rateIssues = { unmatchedModels: new Set(), groupsWithoutRate: new Set() };
+            summaryRows = buildSummaryRows(tableBookings, rawCarModels, rawCommissionRates, rateIssues);
+            renderDataWarning(rateIssues);
             const totals = summarizeCommissionRows(flattenCommissionRows(summaryRows));
             
             let totalOtherDamage = 0;
@@ -1206,13 +1239,22 @@
             return null;
         }
 
+        // สถานะเชื่อมต่อ: โหลดไม่ครบใช้สีเตือนตาม Design System (amber-800) แทนสีเทาเดิม
+        function setConnectionStatus(text, isWarning = false) {
+            dom.connectionStatus.innerText = text;
+            dom.connectionStatus.classList.toggle('text-slate-500', !isWarning);
+            dom.connectionStatus.classList.toggle('text-amber-800', isWarning);
+        }
+
         async function fetchSummaryData() {
             dom.loadingMessage.classList.remove('hidden');
             dom.errorMessage.classList.add('hidden');
             dom.tableWrap.classList.add('hidden');
             if (dom.damageLoadingMessage) dom.damageLoadingMessage.classList.remove('hidden');
             if (dom.damageTableWrap) dom.damageTableWrap.classList.add('hidden');
-            dom.connectionStatus.innerText = 'กำลังโหลดข้อมูลจาก Google Sheets...';
+            missingSources = [];
+            if (dom.dataWarning) dom.dataWarning.classList.add('hidden');
+            setConnectionStatus('กำลังโหลดข้อมูลจาก Google Sheets...');
 
             try {
                 const bookingText = await fetchCsvText(BOOKINGS_CSV_URL).catch(() => null);
@@ -1228,6 +1270,13 @@
                 const reasonText = await fetchCsvText(REASON_CSV_URL).catch(() => null);
                 const otherDamageText = await fetchCsvText(OTHER_DAMAGE_CSV_URL).catch(() => null);
                 const installerText = await fetchInstallerCsv();
+                missingSources = [
+                    [DATA_SHEET_NAME, dataText],
+                    ['ต้นทุนฟิล์ม', filmCostText],
+                    ['เหตุผลขอตัดฟิล์ม', reasonText],
+                    ['ความเสียหายอื่นๆ', otherDamageText],
+                    [INSTALLER_SHEET_NAME, installerText]
+                ].filter(([, text]) => text === null).map(([name]) => name);
 
                 const bookingRows = bookingText ? await parseCsv(bookingText) : [];
                 const carModelRows = carModelText ? await parseCsv(carModelText) : [];
@@ -1269,12 +1318,16 @@
                 if (dom.damageLoadingMessage) dom.damageLoadingMessage.classList.add('hidden');
                 if (dom.damageTableWrap) dom.damageTableWrap.classList.remove('hidden');
                 dom.lastUpdated.innerText = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH', { hour: 'numeric', minute: '2-digit', hour12: false })} น.`;
-                dom.connectionStatus.innerText = 'เชื่อมต่อข้อมูลสดเรียบร้อย';
+                if (missingSources.length) {
+                    setConnectionStatus(`โหลดข้อมูลไม่ครบ ${missingSources.length} แหล่ง`, true);
+                } else {
+                    setConnectionStatus('เชื่อมต่อข้อมูลสดเรียบร้อย');
+                }
             } catch (error) {
                 console.error(error);
                 dom.loadingMessage.classList.add('hidden');
                 dom.errorMessage.classList.remove('hidden');
-                dom.connectionStatus.innerText = 'โหลดข้อมูลไม่สำเร็จ';
+                setConnectionStatus('โหลดข้อมูลไม่สำเร็จ');
                 if (dom.errorMessage) {
                     dom.errorMessage.innerHTML += `<div class="mt-4 text-left text-xs bg-slate-100 p-4 rounded overflow-auto max-h-40 break-all">${escapeHtml(error.stack || error.message || String(error))}</div>`;
                 }

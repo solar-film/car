@@ -152,7 +152,7 @@
                         <a href="price-audit.html" target="_blank" class="flex items-center gap-1.5 rounded-xl bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 transition-colors hover:bg-indigo-50 hover:text-indigo-700">
                             ตรวจสอบราคาขาย
                         </a>
-                        <button onclick="exportExcel()" class="group flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 transition-all hover:bg-slate-800 hover:text-white hover:ring-slate-800 hover:shadow-md">
+                        <button onclick="exportExcel()" title="ส่งออกเฉพาะรายการที่แสดงในตารางตามตัวกรอง" class="group flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700 shadow-sm ring-1 ring-slate-200 transition-all hover:bg-slate-800 hover:text-white hover:ring-slate-800 hover:shadow-md">
                             <svg class="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                             Export Excel
                         </button>
@@ -421,6 +421,10 @@
     // ─── DATA ─────────────────────────────────────────────────────────────
     let allRows = [];
     let filteredRows = [];
+    // สถานะส่วนแสดงผลล่าสุด (loading | error | table) ใช้กันส่งออกข้อมูลที่ตารางไม่ได้แสดงอยู่
+    let uiState = 'loading';
+    // ตัวกรองที่ใช้กับตารางครั้งล่าสุด ใช้ตั้งชื่อไฟล์ส่งออกให้บอกช่วงข้อมูล
+    let appliedFilter = { from: null, to: null, narrowed: false };
 
     function populateFilterOptions() {
         const paySel = document.getElementById('filterPayStatus');
@@ -640,6 +644,7 @@
             rows = rows.filter(r => r.searchText.includes(search));
         }
 
+        appliedFilter = { from, to, narrowed: Boolean(payStatus || search) };
         renderTable(rows);
     }
 
@@ -773,9 +778,19 @@
     }
 
     // ─── EXPORT EXCEL ───────────────────────────────────────────────────────
+    // ส่งออกเฉพาะแถวที่ตารางแสดงอยู่ (filteredRows ผลจาก applyFilters → renderTable ชุดเดียวกับตาราง)
+    // ไม่เขียนเงื่อนไขกรองซ้ำ จึงตรงกับตาราง การ์ดสรุป และยอดรวมท้ายตารางเสมอ
     function exportExcel() {
+        if (uiState !== 'table') {
+            alert('ตารางยังไม่มีข้อมูล (กำลังโหลดหรือโหลดไม่สำเร็จ) จึงยังส่งออก Excel ไม่ได้');
+            return;
+        }
+        const rows = filteredRows;
+        if (!rows.length) {
+            alert('ไม่มีรายการตามตัวกรองที่แสดงอยู่ จึงไม่ได้สร้างไฟล์ Excel');
+            return;
+        }
         const headers = ['#','วันที่ติดตั้ง','เวลานัด','ชื่อลูกค้า','ประเภทลูกค้า','รุ่นรถยนต์','ทะเบียนรถ','ตำแหน่งติดตั้ง','รุ่นฟิล์ม','เลขที่บิล/ใบเสร็จ','ประเภทการชำระ','มูลค่าสินค้า','ส่วนลด','ยอดเงิน (บาท)','ความเสียหาย','สถานะการชำระ'];
-        const rows = allRows; // export all
         const data = [
             headers,
             ...rows.map((r,i) => {
@@ -793,7 +808,14 @@
         const ws = XLSX.utils.aoa_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Accounting");
-        XLSX.writeFile(wb, `accounting_${new Date().toISOString().slice(0,10)}.xlsx`);
+        XLSX.writeFile(wb, exportFileName());
+    }
+
+    // ชื่อไฟล์บอกช่วงวันที่ติดตั้งที่กรอง (all = ไม่กรองวันที่) และต่อท้าย _filtered เมื่อกรองสถานะหรือคำค้นด้วย
+    function exportFileName() {
+        const { from, to, narrowed } = appliedFilter;
+        const range = from || to ? `${from ? dateToInput(from) : 'start'}_to_${to ? dateToInput(to) : 'end'}` : 'all';
+        return `accounting_${range}${narrowed ? '_filtered' : ''}.xlsx`;
     }
 
     // ─── DETAIL DRAWER ────────────────────────────────────────────────────
@@ -963,6 +985,7 @@ function openDrawer(idx) {
 
     // ─── UI STATE ─────────────────────────────────────────────────────────
     function setUI(state) {
+        uiState = state;
         document.getElementById('loadingMessage').classList.toggle('hidden', state !== 'loading');
         document.getElementById('errorMessage').classList.toggle('hidden', state !== 'error');
         document.getElementById('tableWrapper').classList.toggle('hidden', state !== 'table');

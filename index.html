@@ -351,6 +351,13 @@
                 padding-top: 3px !important;
                 padding-bottom: 3px !important;
             }
+            /* ใบสั่งตัดที่เกิน 9 บรรทัด (ตำแหน่งย่อยแยกบรรทัด) ลดระยะในแถวลง ให้ช่องลงชื่อท้ายใบยังอยู่ในหน้า A4 */
+            #printArea .cutting-print-compact .cutting-film-row td {
+                padding-top: 1px !important;
+                padding-bottom: 1px !important;
+                line-height: 1.15 !important;
+                font-size: 10px !important;
+            }
             #printArea .cutting-freebies {
                 margin-bottom: 2mm !important;
                 padding-left: 4mm !important;
@@ -2175,6 +2182,8 @@
         let reasonMap = {}; // ตัวแปรเก็บพจนานุกรมแปลรหัสเหตุผล
         let payInDetailsMap = {};
         let cutDataMap = {};
+        let cutDataReady = false; // โหลดแผ่น data สำเร็จหรือไม่ (ถ้าไม่สำเร็จ ห้ามบันทึกรายการขอตัด)
+        let dtHiddenRows = [];    // แถวขอตัดเดิมของงานที่เปิดอยู่ ที่ฟอร์มไม่ได้แสดง
         let glassSizeMap = {};    // JobID → row ขนาดกระจก
         let installerMap = {};    // JobID → [rows] ช่างติดตั้ง
         let warrantyMap = {};     // JobID → row การรับประกัน
@@ -2357,7 +2366,8 @@
             return [...new Set(clean)].join(", ");
         }
 
-        function getCutDataForPosition(jobId, position) {
+        // แถวขอตัดของงานที่ตรงกับตำแหน่ง (ไม่ซ้ำ) ใช้ทั้งสรุปรวมรายตำแหน่งและตารางใบสั่งตัดในใบพิมพ์
+        function getCutRowsForPosition(jobId, position) {
             const directRows = cutDataMap[jobId] || [];
             const normalizedRows = cutDataMap[normalizeLookupId(jobId)] || [];
             const rows = [...directRows, ...normalizedRows].filter((row, index, list) => {
@@ -2375,10 +2385,14 @@
                 ].join("|") === key) === index;
             });
             const target = normalizeCutPosition(position);
-            const matchedRows = rows.filter(row => {
+            return rows.filter(row => {
                 const rowPosition = normalizeCutPosition(getAnyField(row, ["ตำแหน่งติดตั้ง", "ตำแหน่ง"], ""));
                 return rowPosition && (rowPosition === target || rowPosition.includes(target) || target.includes(rowPosition));
             });
+        }
+
+        function getCutDataForPosition(jobId, position) {
+            const matchedRows = getCutRowsForPosition(jobId, position);
             if (!matchedRows.length) return { film: "", width: "", length: "", quantity: "", team: "", reason: "" };
             return {
                 film: uniqueJoined(matchedRows.map(row => getAnyField(row, ["รุ่นฟิล์ม", "ยี่ห้อฟิล์ม"], ""))),
@@ -2391,6 +2405,27 @@
                     return reasonMap[r] || r;
                 }))
             };
+        }
+
+        // แถวตารางใบสั่งตัดในใบพิมพ์ของตำแหน่งหนึ่ง: ตำแหน่งที่มีหลายแถวขอตัด (เช่น บานฟิกซ้ายและขวา) แสดงบรรทัดละแถว
+        // พร้อมชื่อตำแหน่งย่อย ให้กว้าง × ยาวของแต่ละบานอยู่คู่กัน ตำแหน่งที่มีไม่เกิน 1 แถวแสดงเหมือนเดิม
+        function printCuttingRowsHtml(jobId, position, detailFilm) {
+            const line = (label, film, data) => `<tr class="cutting-film-row border-b border-black text-center"><td class="border-r border-black py-1">${escapeHtml(data.team)}</td><td class="border-r border-black py-1 text-left px-2">${escapeHtml(label)}</td><td class="cut-film-column border-r border-black py-1 font-medium">${escapeHtml(film)}</td><td class="cut-size-column border-r border-black py-1">${escapeHtml(data.width)}</td><td class="cut-size-column border-r border-black py-1">${escapeHtml(data.length)}</td><td class="cut-size-column border-r border-black py-1">${escapeHtml(data.quantity)}</td><td class="cut-note-column py-1 px-1 text-[11px]">${escapeHtml(data.reason)}</td></tr>`;
+            const rows = getCutRowsForPosition(jobId, position);
+            if (rows.length <= 1) {
+                const cutData = getCutDataForPosition(jobId, position);
+                return line(position, cutData.film || detailFilm, cutData);
+            }
+            return rows.map(row => {
+                const reason = getAnyField(row, ["เหตุผลขอตัดฟิล์ม", "เหตุผล"], "");
+                return line(getAnyField(row, ["ตำแหน่งติดตั้ง", "ตำแหน่ง"], position), getAnyField(row, ["รุ่นฟิล์ม", "ยี่ห้อฟิล์ม"], "") || detailFilm, {
+                    width: getAnyField(row, ["กว้าง", "W", "Width"], ""),
+                    length: getAnyField(row, ["ยาว", "H", "Length"], ""),
+                    quantity: getAnyField(row, ["จำนวน", "แผ่น", "Qty"], ""),
+                    team: getAnyField(row, ["ทีมช่าง", "ช่างติดตั้ง", "ช่าง"], ""),
+                    reason: reasonMap[reason] || reason
+                });
+            }).join('');
         }
 
         // อ่านข้อมูล PayIn สำหรับสถานะชำระ, เลขที่บิล/ใบเสร็จ, ประเภทชำระ และสลิป
@@ -3104,6 +3139,7 @@
                 payInDetailsMap = buildPayInDetailsMap(payInRows);
 
                 cutDataMap = buildJobMap(dataRows, true);
+                cutDataReady = !!(responses[6] && responses[6].ok) && !isInvalidSheetResponseText(dataCsvText);
                 allData = BookingReadModel.buildJobs(bookingRows, customerMap, payInDetailsMap, filmDetailsMap);
                 setVisible(dom.loadingMessage, false);
                 setVisible(dom.tableContainer, true);
@@ -3189,8 +3225,20 @@
                 setVisible(dom.loadingMessage, false);
                 setVisible(dom.tableContainer, true);
 
+                // ข้อมูลประกอบที่โหลดไม่สำเร็จต้องแจ้งให้เห็น ไม่ปล่อยให้แสดงว่างเหมือนไม่มีข้อมูล
+                const optionalSourceLabels = ['รายการขอตัดฟิล์ม', 'บันทึกช่วยจำ', 'ขนาดกระจก', 'ช่างติดตั้ง', 'รับประกัน', 'รายชื่อทีมช่าง', 'รุ่นฟิล์ม'];
+                const optionalResponses = [responses[6], responses[7], ...detailResponses];
+                const optionalTexts = [dataCsvText, memoCsvText, ...detailTexts];
+                const missingSources = optionalSourceLabels.filter((label, index) => {
+                    const response = optionalResponses[index];
+                    return !response || !response.ok || isInvalidSheetResponseText(String(optionalTexts[index] || ''));
+                });
+
                 const now = new Date();
-                setText('lastUpdated', `อัปเดตล่าสุด: ${now.toLocaleTimeString('th-TH', { hour: 'numeric', minute: '2-digit', hour12: false })} น.`);
+                const loadedAt = `อัปเดตล่าสุด: ${now.toLocaleTimeString('th-TH', { hour: 'numeric', minute: '2-digit', hour12: false })} น.`;
+                setText('lastUpdated', missingSources.length ? `${loadedAt} • โหลดไม่ครบ: ${missingSources.join(', ')}` : loadedAt);
+                dom.lastUpdated?.classList.toggle('text-amber-700', missingSources.length > 0);
+                dom.lastUpdated?.classList.toggle('text-slate-600', missingSources.length === 0);
 
                 applyFilters();
 
@@ -4344,6 +4392,42 @@
             });
         }
 
+        // ===== แถวขอตัดเดิมที่ฟอร์มไม่ได้แสดง (โค้ดชุดเดียวกันใน index.html, technician.html, technician-queue.html) =====
+        // การบันทึกแผ่น data จะแทนที่แถวของงานนั้นทั้งหมด แต่ฟอร์มแสดงได้ตำแหน่งละ 1 แถวตามรายการตำแหน่ง
+        // แถวที่ตำแหน่งซ้ำ อยู่นอกรายการ หรือไม่มีตำแหน่ง จึงต้องส่งกลับไปตามเดิม ไม่อย่างนั้นจะถูกลบโดยไม่มีใครเห็น
+        function cutRowsNotShown(jobRows, shownRows, jobId, read) {
+            const shown = new Set(shownRows.filter(Boolean));
+            const kept = new Set();
+            const savedJobId = String(jobId || '').trim();
+            return jobRows.filter(row => {
+                if (!row || shown.has(row) || kept.has(row)) return false;
+                // การบันทึกลบเฉพาะแถวที่ JobID ตรงทุกตัวอักษร แถวอื่นไม่ถูกลบ จึงไม่ต้องส่งซ้ำ
+                if (String(read(row, ['JobID']) || '').trim() !== savedJobId) return false;
+                kept.add(row);
+                return true;
+            });
+        }
+
+        function cutRowForResave(row, read) {
+            return {
+                'MIS_ID': read(row, ['MIS_ID']),
+                'ตำแหน่งติดตั้ง': read(row, ['ตำแหน่งติดตั้ง', 'ตำแหน่ง']),
+                'รุ่นฟิล์ม': read(row, ['รุ่นฟิล์ม', 'ยี่ห้อฟิล์ม']),
+                'กว้าง': read(row, ['กว้าง', 'W', 'Width']),
+                'ยาว': read(row, ['ยาว', 'H', 'Length']),
+                'จำนวน': read(row, ['จำนวน']),
+                'ทีมช่าง': read(row, ['ทีมช่าง']),
+                'เหตุผลขอตัดฟิล์ม': read(row, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล'])
+            };
+        }
+
+        const CUT_DATA_NOT_LOADED_MESSAGE = 'โหลดรายการขอตัดเดิมของงานนี้ไม่สำเร็จ จึงยังบันทึกไม่ได้ เพื่อไม่ให้รายการเดิมหาย กรุณาโหลดข้อมูลใหม่แล้วลองอีกครั้ง';
+        // ===== จบส่วนแถวขอตัดเดิม =====
+
+        function dtReadCutField(row, labels) {
+            return getAnyField(row, labels, '');
+        }
+
         function openDataCutModal() {
             if (!currentViewJobId) return;
             const job = allData.find(j => j.id === currentViewJobId);
@@ -4368,6 +4452,8 @@
 
             // Render rows
             const existingMap = dtGetExistingMap(job.id);
+            const jobCutRows = [...(cutDataMap[job.id] || []), ...(cutDataMap[normalizeLookupId(job.id)] || [])];
+            dtHiddenRows = cutRowsNotShown(jobCutRows, DAMAGE_POSITIONS.map(pos => existingMap[dtNormalizePos(pos)]), job.id, dtReadCutField);
             const films = dtFilmOptions(job);
             const reasons = reasonOptions.map(r => r.text || r.id);
 
@@ -4421,6 +4507,12 @@
             document.getElementById('dt-success').classList.add('hidden');
             document.getElementById('dt-submitBtn').disabled = false;
             document.getElementById('dt-submitBtn').textContent = 'บันทึก';
+            if (!cutDataReady) {
+                const errEl = document.getElementById('dt-error');
+                errEl.textContent = CUT_DATA_NOT_LOADED_MESSAGE;
+                errEl.classList.remove('hidden');
+                document.getElementById('dt-submitBtn').disabled = true;
+            }
 
             // Show modal (flex)
             const modal = document.getElementById('dataCutModal');
@@ -4471,6 +4563,11 @@
                 errEl.classList.remove('hidden');
                 return;
             }
+            if (!cutDataReady) {
+                errEl.textContent = CUT_DATA_NOT_LOADED_MESSAGE;
+                errEl.classList.remove('hidden');
+                return;
+            }
 
             // Validate
             const required = ['รุ่นฟิล์ม', 'กว้าง', 'ยาว', 'จำนวน', 'เหตุผลขอตัดฟิล์ม'];
@@ -4482,9 +4579,11 @@
                 return;
             }
             const note = document.getElementById('dt-note').value.trim();
-            if (note) rows.forEach(r => { r['หมายเหตุ'] = note; });
+            // แถวเดิมที่ฟอร์มไม่ได้แสดงส่งกลับไปตามเดิม (ดู cutRowsNotShown) หมายเหตุใช้ร่วมกันทั้งงานเหมือนแถวอื่น
+            const savedRows = rows.concat(dtHiddenRows.map(row => cutRowForResave(row, dtReadCutField)));
+            if (note) savedRows.forEach(r => { r['หมายเหตุ'] = note; });
 
-            const payload = { sheetName: 'data', JobID: currentViewJobId, rows };
+            const payload = { sheetName: 'data', JobID: currentViewJobId, rows: savedRows };
 
             btn.disabled = true;
             btn.textContent = 'กำลังบันทึก...';
@@ -4546,6 +4645,7 @@
         let bkCurrentEditingId = null;
         let bkBookingMode = 'edit';
         let bkCopySourceId = null;
+        let bkEditingOriginal = null; // สถานะ วันที่ และเวลาของคิวตอนเปิดฟอร์มแก้ไข ใช้ตรวจว่าคนอื่นเปลี่ยนสถานะก่อนหรือไม่ และตรวจเวลาชนเมื่อย้ายวันเวลา
         let installPosOptions = [];
         let installPosSelected = new Set();
         const DISCOUNT_CODE_OPTIONS = [
@@ -4972,6 +5072,7 @@
             bkBookingMode = 'edit';
             bkCopySourceId = null;
             bkCurrentEditingId = job.id;
+            bkEditingOriginal = { status: job.status, date: job.date, time: job.time };
             setBookingStatusCopyMode(false);
             document.getElementById('bk-submitBtn').innerHTML = '<i class="fas fa-save mr-1"></i> บันทึกการแก้ไข';
             document.getElementById('bk-custId').value = job.custId || '';
@@ -5067,6 +5168,33 @@
             }
         }
 
+        // ===== รหัสคำขอกันบันทึกซ้ำ (โค้ดชุดเดียวกันใน index.html, customer-data.html) =====
+        // ส่งข้อมูลชุดเดิมซ้ำ (เช่น เน็ตหลุดแล้วกดบันทึกใหม่) จะใช้รหัสเดิม backend จึงตอบผลครั้งแรกโดยไม่เพิ่มแถวใหม่
+        // ถ้าแก้ข้อมูลก่อนกดใหม่จะได้รหัสใหม่ และหน้าที่เรียกใช้ต้องล้างรหัสเมื่อบันทึกสำเร็จ
+        function insertMutationId(request, payload) {
+            const fingerprint = JSON.stringify(payload);
+            if (!request.id || request.fingerprint !== fingerprint) {
+                request.fingerprint = fingerprint;
+                request.id = window.crypto?.randomUUID ? window.crypto.randomUUID() : `m-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+            }
+            return request.id;
+        }
+        // ===== จบส่วนรหัสคำขอกันบันทึกซ้ำ =====
+
+        // ===== คำเตือนหลังบันทึกคิว (โค้ดชุดเดียวกันใน index.html, customer-data.html) =====
+        // คิวบันทึกสำเร็จแล้ว แต่ขั้นต่อท้ายฝั่งลีดอาจไม่สำเร็จ ต้องบอกแยก ไม่รวมเป็นสำเร็จทั้งหมด
+        function bookingSaveWarning(result) {
+            const warnings = [];
+            if (result && result.leadIdSaved === false) warnings.push('ผูกคิวนี้กับลีดไม่สำเร็จ');
+            if (result && result.leadSync && result.leadSync.error) {
+                warnings.push(`ปรับสถานะลีดตามคิวไม่สำเร็จ (${String(result.leadSync.error).slice(0, 160)})`);
+            }
+            return warnings.length ? `${warnings.join(' และ ')} กรุณาตรวจสถานะในหน้าข้อมูลการติดต่อ` : '';
+        }
+        // ===== จบส่วนคำเตือนหลังบันทึกคิว =====
+
+        const bookingInsertRequest = { id: '', fingerprint: '' }; // คิวใหม่ที่สร้างจากการคัดลอกคิวเดิม
+
         async function submitBooking(e) {
             e.preventDefault();
             if (!FilmBrands.validate()) {
@@ -5109,11 +5237,18 @@
                 'Status': isCopy ? 'คิวใหม่' : (document.getElementById('bk-status').value || 'คิวใหม่')
             };
             if (!isCopy) payload.recordId = bkCurrentEditingId;
+            // แก้คิวเดิม: ส่งสถานะที่เห็นตอนเปิดฟอร์ม ถ้ามีคนเปลี่ยนสถานะไปแล้ว backend จะไม่บันทึกทับ
+            if (!isCopy && bkEditingOriginal) payload.expectedStatus = bkEditingOriginal.status;
+            // เตือนเวลาชนเมื่อสร้างคิวใหม่ หรือย้ายวัน/เวลาของคิวเดิม (คิวเดิมที่ไม่ได้ย้ายไม่เตือนซ้ำ)
+            const movedEditedBooking = !isCopy && bkEditingOriginal && (
+                bkThaiDateToIso(payload['วันที่ติดตั้ง']) !== bkThaiDateToIso(bkEditingOriginal.date) ||
+                bkNormalizeTime(payload['เวลานัด']) !== bkNormalizeTime(bkEditingOriginal.time));
 
-            if (isCopy && hasActiveBookingAt(payload['วันที่ติดตั้ง'], payload['เวลานัด'])) {
+            if ((isCopy || movedEditedBooking) && hasActiveBookingAt(payload['วันที่ติดตั้ง'], payload['เวลานัด'])) {
                 const shouldContinue = window.confirm('มีคิวที่ยังไม่ยกเลิกในวันและเวลาเดียวกัน ต้องการสร้างคิวใหม่นี้ต่อหรือไม่?');
                 if (!shouldContinue) return;
             }
+            if (isCopy) payload.mutationId = insertMutationId(bookingInsertRequest, payload);
 
             const btn = document.getElementById('bk-submitBtn');
             btn.disabled = true;
@@ -5122,16 +5257,16 @@
             try {
                 const data = await postWithWriteToken(payload);
                 if (data.success) {
+                    if (isCopy) bookingInsertRequest.id = '';
                     closeBookingModal();
                     // โหลดข้อมูลใหม่ทั้งหมด
                     if (typeof fetchGoogleSheetData === 'function') {
                         await fetchGoogleSheetData();
                     }
-                    showAlert(
-                        'สำเร็จ',
-                        isCopy ? `สร้างคิวใหม่เรียบร้อย (${data.id}) จาก ${copySourceId || 'คิวเดิม'}` : `อัปเดตคิวจองเรียบร้อย (${data.id})`,
-                        'success'
-                    );
+                    const savedMessage = isCopy ? `สร้างคิวใหม่เรียบร้อย (${data.id}) จาก ${copySourceId || 'คิวเดิม'}` : `อัปเดตคิวจองเรียบร้อย (${data.id})`;
+                    const leadWarning = bookingSaveWarning(data);
+                    if (leadWarning) showAlert('บันทึกคิวแล้ว แต่มีเรื่องต้องตรวจ', `${savedMessage}\n${leadWarning}`, 'warning');
+                    else showAlert('สำเร็จ', savedMessage, 'success');
                 } else {
                     showAlert('เกิดข้อผิดพลาด', 'บันทึกไม่สำเร็จ: ' + (data.error || 'unknown error'), 'error');
                 }
@@ -5216,12 +5351,16 @@
                     recordId: jobId,
                     'Status': newStatus
                 };
+                // สถานะที่หน้านี้เห็นอยู่ ถ้ามีคนเปลี่ยนไปก่อน backend จะไม่บันทึกทับ
+                if (job) payload.expectedStatus = job.status;
                 const data = await postWithWriteToken(payload);
                 if (data.success) {
                     // อัปเดตข้อมูลใน memory
                     if (job) job.status = newStatus;
                     // re-render table เพื่อให้สี/ไอคอนเปลี่ยน
                     applyFilters();
+                    const leadWarning = bookingSaveWarning(data);
+                    if (leadWarning) showAlert('เปลี่ยนสถานะคิวแล้ว แต่มีเรื่องต้องตรวจ', leadWarning, 'warning');
                 } else {
                     showAlert('เกิดข้อผิดพลาด', 'อัปเดตสถานะไม่สำเร็จ: ' + (data.error || 'unknown error'), 'error');
                     if (btn) { btn.style.opacity = ''; btn.style.pointerEvents = ''; }
@@ -5318,14 +5457,18 @@
                 if (matchedKey && job.filmDetails[matchedKey] && job.filmDetails[matchedKey]!=="-") combinedFilm=job.filmDetails[matchedKey];
                 else if (isSunroofOnly && pos==='ซันรูฟ' && job.film!=="-") combinedFilm=job.film;
                 const cutData = getCutDataForPosition(job.id, pos);
+                const detailFilm = combinedFilm;
                 if (cutData.film) combinedFilm = cutData.film;
                 return {
                     receipt:`<tr class="receipt-film-row border-b border-black"><td class="border-r border-black py-1.5 px-2 text-left">${escapeHtml(pos)}</td><td class="border-r border-black py-1.5 px-2 text-center font-semibold">${escapeHtml(combinedFilm)}</td><td class="py-1.5 px-2 text-left"></td></tr>`,
-                    cutting:`<tr class="cutting-film-row border-b border-black text-center"><td class="border-r border-black py-1">${escapeHtml(cutData.team)}</td><td class="border-r border-black py-1 text-left px-2">${escapeHtml(pos)}</td><td class="cut-film-column border-r border-black py-1 font-medium">${escapeHtml(combinedFilm)}</td><td class="cut-size-column border-r border-black py-1">${escapeHtml(cutData.width)}</td><td class="cut-size-column border-r border-black py-1">${escapeHtml(cutData.length)}</td><td class="cut-size-column border-r border-black py-1">${escapeHtml(cutData.quantity)}</td><td class="cut-note-column py-1 px-1 text-[11px]">${escapeHtml(cutData.reason)}</td></tr>`
+                    cutting: printCuttingRowsHtml(job.id, pos, detailFilm)
                 };
             });
             if(tb1) tb1.innerHTML = tableRows.map(r => r.receipt).join('');
-            if(tb2) tb2.innerHTML = tableRows.map(r => r.cutting).join('');
+            if(tb2) {
+                tb2.innerHTML = tableRows.map(r => r.cutting).join('');
+                tb2.closest('table')?.classList.toggle('cutting-print-compact', tb2.rows.length > standardPositions.length);
+            }
             const ts = new Date();
             setText('p-timestamp', `${ts.toLocaleDateString('en-GB')}, ${ts.toLocaleTimeString('en-GB',{hour:'numeric',minute:'2-digit',hour12:false})} (Print)`);
         }
@@ -6397,6 +6540,10 @@
             if (type === 'success') {
                 iconWrap.className = 'mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-inner';
                 iconWrap.innerHTML = '<i class="fas fa-check text-3xl"></i>';
+            } else if (type === 'warning') {
+                // บันทึกสำเร็จแล้วแต่มีเรื่องต้องตรวจ: ใช้สีเตือนของ Design System ไม่ใช่สีผิดพลาด
+                iconWrap.className = 'mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-700 shadow-inner';
+                iconWrap.innerHTML = '<i class="fas fa-exclamation text-3xl"></i>';
             } else {
                 iconWrap.className = 'mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 text-rose-600 shadow-inner';
                 iconWrap.innerHTML = '<i class="fas fa-times text-3xl"></i>';

@@ -573,12 +573,18 @@
         // Without a saved reminder the due date is followUpAlertDays Bangkok days after the latest contact.
         const dueDate=explicit ? reminderDate : Number.isFinite(latest) ? twoDaysAfter(latest) : '';
         const today=new Date(now+7*3600000).toISOString().slice(0,10), tomorrow=new Date(now+7*3600000+86400000).toISOString().slice(0,10);
-        // Due today or already overdue is strong, due tomorrow is light, and later dates are not highlighted.
-        const highlight=!isFollowUp(lead) || !dueDate ? '' : dueDate <= today ? 'today' : dueDate === tomorrow ? 'tomorrow' : '';
+        // ครบกำหนดก่อนวันนี้ = 'overdue' (เกินกำหนด), ครบวันนี้ = 'today', ครบพรุ่งนี้ = 'tomorrow' (สีอ่อน), หลังจากนั้นไม่มีป้าย
+        // ตัวนับบนแท็บ/เมนูยังนับทุกค่าที่ไม่ว่าง จึงนับ "เกินกำหนด" รวมกับ "วันนี้" เหมือนเดิม ต่างกันแค่การแสดงผล
+        const highlight=!isFollowUp(lead) || !dueDate ? '' : dueDate < today ? 'overdue' : dueDate === today ? 'today' : dueDate === tomorrow ? 'tomorrow' : '';
+        const shortDate=new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'short'});
         const format=new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'short',timeStyle:'short'});
         const updated=Number.isFinite(latest) ? (fromHistory?'อัปเดตล่าสุด ':'อ้างอิงวันที่ลีด ') + format.format(new Date(latest)) : 'ไม่มีวันที่สำหรับตรวจการติดตาม';
-        const label=explicit ? 'วันที่แจ้งเตือน ' + new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',dateStyle:'short'}).format(new Date(contactTimestamp(reminderDate))) + ' · ' + updated : updated;
-        return {highlight,label};
+        const label=explicit ? 'วันที่แจ้งเตือน ' + shortDate.format(new Date(contactTimestamp(reminderDate))) + ' · ' + updated : updated;
+        // จำนวนวันที่เกินกำหนดนับตามวันปฏิทินไทย (วันที่ ISO ทั้งสองค่าเป็นวันตามเวลาไทยแล้ว)
+        const days=highlight === 'overdue' ? Math.round((Date.parse(today+'T00:00:00Z')-Date.parse(dueDate+'T00:00:00Z'))/86400000) : 0;
+        const overdue=highlight === 'overdue' ? {days,dueDate,text:'เกินกำหนด '+days+' วัน',
+            title:'เกินกำหนด '+days+' วัน · ครบกำหนด '+shortDate.format(new Date(contactTimestamp(dueDate)))} : null;
+        return {highlight,label,overdue};
     }
     function updateFollowUpCount(leads, now = Date.now()) {
         const badge=$('followup-tab-count');
@@ -641,7 +647,9 @@
                 ['วันที่นัดติดตั้ง',l.installationDate||'—'],
                 ['ประวัติการติดต่อล่าสุด',latestContact?.text || '—']
             ];
-            return `<article class="contact-timeline-item${{today:' followup-overdue',tomorrow:' followup-due-tomorrow'}[highlight] || ''}" title="${esc(({today:'ต้องติดตามวันนี้ · ',tomorrow:'ต้องติดตามพรุ่งนี้ · '}[highlight] || '') + age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}></div>`).join('')}${tab === 'followups' ? renderFollowUpUpdated(l) : ''}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck || !leadHasPhone(l) ? 'disabled' : ''}${!l.isCustomer && !l.pendingCustomerCheck && !leadHasPhone(l) ? ` title="${esc(noPhoneCustomerHint)}"` : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : !leadHasPhone(l) ? 'ใส่เบอร์โทรก่อน' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
+            // "เกินกำหนด" แสดงต่างจาก "วันนี้" (คลาสเดิม followup-overdue) และมีข้อความกำกับใต้ชื่อลูกค้า ไม่สื่อด้วยสีอย่างเดียว
+            const overdue=highlight === 'overdue' ? age.overdue : null;
+            return `<article class="contact-timeline-item${{today:' followup-overdue',tomorrow:' followup-due-tomorrow',overdue:' followup-past-due'}[highlight] || ''}" title="${esc((overdue ? overdue.title + ' · ' : {today:'ต้องติดตามวันนี้ · ',tomorrow:'ต้องติดตามพรุ่งนี้ · '}[highlight] || '') + age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}${overdue ? ' · ' + esc(overdue.text) : ''}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}>${i===0 && overdue ? `<small class="followup-past-due-note">${esc(overdue.text)}</small>` : ''}</div>`).join('')}${tab === 'followups' ? renderFollowUpUpdated(l) : ''}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck || !leadHasPhone(l) ? 'disabled' : ''}${!l.isCustomer && !l.pendingCustomerCheck && !leadHasPhone(l) ? ` title="${esc(noPhoneCustomerHint)}"` : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : !leadHasPhone(l) ? 'ใส่เบอร์โทรก่อน' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
         };
         const track = items => `<div class="contact-day-track">${items.map(renderLead).join('')}</div>`;
         const groups = new Map();
@@ -1286,12 +1294,16 @@
         };
         const statusChangeId = crypto.randomUUID();
         const storedReminderDate = previous.reminderDate || reminderData.reminderDate;
-        // A lead without a saved reminder starts followUpAlertDays from today, so a past date is never offered.
-        const reminderDate = window.CarLeadSheet.validReminderDate(storedReminderDate) ? storedReminderDate : twoDaysAfter(Date.now());
-        const reminderField = '<label>วันที่แจ้งเตือน<input id="history-reminder-date" name="reminderDate" type="date" value="' + esc(reminderDate) + '" required aria-describedby="history-reminder-hint"></label>';
+        // มีวันแจ้งเตือนที่บันทึกไว้: แสดงวันนั้นและบังคับกรอกเหมือนเดิม
+        // ไม่มี: เว้นช่องว่างและไม่บังคับ ช่องว่างบันทึกเป็น "ไม่มีวันแจ้งเตือน" จึงไม่เอาวันที่แก้ข้อมูลไปตั้งเป็นวันแจ้งเตือน
+        // วันครบกำหนดยังนับจากเวลาติดต่อล่าสุด + followUpAlertDays วัน จนกว่าผู้ใช้จะเลือกวันเอง
+        const reminderDate = window.CarLeadSheet.validReminderDate(storedReminderDate) ? storedReminderDate : '';
+        const reminderField = '<label>วันที่แจ้งเตือน<input id="history-reminder-date" name="reminderDate" type="date" value="' + esc(reminderDate) + '"' + (reminderDate ? ' required' : '') + ' aria-describedby="history-reminder-hint"></label>';
+        const reminderHint = reminderDate ? 'ค่าเริ่มต้น วันนี้ + ' + followUpAlertDays + ' วัน · เลือกวันเองได้'
+            : 'ยังไม่ได้ตั้ง · ระบบเตือนเมื่อครบ ' + followUpAlertDays + ' วันหลังติดต่อล่าสุด · เลือกวันเองได้';
         const contactDetails = '<div class="sheet-main-column" role="region" aria-label="รายละเอียดข้อมูลผู้ติดต่อ" tabindex="0">' + sheetSections(renderField, lead.leadId || '', lead.customerId || '') + '</div>';
         const html = contactDetails +
-            '<div class="sheet-side-column" role="region" aria-label="สถานะและประวัติการติดต่อ" tabindex="0"><section class="sheet-status-card"><div class="sheet-section-grid">' + renderField('followUp') + '</div></section><aside class="sheet-history-card"><h3>ประวัติการติดต่อ</h3><div class="history-meta-row"><label>ผู้บันทึก<select id="history-by"><option value="">— เลือก —</option>' + (lists['พนักงานขาย'] || []).map(value => '<option>' + esc(value) + '</option>').join('') + '</select></label>' + reminderField + '</div><small id="history-reminder-hint">ค่าเริ่มต้น วันนี้ + ' + followUpAlertDays + ' วัน · เลือกวันเองได้</small><label>รายละเอียด<textarea id="history-text" rows="3" placeholder="บันทึกการติดต่อ..."></textarea></label><button type="button" class="lead-button primary" id="add-contact-history">+ เพิ่มประวัติ</button><small>บันทึกพร้อมข้อมูลลูกค้า</small><p id="history-error" role="alert"></p><div id="contact-history-list"></div></aside></div>';
+            '<div class="sheet-side-column" role="region" aria-label="สถานะและประวัติการติดต่อ" tabindex="0"><section class="sheet-status-card"><div class="sheet-section-grid">' + renderField('followUp') + '</div></section><aside class="sheet-history-card"><h3>ประวัติการติดต่อ</h3><div class="history-meta-row"><label>ผู้บันทึก<select id="history-by"><option value="">— เลือก —</option>' + (lists['พนักงานขาย'] || []).map(value => '<option>' + esc(value) + '</option>').join('') + '</select></label>' + reminderField + '</div><small id="history-reminder-hint">' + esc(reminderHint) + '</small><label>รายละเอียด<textarea id="history-text" rows="3" placeholder="บันทึกการติดต่อ..."></textarea></label><button type="button" class="lead-button primary" id="add-contact-history">+ เพิ่มประวัติ</button><small>บันทึกพร้อมข้อมูลลูกค้า</small><p id="history-error" role="alert"></p><div id="contact-history-list"></div></aside></div>';
         const duplicatePhone = duplicatePhoneCheck(lead,previous.phone ?? lead.phone);
         editor('เพิ่มข้อมูลผู้ติดต่อ', html, async values => {
             values.phone = formatLeadPhone(values.phone);
@@ -1407,12 +1419,13 @@
         const storedReminder = window.CarLeadSheet.validReminderDate(storedReminderDate), addedHistoryIds = new Set();
         let reminderPicked = false;
         $('history-reminder-date').addEventListener('input',() => { reminderPicked = true; });
-        // Unless a date is picked in this editor, a contact added here moves the reminder to followUpAlertDays from today;
-        // without one, a saved reminder stays as it was.
+        // Lead ที่มีวันแจ้งเตือนบันทึกไว้ (และผู้ใช้ยังไม่เลือกวันเอง): เพิ่มประวัติในฟอร์มนี้เลื่อนเป็นวันนี้ + followUpAlertDays วัน
+        // ไม่มีประวัติที่เพิ่มใหม่ก็คืนเป็นวันที่บันทึกไว้
+        // Lead ที่ไม่มีวันแจ้งเตือน: คงช่องว่างไว้ วันครบกำหนดตามประวัติการติดต่อล่าสุดเอง ไม่บันทึกวันที่จากการแก้ข้อมูล
         const updateDefaultReminder = () => {
-            if (reminderPicked) return;
+            if (reminderPicked || !storedReminder) return;
             const added = contactHistory.some(item => addedHistoryIds.has(item.id));
-            $('history-reminder-date').value = storedReminder && !added ? storedReminderDate : twoDaysAfter(Date.now());
+            $('history-reminder-date').value = added ? twoDaysAfter(Date.now()) : storedReminderDate;
         };
         $('contact-history-list').onclick = event => {
             if ($('editor-form').getAttribute('aria-busy') === 'true') return;

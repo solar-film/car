@@ -146,30 +146,35 @@
                             <div class="text-[10px] uppercase font-bold text-gray-400 mb-1 tracking-wider">
                                 จำนวนผู้ประเมิน
                             </div>
-                            <div class="text-3xl font-bold text-gray-800" id="totalFeedback">0</div>
+                            <div class="text-3xl font-bold text-gray-800" id="totalFeedback">-</div>
                         </div>
                         <div class="feedback-stat rounded-3xl p-5">
                             <div class="text-[10px] uppercase font-bold text-blue-500 mb-1 tracking-wider">ทีมขาย
                             </div>
-                            <div class="text-3xl font-bold text-blue-600" id="avgSales">0.0</div>
+                            <div class="text-3xl font-bold text-blue-600" id="avgSales">-</div>
+                            <div class="mt-1 text-[10px] font-medium text-gray-400" id="countSales"></div>
                         </div>
                         <div class="feedback-stat rounded-3xl p-5">
                             <div class="text-[10px] uppercase font-bold text-blue-500 mb-1 tracking-wider">ทีมช่าง</div>
-                            <div class="text-3xl font-bold text-blue-600" id="avgTechnician">0.0</div>
+                            <div class="text-3xl font-bold text-blue-600" id="avgTechnician">-</div>
+                            <div class="mt-1 text-[10px] font-medium text-gray-400" id="countTechnician"></div>
                         </div>
                         <div class="feedback-stat rounded-3xl p-5">
                             <div class="text-[10px] uppercase font-bold text-indigo-500 mb-1 tracking-wider">งานบริการ
                             </div>
-                            <div class="text-3xl font-bold text-indigo-600" id="avgService">0.0</div>
+                            <div class="text-3xl font-bold text-indigo-600" id="avgService">-</div>
+                            <div class="mt-1 text-[10px] font-medium text-gray-400" id="countService"></div>
                         </div>
                         <div class="feedback-stat rounded-3xl p-5">
                             <div class="text-[10px] uppercase font-bold text-teal-500 mb-1 tracking-wider">สถานที่</div>
-                            <div class="text-3xl font-bold text-teal-600" id="avgLocation">0.0</div>
+                            <div class="text-3xl font-bold text-teal-600" id="avgLocation">-</div>
+                            <div class="mt-1 text-[10px] font-medium text-gray-400" id="countLocation"></div>
                         </div>
                         <div class="feedback-stat rounded-3xl p-5">
                             <div class="text-[10px] uppercase font-bold text-green-500 mb-1 tracking-wider">คุณภาพสินค้า
                             </div>
-                            <div class="text-3xl font-bold text-green-600" id="avgProduct">0.0</div>
+                            <div class="text-3xl font-bold text-green-600" id="avgProduct">-</div>
+                            <div class="mt-1 text-[10px] font-medium text-gray-400" id="countProduct"></div>
                         </div>
                     </div>
 
@@ -201,6 +206,17 @@
                         <p class="text-gray-500 animate-pulse text-lg">กำลังโหลดข้อมูลล่าสุด...</p>
                     </div>
 
+                    <!-- โหลดข้อมูลไม่สำเร็จ: แยกจาก "ไม่พบข้อมูล" ใช้สี error ตาม DESIGN.html (--color-error / -bg / -border) -->
+                    <div id="loadErrorState" role="alert" class="hidden mb-6 rounded-3xl border border-rose-200 bg-rose-50 p-6 text-center">
+                        <i class="fas fa-triangle-exclamation mb-3 text-3xl text-rose-700" aria-hidden="true"></i>
+                        <p id="loadErrorMessage" class="text-base font-bold text-rose-700">โหลดข้อมูลแบบประเมินไม่สำเร็จ กรุณาลองใหม่</p>
+                        <p id="loadErrorDetail" class="mt-1 text-sm text-rose-700">กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต หรือสิทธิ์การแชร์ Google Sheet</p>
+                        <button type="button" onclick="fetchData()"
+                            class="mt-4 inline-flex items-center justify-center rounded-2xl bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/15 transition hover:bg-blue-700 active:scale-[0.98]">
+                            <i class="fas fa-sync-alt mr-2" aria-hidden="true"></i> ลองใหม่
+                        </button>
+                    </div>
+
                     <div id="cardsGrid"
                         class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     </div>
@@ -215,15 +231,57 @@
                     const SPREADSHEET_ID = '1uSHvGuFr8FqezwoXg1VOYdiW-8bzmS9k82qrX0xKW_g';
                     const SHEET_NAME = 'การตอบแบบฟอร์ม 1';
                     let allData = [];
+                    // เคยโหลดข้อมูลสำเร็จแล้วหรือยัง ใช้แยกกรณี "โหลดไม่สำเร็จ" ออกจาก "ไม่มีข้อมูล"
+                    let hasLoadedData = false;
 
+                    // ด้านที่ให้คะแนน: field ในข้อมูล ชื่อที่แสดง id ค่าเฉลี่ย และ id จำนวนคนตอบ
+                    const RATING_CATEGORIES = [
+                        { key: 'vSales', name: 'ทีมขาย', avgId: 'avgSales', countId: 'countSales' },
+                        { key: 'vTech', name: 'ทีมช่าง', avgId: 'avgTechnician', countId: 'countTechnician' },
+                        { key: 'vServ', name: 'งานบริการ', avgId: 'avgService', countId: 'countService' },
+                        { key: 'vLoc', name: 'สถานที่', avgId: 'avgLocation', countId: 'countLocation' },
+                        { key: 'vProd', name: 'คุณภาพสินค้า', avgId: 'avgProduct', countId: 'countProduct' }
+                    ];
+
+                    // คืนคะแนนเป็นตัวเลข หรือ null เมื่อช่องว่าง/อ่านค่าไม่ได้ (null = ไม่นับในค่าเฉลี่ยของด้านนั้น)
                     function parseStarRating(cellValue) {
-                        if (!cellValue) return 0;
-                        const str = String(cellValue);
+                        if (cellValue === null || cellValue === undefined) return null;
+                        const str = String(cellValue).trim();
+                        if (!str) return null;
                         const starCount = (str.match(/⭐/g) || []).length;
                         if (starCount > 0) return starCount;
                         const match = str.match(/\d+/);
-                        if (match) return parseFloat(match[0]);
-                        return 0;
+                        if (!match) return null;
+                        const value = parseFloat(match[0]);
+                        // แบบประเมินเป็น 1-5 ดาว ค่า 0 ถือว่าไม่ได้ให้คะแนน
+                        return value > 0 ? value : null;
+                    }
+
+                    function isRating(value) {
+                        return typeof value === 'number' && Number.isFinite(value);
+                    }
+
+                    // คะแนนรวมของคำตอบหนึ่งรายการ (ใช้เมื่อชีตไม่มีคอลัมน์คะแนนรวม) นับเฉพาะด้านที่ตอบ
+                    function sumRatings(d) {
+                        return RATING_CATEGORIES.reduce((sum, category) => sum + (isRating(d[category.key]) ? d[category.key] : 0), 0);
+                    }
+
+                    // อ่านผล gviz แบบเดียวกับหน้า overview/contact-stats: ต้องเป็นข้อมูลตาราง ไม่ใช่หน้า HTML หรือหน้าขอสิทธิ์
+                    function parseGvizTable(text) {
+                        const body = String(text || '');
+                        const head = body.trim().toLowerCase();
+                        if (head.startsWith('<!doctype html') || head.startsWith('<html')) {
+                            throw new Error('ชีตส่งหน้าเว็บกลับมาแทนข้อมูล อาจต้องตรวจสิทธิ์การแชร์');
+                        }
+                        if (!body.includes('google.visualization.Query.setResponse(')) {
+                            throw new Error('ชีตไม่ได้ส่งข้อมูลตารางกลับมา');
+                        }
+                        const result = JSON.parse(body.slice(body.indexOf('{'), body.lastIndexOf('}') + 1));
+                        if (result.status === 'error' || !result.table || !Array.isArray(result.table.rows)) {
+                            const reason = result.errors && result.errors[0] ? result.errors[0].detailed_message : result.status;
+                            throw new Error('อ่านชีตแบบประเมินไม่สำเร็จ: ' + reason);
+                        }
+                        return result.table;
                     }
 
                     function escapeHtml(value) {
@@ -243,14 +301,15 @@
 
                         loading.classList.remove('hidden');
                         cardsGrid.classList.add('hidden');
+                        document.getElementById('emptyState').classList.add('hidden');
+                        hideLoadError();
                         refreshIcon.classList.add('fa-spin');
 
                         try {
                             const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
                             const response = await fetch(url);
-                            const text = await response.text();
-                            const json = JSON.parse(text.substring(47, text.length - 2));
-                            const rows = json.table.rows;
+                            if (!response.ok) throw new Error(`โหลดชีตแบบประเมินไม่สำเร็จ (HTTP ${response.status})`);
+                            const rows = parseGvizTable(await response.text()).rows;
 
                             allData = rows.filter(row => row.c && row.c[7] && row.c[7].v).map(row => {
                                 const c = row.c;
@@ -278,14 +337,15 @@
                                     monthNum: monthNum,
                                     yearNum: yearNum,
                                     feedback: c[6] ? (c[6].v || 'ไม่มีข้อเสนอแนะ') : 'ไม่มีข้อเสนอแนะ',
-                                    vSales: parseStarRating(c[1] ? c[1].v : 0),
-                                    vTech: parseStarRating(c[2] ? c[2].v : 0),
-                                    vServ: parseStarRating(c[3] ? c[3].v : 0),
-                                    vLoc: parseStarRating(c[4] ? c[4].v : 0),
-                                    vProd: parseStarRating(c[5] ? c[5].v : 0),
+                                    vSales: parseStarRating(c[1] ? c[1].v : null),
+                                    vTech: parseStarRating(c[2] ? c[2].v : null),
+                                    vServ: parseStarRating(c[3] ? c[3].v : null),
+                                    vLoc: parseStarRating(c[4] ? c[4].v : null),
+                                    vProd: parseStarRating(c[5] ? c[5].v : null),
                                     vTotal: c[8] ? parseFloat(c[8].v || 0) : 0
                                 };
                             }).reverse();
+                            hasLoadedData = true;
 
                             populateMonthFilter();
 
@@ -296,11 +356,31 @@
 
                         } catch (e) {
                             console.error("Fetch Error:", e);
-                            document.getElementById('emptyState').classList.remove('hidden');
+                            showLoadError();
                         } finally {
                             loading.classList.add('hidden');
                             refreshIcon.classList.remove('fa-spin');
                         }
+                    }
+
+                    // โหลดไม่สำเร็จ: แจ้งชัดเจน ไม่แสดงเป็น "ไม่พบข้อมูล" และไม่ทิ้งข้อมูลชุดเดิมที่เคยโหลดได้
+                    function showLoadError() {
+                        document.getElementById('loadErrorState').classList.remove('hidden');
+                        document.getElementById('loadErrorMessage').innerText = 'โหลดข้อมูลแบบประเมินไม่สำเร็จ กรุณาลองใหม่';
+                        document.getElementById('loadErrorDetail').innerText = hasLoadedData
+                            ? 'ข้อมูลที่แสดงอยู่เป็นชุดเดิมจากการโหลดครั้งก่อน'
+                            : 'กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต หรือสิทธิ์การแชร์ Google Sheet';
+                        if (hasLoadedData) {
+                            filterAndDisplay();
+                            return;
+                        }
+                        // ยังไม่เคยมีข้อมูล: การ์ดแสดง "-" ไม่ใช่ 0 เพราะไม่ใช่ค่าจริง
+                        document.getElementById('monthFilter').innerHTML = '<option value="all">โหลดข้อมูลเดือนไม่สำเร็จ</option>';
+                        resetStats('-', 'โหลดข้อมูลไม่สำเร็จ ยังวิเคราะห์ไม่ได้');
+                    }
+
+                    function hideLoadError() {
+                        document.getElementById('loadErrorState').classList.add('hidden');
                     }
 
                     function populateMonthFilter() {
@@ -372,6 +452,8 @@
                     }
 
                     function filterAndDisplay() {
+                        // ยังไม่เคยโหลดข้อมูลได้: ไม่มีข้อมูลให้กรอง คงสถานะกำลังโหลด/โหลดไม่สำเร็จไว้ ห้ามแสดงเป็น 0 รายการ
+                        if (!hasLoadedData) return;
                         const selectedMonth = document.getElementById('monthFilter').value;
                         const cardsGrid = document.getElementById('cardsGrid');
                         const emptyState = document.getElementById('emptyState');
@@ -392,16 +474,7 @@
                         emptyState.classList.add('hidden');
                         cardsGrid.classList.remove('hidden');
 
-                        let stats = { total: 0, sales: 0, tech: 0, serv: 0, loc: 0, prod: 0 };
-
                         filtered.forEach(d => {
-                            stats.total++;
-                            stats.sales += d.vSales;
-                            stats.tech += d.vTech;
-                            stats.serv += d.vServ;
-                            stats.loc += d.vLoc;
-                            stats.prod += d.vProd;
-
                             const card = document.createElement('div');
                             card.className = "card-feedback p-6 flex flex-col h-full shadow-sm";
                             card.innerHTML = `
@@ -416,7 +489,7 @@
                             </div>
                         </div>
                         <div class="rating-badge text-white px-3 py-1 rounded-lg text-sm font-bold shadow-md">
-                            ${d.vTotal || (d.vSales + d.vTech + d.vServ + d.vLoc + d.vProd)}
+                            ${d.vTotal || sumRatings(d)}
                         </div>
                     </div>
                     <div class="feedback-quote mb-5 flex-grow rounded-2xl p-4 text-sm italic text-gray-600">
@@ -440,50 +513,61 @@
                             cardsGrid.appendChild(card);
                         });
 
-                        updateSummaryUI(stats);
-                        performAnalysis(stats);
+                        const summary = summarizeRatings(filtered);
+                        updateSummaryUI(filtered.length, summary);
+                        performAnalysis(summary);
                     }
 
-                    function updateSummaryUI(stats) {
-                        const updateAvg = (id, sum) => {
-                            const val = (sum / stats.total);
-                            document.getElementById(id).innerText = isNaN(val) ? "0.0" : val.toFixed(1);
-                        };
-                        document.getElementById('totalFeedback').innerText = stats.total;
-                        updateAvg('avgSales', stats.sales);
-                        updateAvg('avgTechnician', stats.tech);
-                        updateAvg('avgService', stats.serv);
-                        updateAvg('avgLocation', stats.loc);
-                        updateAvg('avgProduct', stats.prod);
+                    // สรุปคะแนนรายด้าน: เฉลี่ยจากคนที่ตอบด้านนั้นเท่านั้น ด้านที่ไม่มีคนตอบได้ average = null
+                    function summarizeRatings(rows) {
+                        return RATING_CATEGORIES.map(category => {
+                            const values = rows.map(row => row[category.key]).filter(isRating);
+                            const sum = values.reduce((total, value) => total + value, 0);
+                            return { ...category, count: values.length, average: values.length ? sum / values.length : null };
+                        });
                     }
 
-                    function performAnalysis(stats) {
-                        if (stats.total === 0) return;
-                        const categories = [
-                            { name: 'ทีมขาย', score: stats.sales / stats.total },
-                            { name: 'ทีมช่าง', score: stats.tech / stats.total },
-                            { name: 'งานบริการ', score: stats.serv / stats.total },
-                            { name: 'สถานที่', score: stats.loc / stats.total },
-                            { name: 'คุณภาพสินค้า', score: stats.prod / stats.total }
-                        ];
+                    function updateSummaryUI(total, summary) {
+                        document.getElementById('totalFeedback').innerText = total;
+                        summary.forEach(item => {
+                            document.getElementById(item.avgId).innerText = item.average === null ? '-' : item.average.toFixed(1);
+                            document.getElementById(item.countId).innerText = `ตอบ ${item.count} จาก ${total} คน`;
+                        });
+                    }
 
-                        const sorted = [...categories].sort((a, b) => b.score - a.score);
+                    function performAnalysis(summary) {
+                        // จัดอันดับเฉพาะด้านที่มีคนตอบ ด้านที่ไม่มีคำตอบไม่ถูกสรุปเป็นจุดแข็งหรือส่วนที่ควรพัฒนา
+                        const rated = summary.filter(item => item.count > 0);
+                        const strengthText = document.getElementById('strengthText');
+                        const improvementText = document.getElementById('improvementText');
+                        if (!rated.length) {
+                            strengthText.innerText = "ไม่มีคะแนนในการวิเคราะห์";
+                            improvementText.innerText = "ไม่มีคะแนนในการวิเคราะห์";
+                            return;
+                        }
+
+                        const sorted = [...rated].sort((a, b) => b.average - a.average);
                         const top = sorted[0];
                         const bottom = sorted[sorted.length - 1];
 
-                        document.getElementById('strengthText').innerText =
-                            `${top.name} ได้รับคะแนนสูงสุด (${top.score.toFixed(1)}/5.0) ลูกค้าส่วนใหญ่มีความพึงพอใจมากในส่วนนี้`;
+                        strengthText.innerText =
+                            `${top.name} ได้รับคะแนนสูงสุด (${top.average.toFixed(1)}/5.0) ลูกค้าส่วนใหญ่มีความพึงพอใจมากในส่วนนี้`;
 
-                        document.getElementById('improvementText').innerText =
-                            `${bottom.name} มีคะแนนเฉลี่ยค่อนข้างน้อยเมื่อเทียบกับส่วนอื่น (${bottom.score.toFixed(1)}/5.0) ควรตรวจสอบและปรับปรุงลำดับถัดไป`;
+                        improvementText.innerText = rated.length > 1
+                            ? `${bottom.name} มีคะแนนเฉลี่ยค่อนข้างน้อยเมื่อเทียบกับส่วนอื่น (${bottom.average.toFixed(1)}/5.0) ควรตรวจสอบและปรับปรุงลำดับถัดไป`
+                            : "มีคะแนนเพียงด้านเดียว ยังเปรียบเทียบกับด้านอื่นไม่ได้";
                     }
 
-                    function resetStats() {
-                        ['totalFeedback', 'avgSales', 'avgTechnician', 'avgService', 'avgLocation', 'avgProduct'].forEach(id => {
-                            document.getElementById(id).innerText = id === 'totalFeedback' ? "0" : "0.0";
+                    // ล้างตัวเลขสรุป: ค่าเฉลี่ยแสดง "-" เสมอเมื่อไม่มีคนตอบ
+                    // totalText = "0" เมื่อโหลดได้แต่ไม่มีผลประเมิน, "-" เมื่อโหลดข้อมูลไม่สำเร็จ
+                    function resetStats(totalText = "0", message = "ไม่มีข้อมูลในการวิเคราะห์") {
+                        document.getElementById('totalFeedback').innerText = totalText;
+                        RATING_CATEGORIES.forEach(item => {
+                            document.getElementById(item.avgId).innerText = '-';
+                            document.getElementById(item.countId).innerText = '';
                         });
-                        document.getElementById('strengthText').innerText = "ไม่มีข้อมูลในการวิเคราะห์";
-                        document.getElementById('improvementText').innerText = "ไม่มีข้อมูลในการวิเคราะห์";
+                        document.getElementById('strengthText').innerText = message;
+                        document.getElementById('improvementText').innerText = message;
                     }
 
                     function renderStars(count) {

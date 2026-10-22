@@ -989,6 +989,17 @@
                 .join('\n');
         }
 
+        // วันสิ้นสุดโปรในข้อความเสนอราคา = วันสุดท้ายของเดือนปัจจุบันตามเวลาไทย
+        // (เดิมแก้วันที่ในโค้ดด้วยมือเป็นวันสิ้นเดือนทุกเดือน)
+        const THAI_SHORT_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        function promotionEndLabel(now = Date.now()) {
+            const bangkok = new Date(Number(now) + 7 * 60 * 60 * 1000);
+            const year = bangkok.getUTCFullYear();
+            const month = bangkok.getUTCMonth();
+            const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+            return `${lastDay} ${THAI_SHORT_MONTHS[month]} ${String(year + 543).slice(-2)}`;
+        }
+
         function makeStandardQuote(car, regularRow, packageRow, campaignRow) {
             const divider = '━━━━━━━━━━━━━━';
             const specialPriceFor = brandKey => fullPackagePrice(packageRow, campaignRow, brandKey, false);
@@ -1094,7 +1105,7 @@
                 '',
                 '⏱ ใช้เวลาติดตั้งประมาณ 2–3 ชั่วโมง',
                 '🛋 มีห้องรับรองติดแอร์ + Wi-Fi สามารถนั่งทำงานหรือพักผ่อนรอได้สบายๆ',
-                '🔥 โปรโมชั่นถึง 31 ต.ค. 69 เท่านั้น!'
+                `🔥 โปรโมชั่นถึง ${promotionEndLabel()} เท่านั้น!`
             );
             appendDivider();
             messageLines.push(
@@ -1170,7 +1181,7 @@
                 line(),
                 '⏱ ติดตั้งรวดเร็ว 2-3 ชม. มีห้องรับรองระดับ VIP พร้อมบริการ',
                 '',
-                '📅 วันนี้ - 31 ต.ค. 69 เท่านั้น!',
+                `📅 วันนี้ - ${promotionEndLabel()} เท่านั้น!`,
                 sunroofRecommend
             ].filter(lineText => lineText !== '').join('\n');
         }

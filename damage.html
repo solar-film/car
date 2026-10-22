@@ -465,7 +465,7 @@
             </div>
 
             <div class="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4 text-sm text-slate-500">
-                <span id="connectionStatus">🟢 เชื่อมต่อข้อมูลสดเรียบร้อย</span>
+                <span id="connectionStatus" role="status">🔵 กำลังซิงค์ข้อมูลจาก Google Sheets...</span>
                 <span id="damageStatus" class="font-medium text-slate-600">แสดงเฉพาะ Bookings.Pro_ID = Mistake</span>
             </div>
 
@@ -1657,11 +1657,17 @@
             }
         }
 
+        // แสดงสถานะการเชื่อมต่อ ถ้าโหลดได้ไม่ครบใช้สีเตือนตาม Design System (--color-warning = amber-800)
+        function setConnectionStatus(text, isWarning = false) {
+            dom.connectionStatus.innerText = text;
+            dom.connectionStatus.classList.toggle('text-amber-800', isWarning);
+        }
+
         async function fetchDamageData() {
             dom.loadingMessage.classList.remove('hidden');
             dom.errorMessage.classList.add('hidden');
             dom.tableWrap.classList.add('hidden');
-            dom.connectionStatus.innerText = '🔵 กำลังซิงค์ข้อมูลจาก Google Sheets...';
+            setConnectionStatus('🔵 กำลังซิงค์ข้อมูลจาก Google Sheets...');
             dom.damageStatus.innerText = 'กำลังโหลดรายการความเสียหาย';
 
             try {
@@ -1700,13 +1706,18 @@
                 dom.loadingMessage.classList.add('hidden');
                 dom.tableWrap.classList.remove('hidden');
                 dom.lastUpdated.innerText = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH', { hour: 'numeric', minute: '2-digit', hour12: false })} น.`;
-                dom.connectionStatus.innerText = '🟢 เชื่อมต่อข้อมูลสดเรียบร้อย';
+                // ชีตช่างมีชื่อสำรองหลายชื่อ ชื่อที่ไม่มีอยู่จริงล้มเป็นปกติ จึงเตือนเมื่อโหลดไม่ได้เลยสักชื่อ
+                if (installerCsvTexts.length) {
+                    setConnectionStatus('🟢 เชื่อมต่อข้อมูลสดเรียบร้อย');
+                } else {
+                    setConnectionStatus(`🟡 โหลดข้อมูลไม่ครบ: ไม่ได้ข้อมูลช่างจาก ${INSTALLER_SHEET_NAME} ชื่อช่างและยอดแยกช่างอาจไม่ครบ`, true);
+                }
                 dom.damageStatus.innerText = 'แสดงเฉพาะ Bookings.Pro_ID = Mistake';
             } catch (error) {
                 console.error(error);
                 dom.loadingMessage.classList.add('hidden');
                 dom.errorMessage.classList.remove('hidden');
-                dom.connectionStatus.innerText = '🔴 เชื่อมต่อข้อมูลไม่สำเร็จ';
+                setConnectionStatus('🔴 เชื่อมต่อข้อมูลไม่สำเร็จ');
                 dom.damageStatus.innerText = 'ยังโหลดข้อมูลไม่สำเร็จ';
             }
         }

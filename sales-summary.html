@@ -285,6 +285,9 @@
             <p class="mt-1 text-sm text-slate-500">โปรดตรวจสอบการแชร์ Google Sheets และลองรีเฟรชอีกครั้ง</p>
         </section>
 
+        <!-- Partial Data Warning: แสดงเมื่อโหลดชีตเสริมไม่สำเร็จ (สีเตือนตาม Design System) -->
+        <div id="partialDataWarning" class="mb-6 hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-[13px] leading-[1.7] text-amber-800" role="status"></div>
+
         <!-- Main Content Area -->
         <section id="content" class="hidden space-y-6">
             
@@ -466,7 +469,7 @@
         const dom = {};
         const DOM_IDS = [
             'loginForm', 'loginUser', 'loginPass', 'loginError',
-            'lastUpdated', 'loadingMessage', 'errorMessage', 'content',
+            'lastUpdated', 'loadingMessage', 'errorMessage', 'content', 'partialDataWarning',
             'dayInput', 'monthInput', 'yearInput', 'startInput', 'endInput',
             'dayControl', 'monthControl', 'yearControl', 'rangeControl', 'refreshBtn', 'exportBtn', 'tableToggleBtn',
             'contactTotal', 'contactChannelList',
@@ -1415,11 +1418,29 @@
             dom.tableBody.innerHTML = rowsHtml + totalHtml;
         }
 
+        // ชีตเสริมที่โหลดไม่สำเร็จยังให้ใช้หน้าต่อได้ แต่ต้องบอกว่าตัวเลขส่วนไหนอาจไม่ครบ
+        const OPTIONAL_SHEETS = [
+            { name: CUSTOMER_SHEET_NAME, effect: 'ช่องทางของลูกค้าใหม่อาจแสดงเป็น "ไม่ระบุ"' },
+            { name: DETAIL_FILM_SHEET_NAME, effect: 'เหตุผลขอตัดฟิล์มของแต่ละงานอาจหายไป ทำให้แยกสาเหตุความเสียหายไม่ครบ' },
+            { name: CUT_REASON_SHEET_NAME, effect: 'ชื่อเหตุผลอาจแสดงเป็นรหัส ทำให้แยกสาเหตุความเสียหายไม่ถูกต้อง' }
+        ];
+
+        function renderPartialDataWarning(missingSheets) {
+            const items = OPTIONAL_SHEETS.filter(sheet => missingSheets.includes(sheet.name));
+            dom.partialDataWarning.innerHTML = items.length
+                ? `<strong class="block text-sm font-semibold">โหลดข้อมูลบางส่วนไม่สำเร็จ ตัวเลขบางส่วนอาจไม่ครบ กดรีเฟรชเพื่อลองใหม่</strong>
+                    <ul class="mt-1 list-disc pl-5">${items.map(sheet => `<li>${escapeHtml(sheet.name)}: ${escapeHtml(sheet.effect)}</li>`).join('')}</ul>`
+                : '';
+            dom.partialDataWarning.classList.toggle('hidden', !items.length);
+        }
+
         async function loadData(forceRefresh = false) {
             dom.loadingMessage.classList.remove('hidden');
             dom.errorMessage.classList.add('hidden');
             dom.content.classList.add('hidden');
+            dom.partialDataWarning.classList.add('hidden');
 
+            // cache เก็บเฉพาะข้อมูลที่โหลดครบ จึงไม่ต้องแสดงคำเตือนเมื่ออ่านจาก cache
             if (!forceRefresh && readCache()) {
                 dom.loadingMessage.classList.add('hidden');
                 dom.content.classList.remove('hidden');
@@ -1428,20 +1449,17 @@
             }
 
             try {
+                const missingSheets = [];
+                const fetchOptionalRows = sheetName => fetchCsvText(sheetName).then(parseCsv).catch(error => {
+                    console.warn(error.message);
+                    missingSheets.push(sheetName);
+                    return [];
+                });
                 const [bookingRows, customerRows, detailRows, reasonRows, legacyRows, reportRows] = await Promise.all([
                     fetchCsvText(BOOKINGS_SHEET_NAME).then(parseCsv),
-                    fetchCsvText(CUSTOMER_SHEET_NAME).then(parseCsv).catch(error => {
-                        console.warn(error.message);
-                        return [];
-                    }),
-                    fetchCsvText(DETAIL_FILM_SHEET_NAME).then(parseCsv).catch(error => {
-                        console.warn(error.message);
-                        return [];
-                    }),
-                    fetchCsvText(CUT_REASON_SHEET_NAME).then(parseCsv).catch(error => {
-                        console.warn(error.message);
-                        return [];
-                    }),
+                    fetchOptionalRows(CUSTOMER_SHEET_NAME),
+                    fetchOptionalRows(DETAIL_FILM_SHEET_NAME),
+                    fetchOptionalRows(CUT_REASON_SHEET_NAME),
                     fetchCsvText('สถิตการติดต่อ').then(parseContactStatsCsv),
                     fetchContactReport()
                 ]);
@@ -1450,10 +1468,12 @@
                 const cutReasonMap = buildCutReasonMap(detailRows, reasonRows);
                 bookings = buildBookings(bookingRows, customerMap, cutReasonMap);
                 contacts = buildContacts(CarContactReportSummary.mergeDailyRows(reportRows, legacyRows));
-                writeCache();
+                // ห้ามเก็บข้อมูลที่โหลดไม่ครบ ไม่เช่นนั้นการเปิดครั้งถัดไปใน 5 นาทีจะเห็นตัวเลขที่ขาดโดยไม่มีคำเตือน
+                if (!missingSheets.length) writeCache();
                 dom.lastUpdated.innerText = `อัปเดตล่าสุด: ${new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
                 dom.loadingMessage.classList.add('hidden');
                 dom.content.classList.remove('hidden');
+                renderPartialDataWarning(missingSheets);
                 renderPage();
             } catch (error) {
                 console.error(error);

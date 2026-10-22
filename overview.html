@@ -376,6 +376,8 @@
         let contactStatsRows = [];
         let customerChannels = null;
         let salesTargets = {};
+        // true เมื่อโหลดชีตเป้ายอดขายไม่สำเร็จ แยกจากกรณีชีตโหลดได้แต่ยังไม่ได้ตั้งเป้า
+        let salesTargetsLoadFailed = false;
         let appHasStarted = false;
         let overviewMemos = [];
         let overviewMemoRecords = [];
@@ -1058,7 +1060,10 @@
             const selectedTarget = month ? (salesTargets[month] || 0) : 0;
             const targetPercent = selectedTarget ? Math.round((totalRevenue / selectedTarget) * 100) : 0;
             const targetGap = totalRevenue - selectedTarget;
-            
+            // ข้อความเมื่อไม่มีเป้า: แยกกรณีโหลดชีตไม่สำเร็จออกจากกรณียังไม่ได้ตั้งเป้า
+            const noTargetText = salesTargetsLoadFailed ? 'โหลดเป้ายอดขายไม่สำเร็จ' : 'ไม่มีเป้าหมาย';
+            const noTargetGapText = salesTargetsLoadFailed ? 'โหลดเป้ายอดขายไม่สำเร็จ กรุณารีเฟรชหน้า' : 'โปรดระบุเป้ายอดขายใน Google Sheets';
+
             const completed = activeBookingRows.filter(item => isCompletedBooking(item));
             const pending = activeBookingRows.filter(item => !isCompletedBooking(item));
             
@@ -1088,7 +1093,7 @@
             dom.kpiRevenue.innerText = `฿${formatMoney(totalRevenue)}`;
             dom.kpiAvgTicket.innerText = `฿${formatMoney(revenueRows.length ? totalRevenue / revenueRows.length : 0)}`;
             
-            dom.kpiTargetValue.innerText = selectedTarget ? `เป้า ฿${formatMoney(selectedTarget)}` : 'ไม่มีเป้าหมาย';
+            dom.kpiTargetValue.innerText = selectedTarget ? `เป้า ฿${formatMoney(selectedTarget)}` : noTargetText;
             dom.kpiTargetPercent.innerText = selectedTarget ? `${targetPercent}%` : '-';
             dom.targetProgressBar.style.width = selectedTarget ? `${Math.min(targetPercent, 100)}%` : '0%';
             
@@ -1097,7 +1102,7 @@
                     ? `<span class="text-sky-500 font-normal"><i class="ph-bold ph-trend-up"></i> เกินเป้า ฿${formatMoney(targetGap)}</span>` 
                     : `<span class="text-rose-400 font-normal"><i class="ph-bold ph-trend-down"></i> ขาดอีก ฿${formatMoney(Math.abs(targetGap))}</span>`;
             } else {
-                dom.kpiTargetGap.innerText = 'โปรดระบุเป้ายอดขายใน Google Sheets';
+                dom.kpiTargetGap.innerText = noTargetGapText;
             }
 
             // --- ยอดถอด VAT 7% เทียบเป้า ---
@@ -1106,7 +1111,7 @@
             const exVatGap = revenueExVat - selectedTarget;
 
             if (dom.kpiRevenueExVat) dom.kpiRevenueExVat.innerText = `฿${formatMoney(revenueExVat)}`;
-            if (dom.kpiExVatTargetValue) dom.kpiExVatTargetValue.innerText = selectedTarget ? `เป้า ฿${formatMoney(selectedTarget)}` : 'ไม่มีเป้าหมาย';
+            if (dom.kpiExVatTargetValue) dom.kpiExVatTargetValue.innerText = selectedTarget ? `เป้า ฿${formatMoney(selectedTarget)}` : noTargetText;
             if (dom.kpiExVatTargetPercent) dom.kpiExVatTargetPercent.innerText = selectedTarget ? `${exVatPercent}%` : '-';
             if (dom.exVatProgressBar) dom.exVatProgressBar.style.width = selectedTarget ? `${Math.min(exVatPercent, 100)}%` : '0%';
             if (dom.kpiExVatGap) {
@@ -1133,7 +1138,7 @@
             if (dom.salesSummaryCount) dom.salesSummaryCount.innerText = `${revenueRows.length.toLocaleString('th-TH')} คิว`;
             if (dom.salesSummaryNet) dom.salesSummaryNet.innerText = `฿${formatMoney(totalRevenue)}`;
             if (dom.salesSummaryGross) dom.salesSummaryGross.innerText = `฿${formatMoney(totalRevenueGross)}`;
-            if (dom.salesSummaryTargetValue) dom.salesSummaryTargetValue.innerText = selectedTarget ? `เป้า ฿${formatMoney(selectedTarget)}` : 'ไม่มีเป้าหมาย';
+            if (dom.salesSummaryTargetValue) dom.salesSummaryTargetValue.innerText = selectedTarget ? `เป้า ฿${formatMoney(selectedTarget)}` : noTargetText;
             if (dom.salesSummaryTargetPercent) dom.salesSummaryTargetPercent.innerText = selectedTarget ? `${targetPercent}%` : '-';
             if (dom.salesSummaryProgressBar) dom.salesSummaryProgressBar.style.width = selectedTarget ? `${Math.min(targetPercent, 100)}%` : '0%';
             if (dom.salesSummaryTargetGap) {
@@ -1142,7 +1147,7 @@
                         ? `<span class="text-sky-500 font-normal"><i class="ph-bold ph-trend-up"></i> เกินเป้า ฿${formatMoney(targetGap)}</span>`
                         : `<span class="text-rose-400 font-normal"><i class="ph-bold ph-trend-down"></i> ขาดอีก ฿${formatMoney(Math.abs(targetGap))}</span>`;
                 } else {
-                    dom.salesSummaryTargetGap.innerText = 'โปรดระบุเป้ายอดขายใน Google Sheets';
+                    dom.salesSummaryTargetGap.innerText = noTargetGapText;
                 }
             }
             if (dom.salesSummaryNewCount) dom.salesSummaryNewCount.innerText = `${newRevenueCustomers.length.toLocaleString('th-TH')} คัน`;
@@ -1286,9 +1291,10 @@
             try {
                 const [bookingText, targetText, legacyRows, reportRows, customerChannelMap] = await Promise.all([
                     fetchCsvText(BOOKINGS_SHEET_NAME),
+                    // null = โหลดไม่สำเร็จ ('' = ชีตโหลดได้แต่ว่าง) เพื่อให้หน้าแยกข้อความสองกรณีได้
                     fetchCsvText(SALES_TARGET_SHEET_NAME).catch(error => {
                         console.warn(error.message);
-                        return '';
+                        return null;
                     }),
                     fetchCsvText(CONTACT_SHEET_NAME).then(parseContactStatsCsv),
                     fetchContactReport(),
@@ -1300,6 +1306,7 @@
                 ]);
                 customerChannels = customerChannelMap;
                 bookings = buildBookings(await parseCsv(bookingText));
+                salesTargetsLoadFailed = targetText === null;
                 salesTargets = targetText ? buildSalesTargets(await parseCsv(targetText)) : {};
                 contactStatsRows = CarContactReportSummary.mergeDailyRows(reportRows, legacyRows);
                 contacts = buildContacts(contactStatsRows);

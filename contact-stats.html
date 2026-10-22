@@ -621,6 +621,8 @@
         let customers = [];
         let leadInquiryRows = [];
         let leadSalesReady = false;
+        // ชื่อชีต (Bookings / Customer) ที่โหลดไม่สำเร็จในรอบล่าสุด ใช้แจ้งในส่วนที่สรุปจากงานติดตั้ง
+        let jobSheetLoadFailures = [];
         let sheetName = CONTACT_SHEET_NAMES[0];
         let appHasStarted = false;
         let monthlyChartInstance = null;
@@ -1063,10 +1065,24 @@
             }));
         }
 
+        // ข้อความเมื่อชีตงานหรือลูกค้าโหลดไม่สำเร็จ ใช้แทน "ไม่มีงาน" เพื่อไม่ให้ดูเหมือนช่วงนั้นไม่มีงานจริง
+        function jobSheetLoadFailureHtml(extraClass) {
+            if (!jobSheetLoadFailures.length) return '';
+            return `<div class="${extraClass} rounded-xl border border-amber-300 bg-amber-50 px-4 py-8 text-center text-sm text-amber-800" role="status">
+                โหลดข้อมูล ${escapeHtml(jobSheetLoadFailures.join(' และ '))} ไม่สำเร็จ จึงยังสรุปส่วนนี้ไม่ได้ กรุณากดรีเฟรช
+            </div>`;
+        }
+
         function renderFirstKnownDailyReport() {
             if (!dom.firstKnownDailyReport) return;
 
             const month = dom.monthFilter.value;
+            const loadFailureHtml = jobSheetLoadFailureHtml('m-4');
+            if (loadFailureHtml) {
+                dom.firstKnownReportPeriod.textContent = `${month ? monthLabel(month) : 'ทุกเดือน'} • โหลดไม่ครบ`;
+                dom.firstKnownDailyReport.innerHTML = loadFailureHtml;
+                return;
+            }
             const data = buildFirstKnownBookings(getCustomerBookings(month), customers);
             dom.firstKnownReportPeriod.textContent = month
                 ? `${monthLabel(month)} • ${formatCount(data.length)} งาน`
@@ -1249,6 +1265,12 @@
             const { month, channelGroups, channelItems, dailyRows, total } = context;
 
             dom.bookingChannelSummaryPeriod.innerText = month ? `ข้อมูลเดือน ${monthLabel(month)}` : 'ข้อมูลทุกเดือน';
+
+            const loadFailureHtml = jobSheetLoadFailureHtml('');
+            if (loadFailureHtml) {
+                dom.bookingChannelSummaryList.innerHTML = loadFailureHtml;
+                return;
+            }
 
             if ((!channelItems.length || !total || !dailyRows.length) && !alignedRows?.length) {
                 dom.bookingChannelSummaryList.innerHTML = `
@@ -1846,19 +1868,23 @@
                 const [result, legacyText, bookingText, customerText] = await Promise.all([
                     fetchContactReport(),
                     fetchCsvText('สถิตการติดต่อ'),
+                    // null = โหลดไม่สำเร็จ ส่วนสถิติการติดต่อยังแสดงได้ แต่ส่วนที่สรุปจากงานต้องแจ้งว่าโหลดไม่สำเร็จ
                     fetchCsvText(BOOKINGS_SHEET_NAME).catch(error => {
                         console.warn('Cannot load Bookings:', error);
-                        return '';
+                        return null;
                     }),
                     fetchCsvText(CUSTOMER_SHEET_NAME).catch(error => {
                         console.warn('Cannot load Customer:', error);
-                        return '';
+                        return null;
                     })
                 ]);
                 rows = CarContactReportSummary.mergeDailyRows(result, await parseCsvDataRobust(legacyText));
                 bookings = bookingText ? buildBookings(await parseCsvRows(bookingText)) : [];
                 customers = customerText ? await parseCsvRows(customerText) : [];
                 leadSalesReady = Boolean(bookingText && customerText);
+                jobSheetLoadFailures = [[BOOKINGS_SHEET_NAME, bookingText], [CUSTOMER_SHEET_NAME, customerText]]
+                    .filter(([, text]) => text === null)
+                    .map(([name]) => name);
                 
                 populateMonthFilter();
                 renderStats();

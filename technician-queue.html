@@ -332,6 +332,8 @@
 
         let queueRows = [];
         let damageDataRows = [];
+        let damageDataLoaded = false; // โหลดแผ่น data สำเร็จหรือไม่ (ถ้าไม่สำเร็จ ห้ามบันทึกรายการขอตัด)
+        let damageHiddenRows = [];    // แถวขอตัดเดิมของงานที่เปิดอยู่ ที่ฟอร์มไม่ได้แสดง
         let detailFilmRows = [];
         let filmSeriesOptions = [];
         let teamOptions = [];
@@ -389,6 +391,21 @@
                     complete: results => resolve(results.data)
                 });
             });
+        }
+
+        // แถวขอตัดเดิมต้องโหลดสำเร็จจึงบันทึกได้ ถ้าโหลดไม่ได้ให้จำสถานะไว้ แทนการถือว่างานนี้ไม่มีรายการ
+        async function fetchDamageDataRows() {
+            try {
+                const response = await fetch(DATA_CSV_URL);
+                const text = response.ok ? await response.text() : '';
+                const loaded = response.ok && !text.trim().toLowerCase().startsWith('<html');
+                const rows = loaded ? await parseCsv(text) : [];
+                damageDataLoaded = loaded;
+                return rows;
+            } catch (error) {
+                damageDataLoaded = false;
+                return [];
+            }
         }
 
         async function fetchOptionalRows(url) {
@@ -885,8 +902,41 @@
             };
         }
 
+        // ===== แถวขอตัดเดิมที่ฟอร์มไม่ได้แสดง (โค้ดชุดเดียวกันใน index.html, technician.html, technician-queue.html) =====
+        // การบันทึกแผ่น data จะแทนที่แถวของงานนั้นทั้งหมด แต่ฟอร์มแสดงได้ตำแหน่งละ 1 แถวตามรายการตำแหน่ง
+        // แถวที่ตำแหน่งซ้ำ อยู่นอกรายการ หรือไม่มีตำแหน่ง จึงต้องส่งกลับไปตามเดิม ไม่อย่างนั้นจะถูกลบโดยไม่มีใครเห็น
+        function cutRowsNotShown(jobRows, shownRows, jobId, read) {
+            const shown = new Set(shownRows.filter(Boolean));
+            const kept = new Set();
+            const savedJobId = String(jobId || '').trim();
+            return jobRows.filter(row => {
+                if (!row || shown.has(row) || kept.has(row)) return false;
+                // การบันทึกลบเฉพาะแถวที่ JobID ตรงทุกตัวอักษร แถวอื่นไม่ถูกลบ จึงไม่ต้องส่งซ้ำ
+                if (String(read(row, ['JobID']) || '').trim() !== savedJobId) return false;
+                kept.add(row);
+                return true;
+            });
+        }
+
+        function cutRowForResave(row, read) {
+            return {
+                'MIS_ID': read(row, ['MIS_ID']),
+                'ตำแหน่งติดตั้ง': read(row, ['ตำแหน่งติดตั้ง', 'ตำแหน่ง']),
+                'รุ่นฟิล์ม': read(row, ['รุ่นฟิล์ม', 'ยี่ห้อฟิล์ม']),
+                'กว้าง': read(row, ['กว้าง', 'W', 'Width']),
+                'ยาว': read(row, ['ยาว', 'H', 'Length']),
+                'จำนวน': read(row, ['จำนวน']),
+                'ทีมช่าง': read(row, ['ทีมช่าง']),
+                'เหตุผลขอตัดฟิล์ม': read(row, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล'])
+            };
+        }
+
+        const CUT_DATA_NOT_LOADED_MESSAGE = 'โหลดรายการขอตัดเดิมของงานนี้ไม่สำเร็จ จึงยังบันทึกไม่ได้ เพื่อไม่ให้รายการเดิมหาย กรุณาโหลดข้อมูลใหม่แล้วลองอีกครั้ง';
+        // ===== จบส่วนแถวขอตัดเดิม =====
+
         function renderDamageFormRows(job) {
             const existingMap = existingDamageMap(job.jobId);
+            damageHiddenRows = cutRowsNotShown(getExistingDamageRows(job.jobId), DAMAGE_POSITIONS.map(position => existingMap[normalizePosition(position)]), job.jobId, rowValue);
             const detailMap = detailFilmOptionsMap(job);
             const teams = teamOptions.length ? teamOptions : ['วัล', 'พลอย', 'เอ', 'พลอย'];
             const reasons = reasonOptions.length ? reasonOptions : [
@@ -960,7 +1010,7 @@
 
             currentDamageJobId = job.jobId;
             [damageDataRows, detailFilmRows] = await Promise.all([
-                fetchOptionalRows(DATA_CSV_URL),
+                fetchDamageDataRows(),
                 fetchOptionalRows(DETAIL_FILM_CSV_URL)
             ]);
             dom['dm-customerStatus'].textContent = customerStatusLabel(job.customerType);
@@ -976,6 +1026,11 @@
             resetDamageMessages();
             dom['dm-submitBtn'].disabled = false;
             dom['dm-submitBtn'].textContent = 'บันทึก';
+            if (!damageDataLoaded) {
+                dom['dm-error'].textContent = CUT_DATA_NOT_LOADED_MESSAGE;
+                dom['dm-error'].classList.remove('hidden');
+                dom['dm-submitBtn'].disabled = true;
+            }
             dom.damageModal.classList.remove('hidden');
             dom.damageModal.classList.add('flex');
             setTimeout(() => dom['dm-tableBody'].querySelector('.damage-cell')?.focus(), 50);
@@ -1053,10 +1108,18 @@
                 return;
             }
 
+            if (!damageDataLoaded) {
+                dom['dm-error'].textContent = CUT_DATA_NOT_LOADED_MESSAGE;
+                dom['dm-error'].classList.remove('hidden');
+                return;
+            }
+
+            // แถวเดิมที่ฟอร์มไม่ได้แสดงส่งกลับไปตามเดิม (ดู cutRowsNotShown) พร้อมหมายเหตุเดียวกับแถวอื่น
+            const damageNote = textValue(dom['dm-note'].value, '');
             const payload = {
                 sheetName: 'data',
                 JobID: job.jobId,
-                rows
+                rows: rows.concat(damageHiddenRows.map(row => ({ ...cutRowForResave(row, rowValue), 'หมายเหตุ': damageNote })))
             };
 
             if (!rows.length) {
@@ -1075,7 +1138,7 @@
                 dom['dm-success'].textContent = `บันทึกสำเร็จ ${rows.length} รายการ`;
                 dom['dm-success'].classList.remove('hidden');
                 dom['dm-submitBtn'].textContent = '✓ บันทึกแล้ว';
-                damageDataRows = await fetchOptionalRows(DATA_CSV_URL);
+                damageDataRows = await fetchDamageDataRows();
                 setTimeout(closeDamageModal, 1100);
             } catch (error) {
                 dom['dm-error'].textContent = `บันทึกไม่สำเร็จ: ${error.message}`;
