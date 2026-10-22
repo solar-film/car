@@ -1005,6 +1005,11 @@ document.addEventListener('DOMContentLoaded',()=>{
         const CUSTOMER_SHEET_NAME = 'Customer';
         const WRITE_TOKEN_KEY = 'carCrmWriteToken';
 
+        // Sheet values are untrusted text (LINE/Facebook names arrive automatically): escape them before building HTML.
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+        }
+
         function readWriteToken() {
             try {
                 return String(localStorage.getItem(WRITE_TOKEN_KEY) || '').trim();
@@ -1333,13 +1338,14 @@ document.addEventListener('DOMContentLoaded',()=>{
 
         // Generate badge color based on channel
         function getChannelBadge(channel) {
+            channel = String(channel ?? '');
             let bg = 'bg-slate-100 text-slate-700 border-slate-200';
             if(channel.includes('Line')) bg = 'bg-green-50 text-green-700 border-green-200';
             else if(channel.includes('Facebook') || channel.includes('FB')) bg = 'bg-blue-50 text-blue-700 border-blue-200';
             else if(channel.includes('Tiktok')) bg = 'bg-slate-800 text-white border-slate-700';
-            else if(['ig','instagram'].includes(String(channel).toLowerCase())) bg = 'bg-purple-50 text-purple-700 border-purple-200';
-            
-            return `<span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${bg}">${channel}</span>`;
+            else if(['ig','instagram'].includes(channel.toLowerCase())) bg = 'bg-purple-50 text-purple-700 border-purple-200';
+            const label = channel.replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+            return `<span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${bg}">${label}</span>`;
         }
 
         function syncBookingCustomerHighlight() {
@@ -1357,6 +1363,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 
         function handleCustomerRowActivation(event) {
             const row = event.target.closest('tr[data-customer-id]');
+            // Row buttons pass the customer through data attributes, never through script text built from sheet values.
+            const action = event.target.closest('button[data-customer-action]')?.dataset?.customerAction;
+            if (row && event.type === 'click' && (action === 'booking' || action === 'cases')) {
+                (action === 'booking' ? openBookingModal : openCasesModal)(row.dataset.customerId, row.dataset.customerName || '');
+                return;
+            }
             if (!row || event.target.closest('button, a, input, select, textarea, [role="button"]')) return;
             if (event.type === 'keydown') {
                 if (event.target !== row || !['Enter', ' '].includes(event.key)) return;
@@ -1395,45 +1407,44 @@ document.addEventListener('DOMContentLoaded',()=>{
                 const caseBadge = caseCount > 0
                     ? `<span class="inline-flex items-center justify-center min-w-[1.35rem] h-5 px-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">${caseCount}</span>`
                     : `<span class="inline-flex items-center justify-center min-w-[1.35rem] h-5 px-1.5 rounded-full bg-slate-50 text-slate-400 border border-slate-200 text-[11px] font-medium">0</span>`;
-                const safeId = String(c.id || '').replace(/'/g, "\\'");
-                const safeName = String(c.name || '').replace(/'/g, "\\'");
-                const rowId = String(c.id || '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+                const rowId = escapeHtml(c.id || '');
+                const empty = '<span class="text-slate-300">-</span>';
                 return `
-                <tr data-customer-id="${rowId}" data-customer-phone="${c.phoneClean}" tabindex="0" title="แก้ไขข้อมูลลูกค้า" aria-label="แก้ไขข้อมูลลูกค้า ${rowId}" aria-haspopup="dialog" aria-controls="customerDrawer" class="${isEditing ? 'customer-row-editing' : 'hover:bg-slate-50/80'} transition-colors group">
+                <tr data-customer-id="${rowId}" data-customer-name="${escapeHtml(c.name || '')}" data-customer-phone="${escapeHtml(c.phoneClean)}" tabindex="0" title="แก้ไขข้อมูลลูกค้า" aria-label="แก้ไขข้อมูลลูกค้า ${rowId}" aria-haspopup="dialog" aria-controls="customerDrawer" class="${isEditing ? 'customer-row-editing' : 'hover:bg-slate-50/80'} transition-colors group">
                     <td class="px-2 py-1.5 text-center">
-                        <button type="button" onclick="openBookingModal('${safeId}','${safeName}')" class="customer-booking-trigger inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm hover:shadow-md" title="เพิ่มคิวใหม่" aria-label="เพิ่มคิวใหม่" aria-controls="bookingModal" aria-expanded="false">
+                        <button type="button" data-customer-action="booking" class="customer-booking-trigger inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm hover:shadow-md" title="เพิ่มคิวใหม่" aria-label="เพิ่มคิวใหม่" aria-controls="bookingModal" aria-expanded="false">
                             <i class="fas fa-calendar-plus text-[20px]" aria-hidden="true"></i>
                         </button>
                     </td>
                     <td class="px-2 py-1.5 text-center">
-                        <button type="button" onclick="openCasesModal('${safeId}','${safeName}')" class="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md hover:bg-emerald-50 focus-visible:outline-blue-600" title="ดูรายละเอียดเคส" aria-label="ดูรายละเอียดเคส ${caseCount} รายการ">
+                        <button type="button" data-customer-action="cases" class="inline-flex min-h-9 min-w-9 items-center justify-center rounded-md hover:bg-emerald-50 focus-visible:outline-blue-600" title="ดูรายละเอียดเคส" aria-label="ดูรายละเอียดเคส ${caseCount} รายการ">
                             ${caseBadge}
                         </button>
                     </td>
                     <td class="px-2 py-1.5">
-                        <div class="truncate font-semibold text-slate-900">${c.name}</div>
-                        <div class="font-mono text-[9px] text-slate-400">${c.id}</div>
+                        <div class="truncate font-semibold text-slate-900">${escapeHtml(c.name)}</div>
+                        <div class="font-mono text-[9px] text-slate-400">${escapeHtml(c.id)}</div>
                     </td>
                     <td class="px-2 py-1.5 font-mono text-slate-700 text-xs">
-                        <div class="truncate" title="${c.phone || ''}">${c.phone}</div>
+                        <div class="truncate" title="${escapeHtml(c.phone || '')}">${escapeHtml(c.phone)}</div>
                     </td>
                     <td class="px-2 py-1.5">
                         ${getChannelBadge(c.channel)}
-                        ${c.contactName && c.contactName !== '-' ? `<div class="truncate text-[11px] leading-tight text-slate-400" title="${c.contactName}">${c.contactName}</div>` : ''}
+                        ${c.contactName && c.contactName !== '-' ? `<div class="truncate text-[11px] leading-tight text-slate-400" title="${escapeHtml(c.contactName)}">${escapeHtml(c.contactName)}</div>` : ''}
                     </td>
                     <td class="px-3 py-1.5 text-slate-600 text-xs">
-                        <div class="customer-cell-two-lines max-w-[130px]" title="${c.billingName}">${c.billingName !== '-' ? c.billingName : '<span class="text-slate-300">-</span>'}</div>
+                        <div class="customer-cell-two-lines max-w-[130px]" title="${escapeHtml(c.billingName)}">${c.billingName !== '-' ? escapeHtml(c.billingName) : empty}</div>
                     </td>
                     <td class="px-3 py-1.5 text-slate-600 text-xs align-middle">
-                        <div class="customer-cell-two-lines max-w-[250px]" title="${c.address || ''}">${c.address && c.address !== '-' ? c.address : '<span class="text-slate-300">-</span>'}</div>
+                        <div class="customer-cell-two-lines max-w-[250px]" title="${escapeHtml(c.address || '')}">${c.address && c.address !== '-' ? escapeHtml(c.address) : empty}</div>
                     </td>
                     <td class="px-3 py-1.5 text-slate-600 text-xs align-middle">
-                        <div class="customer-cell-two-lines max-w-[190px]" title="${c.note || ''}">${c.note && c.note !== '-' ? c.note : '<span class="text-slate-300">-</span>'}</div>
+                        <div class="customer-cell-two-lines max-w-[190px]" title="${escapeHtml(c.note || '')}">${c.note && c.note !== '-' ? escapeHtml(c.note) : empty}</div>
                     </td>
                     <td class="px-2 py-1.5 text-slate-600 text-xs">
-                        <div class="truncate max-w-[125px]" title="${c.firstKnown || ''}">${c.firstKnown && c.firstKnown !== '-' ? c.firstKnown : '<span class="text-slate-300">-</span>'}</div>
+                        <div class="truncate max-w-[125px]" title="${escapeHtml(c.firstKnown || '')}">${c.firstKnown && c.firstKnown !== '-' ? escapeHtml(c.firstKnown) : empty}</div>
                     </td>
-                    <td class="px-3 py-1.5 text-xs text-slate-500 whitespace-nowrap">${c.date}</td>
+                    <td class="px-3 py-1.5 text-xs text-slate-500 whitespace-nowrap">${escapeHtml(c.date)}</td>
                 </tr>`;
             }).join('');
             tbody.innerHTML = html;
@@ -1956,11 +1967,11 @@ document.addEventListener('DOMContentLoaded',()=>{
             }
             list.innerHTML = options.map(opt => {
                 const checked = installPosSelected.has(opt) ? 'checked' : '';
-                const escaped = opt.replace(/"/g, '&quot;');
+                const escaped = escapeHtml(opt);
                 return `
                 <label class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors">
                     <input type="checkbox" value="${escaped}" ${checked} onchange="toggleInstallPos(this)" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-2">
-                    <span class="text-sm text-slate-700">${opt}</span>
+                    <span class="text-sm text-slate-700">${escaped}</span>
                 </label>`;
             }).join('');
         }
@@ -1995,12 +2006,16 @@ document.addEventListener('DOMContentLoaded',()=>{
                 label.className = 'flex flex-wrap gap-1 items-center flex-1 min-w-0';
                 label.innerHTML = selected.map(s =>
                     `<span class="inline-flex items-center gap-1 rounded-md bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-medium">
-                        ${s}
-                        <button type="button" onclick="event.stopPropagation(); removeInstallPos('${s.replace(/'/g, "\\'")}')" class="hover:bg-blue-200 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center">
+                        ${escapeHtml(s)}
+                        <button type="button" data-remove-install-pos="${escapeHtml(s)}" class="hover:bg-blue-200 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center">
                             <i class="fas fa-times text-[9px]"></i>
                         </button>
                     </span>`
                 ).join('');
+                label.querySelectorAll('button[data-remove-install-pos]').forEach(button => button.addEventListener('click', event => {
+                    event.stopPropagation();
+                    removeInstallPos(button.dataset.removeInstallPos);
+                }));
             }
         }
 
@@ -2038,11 +2053,11 @@ document.addEventListener('DOMContentLoaded',()=>{
             const panel = document.getElementById('bk-discountCodePanel');
             panel.innerHTML = DISCOUNT_CODE_OPTIONS.map(opt => {
                 const checked = discountCodeSelected.has(opt) ? 'checked' : '';
-                const escaped = opt.replace(/"/g, '&quot;');
+                const escaped = escapeHtml(opt);
                 return `
                 <label class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-blue-50 transition-colors">
                     <input type="checkbox" value="${escaped}" ${checked} onchange="toggleDiscountCode(this)" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-2">
-                    <span class="text-sm text-slate-700">${opt}</span>
+                    <span class="text-sm text-slate-700">${escaped}</span>
                 </label>`;
             }).join('');
         }
@@ -2071,12 +2086,16 @@ document.addEventListener('DOMContentLoaded',()=>{
                 label.className = 'flex flex-wrap gap-1 items-center flex-1 min-w-0';
                 label.innerHTML = arr.map(s =>
                     `<span class="inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-700 px-2 py-0.5 text-xs font-medium">
-                        ${s}
-                        <button type="button" onclick="event.stopPropagation(); removeDiscountCode('${s.replace(/'/g, "\\'")}')" class="hover:bg-amber-200 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center">
+                        ${escapeHtml(s)}
+                        <button type="button" data-remove-discount-code="${escapeHtml(s)}" class="hover:bg-amber-200 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center">
                             <i class="fas fa-times text-[9px]"></i>
                         </button>
                     </span>`
                 ).join('');
+                label.querySelectorAll('button[data-remove-discount-code]').forEach(button => button.addEventListener('click', event => {
+                    event.stopPropagation();
+                    removeDiscountCode(button.dataset.removeDiscountCode);
+                }));
             }
         }
 
@@ -2162,8 +2181,6 @@ document.addEventListener('DOMContentLoaded',()=>{
                 return num.toLocaleString('en-US');
             };
 
-            const safeCustId = String(custId).replace(/'/g, "\\'");
-            const safeCustName = String(custName).replace(/'/g, "\\'");
             body.innerHTML = `
                 <div class="overflow-x-auto rounded-xl border border-slate-200">
                     <table class="w-full text-sm">
@@ -2183,24 +2200,23 @@ document.addEventListener('DOMContentLoaded',()=>{
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             ${sorted.map(c => {
-                                const safeJobId = String(c.jobId || '').replace(/'/g, "\\'");
                                 return `
                                 <tr class="hover:bg-emerald-50/40">
-                                    <td class="px-3 py-3 whitespace-nowrap">${c.installDate || '-'}</td>
-                                    <td class="px-3 py-3 whitespace-nowrap font-mono text-xs">${c.apptTime || '-'}</td>
-                                    <td class="px-3 py-3">${c.carModel || '-'}</td>
-                                    <td class="px-3 py-3 font-mono text-xs">${c.plate || '-'}</td>
-                                    <td class="px-3 py-3 text-xs text-slate-600 max-w-[160px]" title="${c.installPos || ''}">${c.installPos || '-'}</td>
-                                    <td class="px-3 py-3 text-xs">${c.filmBrand || '-'}</td>
+                                    <td class="px-3 py-3 whitespace-nowrap">${escapeHtml(c.installDate || '-')}</td>
+                                    <td class="px-3 py-3 whitespace-nowrap font-mono text-xs">${escapeHtml(c.apptTime || '-')}</td>
+                                    <td class="px-3 py-3">${escapeHtml(c.carModel || '-')}</td>
+                                    <td class="px-3 py-3 font-mono text-xs">${escapeHtml(c.plate || '-')}</td>
+                                    <td class="px-3 py-3 text-xs text-slate-600 max-w-[160px]" title="${escapeHtml(c.installPos || '')}">${escapeHtml(c.installPos || '-')}</td>
+                                    <td class="px-3 py-3 text-xs">${escapeHtml(c.filmBrand || '-')}</td>
                                     <td class="px-3 py-3 text-right font-mono font-semibold text-emerald-700">${c.sales ? formatNum(c.sales) : '-'}</td>
                                     <td class="px-3 py-3 text-center">
-                                        <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${typeColor(c.custType)}">${c.custType || '-'}</span>
+                                        <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${typeColor(c.custType)}">${escapeHtml(c.custType || '-')}</span>
                                     </td>
                                     <td class="px-3 py-3 text-center">
-                                        <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${statusColor(c.status)}">${c.status || '-'}</span>
+                                        <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${statusColor(c.status)}">${escapeHtml(c.status || '-')}</span>
                                     </td>
                                     <td class="px-3 py-3 text-center">
-                                        <button type="button" onclick="editCase('${safeJobId}','${safeCustId}','${safeCustName}')" class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition-all shadow-sm" title="แก้ไขเคสนี้">
+                                        <button type="button" data-case-job-id="${escapeHtml(c.jobId || '')}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition-all shadow-sm" title="แก้ไขเคสนี้">
                                             <i class="fas fa-edit text-xs"></i>
                                         </button>
                                     </td>
@@ -2216,6 +2232,9 @@ document.addEventListener('DOMContentLoaded',()=>{
                         </tfoot>
                     </table>
                 </div>`;
+            body.querySelectorAll('button[data-case-job-id]').forEach(button => {
+                button.addEventListener('click', () => editCase(button.dataset.caseJobId, custId, custName));
+            });
             document.getElementById('casesModal').classList.remove('hidden');
         }
 
