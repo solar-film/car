@@ -45,6 +45,18 @@
         .damage-table tbody tr {
             transition: background-color 150ms ease;
         }
+
+        #damageModal,
+        #damageDetailModal {
+            padding-top: 16px;
+            padding-bottom: 16px;
+        }
+
+        #damageModal > div,
+        #damageDetailModal > div {
+            max-height: calc(100dvh - 32px);
+            overflow-y: auto;
+        }
     </style>
     <link rel="stylesheet" href="apple-style.css?v=20260520-4">
     <script src="crm-auth.js?v=20261002-1" defer></script>
@@ -92,13 +104,13 @@
     </div>
 
     <div id="damageModal" class="fixed inset-0 z-[9999] hidden min-h-screen items-center justify-center bg-slate-900/60 px-4 backdrop-blur-sm">
-        <div class="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl transition-all">
+        <div role="dialog" aria-modal="true" aria-labelledby="modalTitle" class="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl transition-all">
             <div class="mb-5 flex items-center justify-between">
                 <div>
                     <h2 id="modalTitle" class="text-xl font-bold text-slate-900">เพิ่มความเสียหาย</h2>
                     <p class="mt-1 text-sm text-slate-500">กรอกข้อมูลความเสียหายอื่นๆ ลงในระบบ</p>
                 </div>
-                <button type="button" onclick="closeDamageModal()" class="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
+                <button type="button" onclick="closeDamageModal()" aria-label="ปิดฟอร์มแก้ไข" class="rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
@@ -129,9 +141,10 @@
                 </div>
                 <div>
                     <label for="formCommissionCycle" class="mb-1 block text-sm font-semibold text-slate-700">นำไปหักคอมรอบ</label>
-                    <input id="formCommissionCycle" type="text" readonly class="w-full cursor-default rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700 focus:outline-none">
-                    <p class="mt-1 text-xs text-slate-500">ระบบกำหนดรอบตามวันที่ปัจจุบันอัตโนมัติ (วันที่ 26 ถึง 25)</p>
+                    <select id="formCommissionCycle" required class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"></select>
+                    <p class="mt-1 text-xs text-slate-500">เลือกรอบวันที่ 26 ถึง 25 ได้ โดยรายการเดิมจะใช้รอบที่บันทึกไว้</p>
                 </div>
+                <p id="damageFormError" role="alert" class="hidden text-sm font-medium text-red-600"></p>
                 <div class="mt-6 flex justify-end gap-3 pt-2">
                     <button type="button" onclick="closeDamageModal()" class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">ยกเลิก</button>
                     <button type="submit" id="btnSave" class="flex items-center justify-center rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-800">
@@ -313,7 +326,7 @@
             'commissionCycleFilter', 'searchInput', 'summaryCount', 'summaryAmount', 'summaryMonths',
             'loadingMessage', 'errorMessage',
             'tableWrap', 'damageTableBody', 'damageTableFooter', 'connectionStatus', 'damageStatus',
-            'damageModal', 'modalTitle', 'damageForm', 'formMI_ID', 'formCustID',
+            'damageModal', 'modalTitle', 'damageForm', 'damageFormError', 'formMI_ID', 'formCustID',
             'formItem', 'formAmount', 'formMechanic', 'formNote', 'formCommissionCycle', 'btnSave', 'jobList',
             'damageDetailModal', 'damageDetailContent', 'detailRecordId', 'detailEditButton', 'detailDeleteButton',
             'deleteModal', 'deleteModalText', 'btnConfirmDelete'
@@ -323,6 +336,8 @@
         let globalBookingRows = [];
         let itemToDelete = null;
         let appHasStarted = false;
+        let damageSaveInFlight = false;
+        let damageEditingId = null;
         let writeTokenRequest = null;
         let resolveWriteTokenRequest = null;
         let rejectWriteTokenRequest = null;
@@ -544,11 +559,15 @@
 
         function getCommissionCycleLabel(date = new Date()) {
             const current = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
-            let startYear = current.getFullYear();
-            let startMonth = current.getMonth() + 1;
+            const parts = new Intl.DateTimeFormat('en-GB', {
+                timeZone: 'Asia/Bangkok', year: 'numeric', month: 'numeric', day: 'numeric'
+            }).formatToParts(current);
+            const part = type => Number(parts.find(item => item.type === type).value);
+            let startYear = part('year');
+            let startMonth = part('month');
 
             // รอบปัจจุบัน: วันที่ 26 ของเดือนก่อนถึงวันที่ 25 ของเดือนนี้ หรือวันที่ 26 ของเดือนนี้ถึงวันที่ 25 ของเดือนหน้า
-            if (current.getDate() <= 25) {
+            if (part('day') <= 25) {
                 startMonth -= 1;
                 if (startMonth === 0) {
                     startMonth = 12;
@@ -564,6 +583,21 @@
             }
 
             return `26/${startMonth}/${String(startYear).slice(-2)} - 25/${endMonth}/${String(endYear).slice(-2)}`;
+        }
+
+        function populateDamageCommissionCycles(selectedCycle = getCommissionCycleLabel()) {
+            const cycles = new Set([selectedCycle, ...allRows.map(row => row.commissionCycle).filter(Boolean)]);
+            for (const anchor of [getCommissionCycleLabel(), selectedCycle]) {
+                const start = parseCommissionCycleStart(anchor);
+                if (!start) continue;
+                for (let offset = -12; offset <= 12; offset++) {
+                    cycles.add(getCommissionCycleLabel(new Date(Date.UTC(start.getFullYear(), start.getMonth() + offset, 26, 5))));
+                }
+            }
+            dom.formCommissionCycle.innerHTML = [...cycles]
+                .sort((a, b) => (parseCommissionCycleStart(b)?.getTime() || 0) - (parseCommissionCycleStart(a)?.getTime() || 0))
+                .map(cycle => `<option value="${escapeHtml(cycle)}">${escapeHtml(cycle)}</option>`).join('');
+            dom.formCommissionCycle.value = selectedCycle;
         }
 
         function parseCommissionCycleStart(value) {
@@ -979,7 +1013,7 @@
             `;
         }
 
-        async function fetchOtherDamageData() {
+        async function fetchOtherDamageData({ throwOnError = false } = {}) {
             dom.loadingMessage.classList.remove('hidden');
             dom.errorMessage.classList.add('hidden');
             dom.tableWrap.classList.add('hidden');
@@ -1016,6 +1050,7 @@
                 dom.errorMessage.classList.remove('hidden');
                 dom.connectionStatus.innerText = 'เชื่อมต่อข้อมูลไม่สำเร็จ';
                 dom.damageStatus.innerText = 'ยังโหลดข้อมูลไม่สำเร็จ';
+                if (throwOnError) throw error;
             }
         }
 
@@ -1086,23 +1121,31 @@
                 if (err.message !== 'ยกเลิกการยืนยันสิทธิ์การบันทึก') alert(err.message);
                 throw err;
             } finally {
-                // Not hiding loading here, fetchOtherDamageData will do it
+                dom.loadingMessage.classList.add('hidden');
+                dom.tableWrap.classList.remove('hidden');
             }
         }
 
         function openDamageModal(id = null) {
+            if (damageSaveInFlight) return;
+            const row = id ? allRows.find(r => r.raw.MI_ID === id) : null;
+            if (id && !row) {
+                alert('ไม่พบรายการเดิม กรุณาโหลดข้อมูลใหม่ก่อนแก้ไข');
+                return;
+            }
             dom.damageForm.reset();
+            damageEditingId = id;
+            dom.damageFormError.classList.add('hidden');
             dom.formMI_ID.value = '';
-            dom.formCommissionCycle.value = getCommissionCycleLabel();
+            populateDamageCommissionCycles(row?.commissionCycle || getCommissionCycleLabel());
             
             if (id) {
-                const row = allRows.find(r => r.raw.MI_ID === id);
                 if (row) {
                     dom.modalTitle.innerText = 'แก้ไขความเสียหาย';
                     dom.formMI_ID.value = row.raw.MI_ID || '';
                     dom.formCustID.value = row.raw.CustID || '';
                     dom.formItem.value = row.raw['รายการ'] || '';
-                    dom.formAmount.value = row.raw['มูลค่า'] || '';
+                    dom.formAmount.value = String(row.amount);
                     dom.formMechanic.value = row.raw['ช่าง'] || '';
                     dom.formNote.value = row.raw['หมายเหตุ'] || '';
                     dom.formCommissionCycle.value = row.commissionCycle || getCommissionCycleLabel();
@@ -1117,6 +1160,7 @@
         }
 
         function closeDamageModal() {
+            if (damageSaveInFlight) return;
             dom.damageModal.classList.add('hidden');
             dom.damageModal.classList.remove('flex');
         }
@@ -1177,7 +1221,14 @@
 
         async function saveDamage(event) {
             event.preventDefault();
+            if (damageSaveInFlight || !dom.damageForm.reportValidity()) return;
+            dom.damageFormError.classList.add('hidden');
             const id = dom.formMI_ID.value;
+            if (damageEditingId && id !== damageEditingId) {
+                dom.damageFormError.innerText = 'รหัสรายการไม่ตรงกับรายการที่เปิดแก้ไข กรุณาปิดแล้วเปิดรายการใหม่';
+                dom.damageFormError.classList.remove('hidden');
+                return;
+            }
             const data = {
                 MI_ID: id,
                 CustID: dom.formCustID.value,
@@ -1192,18 +1243,41 @@
             const action = isUpdate ? 'update' : 'insert';
 
             // Disable button
-            dom.btnSave.disabled = true;
+            damageSaveInFlight = true;
+            const formControls = [...dom.damageForm.querySelectorAll('input, select, textarea, button')];
+            formControls.forEach(control => { control.disabled = true; });
             const oldText = dom.btnSave.innerText;
             dom.btnSave.innerText = 'กำลังบันทึก...';
 
+            let saved = false;
             try {
-                await apiPost(action, data);
+                const result = await apiPost(action, data);
+                saved = true;
+                const savedId = textValue(result.id);
+                if (!savedId || (isUpdate && savedId !== id)) throw new Error('รหัสรายการที่ตอบกลับไม่ตรงกับรายการที่บันทึก');
+                // A retry after an insert/readback failure must update the newly created record.
+                dom.formMI_ID.value = savedId;
+                damageEditingId = savedId;
+                await fetchOtherDamageData({ throwOnError: true });
+                const row = allRows.find(item => item.raw.MI_ID === savedId);
+                const matches = row && ['CustID', 'รายการ', 'ช่าง', 'หมายเหตุ', 'นำไปหักคอมรอบ']
+                    .every(key => textValue(row.raw[key]) === textValue(data[key])) && row.amount === parseNumber(data['มูลค่า']);
+                if (!matches) throw new Error('ข้อมูลที่อ่านกลับยังไม่ตรงกับค่าที่บันทึก กรุณาตรวจสอบรายการอีกครั้ง');
+                // Keep an edited record visible when it moves out of the selected cycle/search.
+                if (dom.commissionCycleFilter.value) dom.commissionCycleFilter.value = data['นำไปหักคอมรอบ'];
+                if (!getFilteredRows().some(item => item.raw.MI_ID === savedId)) dom.searchInput.value = '';
+                renderRows();
+                damageSaveInFlight = false;
                 closeDamageModal();
-                await fetchOtherDamageData();
+                openDamageDetail(savedId);
             } catch (err) {
-                console.error(err);
+                dom.damageFormError.innerText = saved
+                    ? `ระบบรับการบันทึกแล้ว แต่ยังยืนยันข้อมูลไม่ได้: ${err.message}`
+                    : err.message;
+                dom.damageFormError.classList.remove('hidden');
             } finally {
-                dom.btnSave.disabled = false;
+                damageSaveInFlight = false;
+                formControls.forEach(control => { control.disabled = false; });
                 dom.btnSave.innerText = oldText;
             }
         }
