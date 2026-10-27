@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         icon.setAttribute('aria-hidden','true');
         wrap.append(icon, input);
     });
-    const icons = {'ลูกค้าใหม่':'user','ลูกค้าเก่า':'user','ลูกค้าเคลม':'shield-alt','งานแก้(ในวัน)':'wrench','ศูนย์':'shield-alt','ร้าน':'store','พี่เมย์':'user','พลอย':'user'};
+    const icons = {'ลูกค้าใหม่':'user','ลูกค้าเก่า':'user','ลูกค้าเคลม':'shield-alt','งานแก้(ในวัน)':'wrench','งานค้าง':'hourglass-half','ศูนย์':'shield-alt','ร้าน':'store','พี่เมย์':'user','พลอย':'user'};
     form.querySelectorAll('.bk-pill').forEach(button => {
         const val = button.dataset.val;
         if (icons[val]) button.insertAdjacentHTML('afterbegin', `<i aria-hidden="true" class="fas fa-${icons[val]}"></i>`);

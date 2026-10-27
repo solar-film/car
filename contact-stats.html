@@ -798,7 +798,7 @@
             if (!response.ok) throw new Error(`Cannot load ${name}`);
             const text = await response.text();
             // Google Returns HTML if query is invalid/sheet missing
-            if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.includes('google.visualization.query')) {
+            if (/^\s*</.test(text) || /google\.visualization\.query/i.test(text)) {
                 throw new Error(`Cannot parse ${name}`);
             }
             return text;
@@ -1011,6 +1011,7 @@
 
         function classifyCustomerType(value) {
             const normalized = normalizeText(value);
+            if (normalized.includes('งานค้าง')) return 'งานค้าง';
             if (!normalized) return '';
             if (normalized.includes('เคลม') || normalized.includes('ปัญหา')) return 'งานเคลม';
             if (normalized.includes('แก้') || normalized.includes('ในวัน')) return 'งานแก้';

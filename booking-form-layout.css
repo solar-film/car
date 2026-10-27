@@ -43,6 +43,11 @@ body.booking-modal-open {overflow:hidden}
 #bookingModal .br-section-body .bk-pill>i {font-size:13px;color:#94a3b8;margin:0}
 #bookingModal .br-section-body .bk-pill.active {color:#1d4ed8;border-color:#5687dd;background:#eaf2ff;box-shadow:none}
 #bookingModal .br-section-body .bk-pill.active>i {color:#4977bd!important}
+#bookingModal .br-section-body .bk-customer-types {grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+#bookingModal .bk-customer-types .bk-pill {padding:6px 4px;gap:4px;white-space:nowrap}
+@container(max-width:439px) {
+    #bookingModal .bk-customer-types .bk-pill>i {display:none}
+}
 #bookingModal .br-dot {height:13px;width:13px;border-radius:50%;flex-shrink:0}
 #bookingModal .br-dot-white {background:#fff;border:1px solid #cbd5e1}
 #bookingModal .br-dot-red {background:#e05265}

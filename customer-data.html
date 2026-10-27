@@ -185,6 +185,7 @@
     <script>
 /* Transfer a lead into the existing customer form; never submit automatically. */
 let customerFromLead = false;
+let customerFromLeadId = '';
 let customerSaveInProgress = false;
 let customerSaveLockedButtons = [];
 
@@ -238,6 +239,7 @@ window.applyLeadCustomerDraft = function () {
     if (!draft?.data || Date.now() - draft.createdAt > 30 * 60 * 1000) return;
     const data = draft.data;
     customerFromLead = true;
+    customerFromLeadId = /^L-\d{6}-[0-9A-F]{3}$/.test(String(draft.leadId || '')) ? String(draft.leadId) : '';
     const set = (id,value) => { const el = document.getElementById(id); if (el) el.value = String(value || ''); };
     set('custName',data.name); set('phone',data.phone); set('contactName',data.contact);
     const extra = [['รถยนต์',[data.carBrand,data.carModel].filter(Boolean).join(' ')],['ตำแหน่งติดตั้ง',data.positions],['ฟิล์มที่สนใจ',[data.filmBrand,data.filmModel].filter(Boolean).join(' ')],['งบประมาณ',data.budget],['ผู้ดูแล',data.admin]];
@@ -255,8 +257,8 @@ window.applyLeadCustomerDraft = function () {
 };
 
 </script>
-    <link rel="stylesheet" href="booking-form-layout.css?v=20261005-no-clear-1">
-    <script src="booking-form-layout.js?v=20261005-no-clear-1" defer></script>
+    <link rel="stylesheet" href="booking-form-layout.css?v=20261027-type-row-1">
+    <script src="booking-form-layout.js?v=20261027-pending-1" defer></script>
 
 <style>
 .customer-database-page { height:100dvh; min-height:0; overflow:hidden; }
@@ -554,11 +556,12 @@ document.addEventListener('DOMContentLoaded',()=>{
                 <div>
                     <label class="block mb-1.5 text-xs font-semibold text-slate-700">ประเภทลูกค้า <span class="text-rose-500">*</span></label>
                     <input type="hidden" id="bk-custType" required>
-                    <div class="grid grid-cols-4 gap-2" id="bk-custTypeGroup">
-                        <button type="button" data-val="ลูกค้าใหม่" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">ลูกค้าใหม่</button>
-                        <button type="button" data-val="ลูกค้าเก่า" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">ลูกค้าเก่า</button>
-                        <button type="button" data-val="ลูกค้าเคลม" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">ลูกค้าเคลม</button>
-                        <button type="button" data-val="งานแก้(ในวัน)" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">งานแก้(ในวัน)</button>
+                    <div class="grid bk-customer-types gap-2" id="bk-custTypeGroup">
+                        <button type="button" data-val="ลูกค้าใหม่" title="ลูกค้าใหม่" aria-label="ลูกค้าใหม่" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">ใหม่</button>
+                        <button type="button" data-val="ลูกค้าเก่า" title="ลูกค้าเก่า" aria-label="ลูกค้าเก่า" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">เก่า</button>
+                        <button type="button" data-val="ลูกค้าเคลม" title="ลูกค้าเคลม" aria-label="ลูกค้าเคลม" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">เคลม</button>
+                        <button type="button" data-val="งานแก้(ในวัน)" title="งานแก้(ในวัน)" aria-label="งานแก้(ในวัน)" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">แก้ในวัน</button>
+                        <button type="button" data-val="งานค้าง" title="งานค้าง" aria-label="งานค้าง" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">งานค้าง</button>
                     </div>
                 </div>
 
@@ -1530,6 +1533,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         // รีเซ็ตสถานะของฟอร์มกลับไปเป็น เพิ่มลูกค้าใหม่
         function resetForm() {
             customerFromLead = false;
+            customerFromLeadId = '';
             document.getElementById('customerLeadHint').hidden = true;
             window.CarFirstKnownOptions.populate(document.getElementById('firstKnown'), '');
             currentEditingPhone = null;
@@ -1551,6 +1555,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                 : allCustomers.find(c => c.phoneClean === phoneClean);
             if (!cust) return;
             customerFromLead = false;
+            customerFromLeadId = '';
             document.getElementById('customerLeadHint').hidden = true;
 
             currentEditingPhone = phoneClean;
@@ -1735,6 +1740,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                 if (result.success) {
                     if (isNewCustomer) customerInsertRequest.id = '';
                     const savedCustomerId = result.id || currentEditingId || '';
+                    const savedLeadId = customerFromLeadId;
                     // ในกรอบของหน้าคิวจอง: ปิดฟอร์มแล้วให้หน้าคิวจองโหลดข้อมูลใหม่เอง
                     if (customerEmbedded) { customerEmbedSaved = true; await closeCustomerDrawer(true); return; }
                     await closeCustomerDrawer(true);
@@ -1743,7 +1749,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                     document.getElementById('searchInput').value = '';
                     await fetchExistingCustomers();
                     if (isNewCustomer && savedCustomerId) {
-                        openBookingModal(savedCustomerId, name);
+                        openBookingModal(savedCustomerId, name, savedLeadId);
                     } else {
                         showAlert('สำเร็จ', 'บันทึกข้อมูลลูกค้าเรียบร้อยแล้ว', 'success');
                     }

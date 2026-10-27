@@ -381,7 +381,7 @@
             'ซันรูฟ-ช่อง1', 'ซันรูฟ-ช่อง2', 'ซันรูฟ-ช่อง3',
             'แครี่บอย-ซ้าย', 'แครี่บอย-ขวา', 'แครี่บอย-หลัง'
         ];
-        const CUSTOMER_TYPE_FILTER_ORDER = ['ลูกค้าใหม่', 'ลูกค้าเก่า', 'ลูกค้าเคลม', 'แก้ในวัน'];
+        const CUSTOMER_TYPE_FILTER_ORDER = ['ลูกค้าใหม่', 'ลูกค้าเก่า', 'ลูกค้าเคลม', 'แก้ในวัน', 'งานค้าง'];
 
         const POSITION_ALIASES = {
             'บานหน้า': ['บานหน้า', 'กระจกหน้า', 'หน้าเต็ม', 'หน้า'],
@@ -737,6 +737,7 @@
         function customerStatusLabel(customerType) {
             const value = textValue(customerType, 'ลูกค้าใหม่');
             const normalized = normalizeHeader(value);
+            if (normalized.includes(normalizeHeader('งานค้าง'))) return 'งานค้าง';
             if (normalized.includes(normalizeHeader('เคลม'))) return 'ลูกค้าเคลม';
             if (normalized.includes(normalizeHeader('แก้'))) return 'แก้ในวัน';
             if (normalized.includes(normalizeHeader('เก่า'))) return 'ลูกค้าเก่า';

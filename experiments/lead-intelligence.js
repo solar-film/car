@@ -50,20 +50,29 @@
     return {ok:true};
   }
   function report(journeys) {
-    const rows = Array.isArray(journeys) ? journeys : [];
-    const seen = new Set(), seenLeads = new Set(), grouped = new Map();
-    for (const row of rows) {
-      if (!validateJourney(row).ok) continue;
-      // Use leadId + jobId to avoid counting repeats of the same booking.
-      const identity = JSON.stringify([normalize(row.leadId),normalize(row.jobId)]);
-      if (seen.has(identity)) continue;
-      seen.add(identity);
+    if (!Array.isArray(journeys)) throw new Error('ต้องส่งรายการ journey ที่อ่านครบแล้ว');
+    const seen = new Map(), seenLeads = new Set(), grouped = new Map();
+    const leadAttribution = new Map();
+    for (const [index,row] of journeys.entries()) {
+      const validation = validateJourney(row);
+      if (!validation.ok) throw new Error('journey แถว ' + (index+1) + ': ' + validation.error);
       const a = attribution(row);
       const key = JSON.stringify([a.source,a.medium,a.campaignId,a.adId]);
+      const leadId = normalize(row.leadId), jobId = normalize(row.jobId);
+      if (leadAttribution.has(leadId) && leadAttribution.get(leadId) !== key) throw new Error('แหล่งที่มาของ Lead ขัดแย้ง กรุณาตรวจข้อมูลก่อนคำนวณ');
+      leadAttribution.set(leadId,key);
+      // One physical booking has one JobID across the entire dataset, including other leads/campaigns.
+      const identity = JSON.stringify(jobId ? ['job',jobId] : ['lead',leadId]);
+      const fingerprint = JSON.stringify([leadId,jobId,key,normalize(row.status),normalize(row.bookedAt),normalize(row.installedAt),row.revenueExVat ?? null]);
+      if (seen.has(identity)) {
+        if (seen.get(identity) !== fingerprint) throw new Error('JobID หรือข้อมูล journey ซ้ำและขัดแย้ง กรุณาตรวจข้อมูลก่อนคำนวณ');
+        continue;
+      }
+      seen.set(identity,fingerprint);
       if (!grouped.has(key)) grouped.set(key,{...a,leads:0,bookings:0,completed:0,revenueExVat:0});
       const g = grouped.get(key);
-      if (!seenLeads.has(normalize(row.leadId))) { g.leads++; seenLeads.add(normalize(row.leadId)); }
-      if (normalize(row.jobId)) g.bookings++;
+      if (!seenLeads.has(leadId)) { g.leads++; seenLeads.add(leadId); }
+      if (jobId) g.bookings++;
       if (row.status === 'completed') {g.completed++;g.revenueExVat+=row.revenueExVat || 0;}
     }
     return [...grouped.values()];

@@ -780,6 +780,7 @@
 
         function classifyCustomerType(value) {
             const normalized = normalizeLookup(value);
+            if (normalized.includes('งานค้าง')) return 'pending';
             if (normalized.includes('เคลม') || normalized.includes('ปัญหา')) return 'claim';
             if (normalized.includes('แก้') || normalized.includes('ในวัน')) return 'fix';
             if (normalized.includes('เก่า')) return 'old';

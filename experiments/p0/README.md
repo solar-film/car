@@ -1,37 +1,59 @@
-# CAR CRM · ชุดตรวจ P0 แบบ offline
+# CAR CRM · P0 regression และ Local Staging
 
-วันที่ 27 ตุลาคม 2569 · เฉพาะ CAR CRM · ยังไม่อนุมัติ merge/deploy
+27 ตุลาคม 2569 · CAR CRM เท่านั้น · Draft / ยังไม่อนุมัติ merge/deploy
 
-ชุดนี้พร้อมให้ตรวจโค้ดและผลทดสอบ แต่ P0 ทั้งระบบยังไม่ผ่านเกณฑ์เปิดใช้งาน: ยังไม่ได้ตรวจ deployment/ชีตจริง และยังมีข้อบกพร่องใน source เดิมตาม [รายงานตรวจ](P0_REVIEW_20261027.md)
+ดู [ผลตรวจและข้อจำกัด](P0_REVIEW_20261027.md) และ [Staging Plan](STAGING_PLAN.md) ชุดนี้มีโค้ดแก้ไขที่เสนอและเครื่องมือทดสอบ ยังไม่ได้เปลี่ยนระบบที่พนักงานใช้
 
-## ทดลองในเครื่อง
+## ตรวจโดยไม่ใช้ credential
 
-ใช้ Node 24 และเปิด terminal ที่ root ของ development checkout:
+ใช้ Node24 ที่ root ของ development checkout:
 
-```powershell
-node experiments/p0/run-checks.cjs
-node experiments/p0/demo.cjs
-```
+    node experiments/p0/run-checks.cjs
+    node experiments/p0/demo.cjs
 
-ไม่ต้องติดตั้ง package หรือกรอก credential คำสั่งเหล่านี้ไม่เปิด server ไม่อ่าน env ไม่เรียก Google/Ads และไม่บันทึกลง Sheets ใช้เฉพาะไฟล์ source กับข้อมูลสมมติในหน่วยความจำ
+ผลล่าสุด: syntax28 ไฟล์ + inline9 scripts ใน4หน้า + assertion script เดิม + **109/109 tests** รวม HTTP loopback ชั่วคราว ไม่เรียก Google/Ads Tests reproduction P0-01/P0-03 ยังแสดงข้อจำกัดที่เปิดอยู่ CI ผ่านไม่ใช่อนุมัติ deploy
 
-`run-checks.cjs` ตรวจ syntax, assertion script เดิม และ `node:test` 71 tests ในสองไฟล์ใหม่ โดย 30 tests รันพฤติกรรม source เดิม/transport/report และ 41 tests ตรวจ audit/preflight ส่วน tests ที่ขึ้นต้น `P0-xx reproduction` ยืนยันว่าปัญหาเดิมยังเกิดขึ้นได้ การที่ tests กลุ่มนี้ผ่าน **ไม่ได้แปลว่าปัญหาได้รับการแก้แล้ว**
+## เปิดหน้าทดสอบด้วยข้อมูลสมมติ
 
-`demo.cjs` แสดงตัวอย่างลูกค้า 1 คน มี 2 Lead และ 2 คิว: สถานะเสร็จสิ้น 1 คิว และคิวนัดอนาคต 1 คิว จึงเห็นความต่างของตัวหารโดยไม่ใช้ข้อมูลลูกค้าจริง
+    npm ci --prefix experiments/p0 --ignore-scripts
+    node experiments/p0/prepare-assets.cjs
+    node experiments/p0/staging-server.cjs
 
-## ขอบเขตของเครื่องมือตรวจ
+เปิด http://127.0.0.1:3193/lead-data.html#leads · บัญชี staging / staging-only ใช้เฉพาะ localhost นี้
 
-- `apps-script-fixture.cjs`: รัน `Code.gs`, `LeadSheet.gs`, `CarContactHistory.gs`, `CarBookingStatusSync.gs` จาก checkout นี้ใน VM; จำลองบริการ Sheets/lock/readback ด้วยหน่วยความจำ
-- `legacy-regression.test.cjs`: ตรวจ retry, รหัสเดิม, stale edit, schema, token, lock, วันที่ พ.ศ., การอ่านรายงานล้มเหลว และทำซ้ำข้อบกพร่องเดิม
-- `staging-audit.cjs`: pure functions `validateStagingConfig(config, productionInventory)` กับ `auditSnapshot(snapshot, expected, asOf)`; ไม่มี I/O หรือการแก้ข้อมูล
-- `synthetic-fixture.cjs`: snapshot สมมติที่คืนสำเนาใหม่ทุกรอบ ไม่ใช้หมายเลขโทรศัพท์จริง
+เซิร์ฟเวอร์เสิร์ฟหน้าเดิมผ่าน allowlist เปลี่ยน endpoint เฉพาะ response ให้ชี้ API ในหน่วยความจำ ใช้ dependencies ในเครื่องและ CSP connect-src self ไม่มี proxy/Production fallback/env/ฐานข้อมูลจริง/Ads/webhook ไม่เสิร์ฟ tmp, backend, tests, snapshot, .local, auth files หรือ node_modules ทั้งชุด
 
-`auditSnapshot` ต้องได้รับ spreadsheet ID, ชื่อแท็บ, gid, headers และขอบเขต snapshot ที่ครบจากผู้ดูแล ไม่ค้นหาแท็บสำรอง ไม่เพิ่มคอลัมน์ และไม่จับคู่ด้วยชื่อ ตัวอย่างมีเพียงคอลัมน์ที่เครื่องมือใช้ตรวจ ส่วน snapshot ที่ได้จริงต้องรักษาคอลัมน์อื่นครบด้วย
+ค่าเริ่มต้นเป็น contract simulator ส่วน writer จาก source snapshot ที่ได้รับอนุมัติต้องระบุ local path เอง:
 
-เมื่อ spreadsheet/schema/primary key ไม่ตรง จะได้ `ok:false` และ `counts:null` เมื่อพบความสัมพันธ์หรือวันที่ที่ต้องตรวจ จะได้ `ok:false` พร้อม issue code/เลขแถวและ counts สำหรับวินิจฉัยเท่านั้น **ห้ามนำ counts ที่ `ok:false` ไปแสดงเป็นรายงานสำเร็จ** ไม่ส่งชื่อ เบอร์โทร หรือค่ารหัสใน issues
+    node experiments/p0/check-source-snapshot.cjs <private-source-directory>
+    node experiments/p0/prepare-backend-candidate.cjs <private-source-directory>
+    node experiments/p0/check-source-snapshot.cjs experiments/p0/.local/backend-candidate
+    node experiments/p0/staging-server.cjs --source-dir experiments/p0/.local/backend-candidate
 
-วันที่รับเข้าเครื่องมือเป็น `YYYY-MM-DD` ค.ศ. ที่ normalize จาก adapter ที่ตรวจแล้ว; `asOf` เป็นวันที่ Asia/Bangkok เครื่องมือนี้ไม่เปลี่ยน format ในชีต ไม่คำนวณยอดขาย VAT กำไร CAC หรือ attribution และ `completed` หมายถึงจำนวนแถวที่ระบุ Status ว่า `เสร็จสิ้น` เท่านั้น ยังไม่ใช่การรับรองงานติดตั้งจริงจากหลักฐานหน้างาน
+Builder เก็บครบ7ไฟล์จาก snapshot ไว้ส่วนตัว เปลี่ยนเฉพาะ carBookingStatusPlan_ ไม่มี .clasp.json และกำหนด deployAllowed:false ห้ามเผยแพร่ .local/source snapshot/config/backups Source97 และ candidate ผ่านอย่างละ12/12 ใช้ memory Sheets/lock/cache และ auth จำลอง ยังไม่ยืนยัน Google permissions/quota/concurrency/integration จริง
 
-`validateStagingConfig` เป็นการตรวจค่าที่ส่งเข้าแบบ offline ต้องมี inventory ของ Production ที่ตรวจครบก่อนใช้ มันไม่ได้เปลี่ยน hardcoded endpoints ในหน้าเว็บและไม่ได้ sandbox browser ให้เอง อย่าใช้ผล `ok:true` เป็นเหตุให้เปิดเว็บที่ยังชี้ Production
+## Fault injection / Backup / Reconciliation
 
-ขั้นตอนจัด staging จริง, การสำรอง, rollback และรายการที่ต้องขออนุมัติอยู่ใน [STAGING_PLAN.md](STAGING_PLAN.md)
+    node experiments/p0/staging-control.cjs status
+    node experiments/p0/staging-control.cjs snapshot before-test.json
+    node experiments/p0/staging-control.cjs fault-on
+    node experiments/p0/staging-control.cjs fault-off
+    node experiments/p0/staging-control.cjs restore before-test.json
+    node experiments/p0/staging-control.cjs reconcile
+
+คำสั่งล็อกปลายทาง 127.0.0.1:3193 สำรองใน .local และ restore ตรวจ readback ตรงทั้งชุด ข้อมูลหายเมื่อหยุด process หากยังไม่ snapshot
+
+reconcile ตรวจทุกแถวสมมติรวมคิวที่ยกเลิก แยก Lead/Customer/Booking/scheduled/inProgress/completed/payment/contactEvent เมื่อ schema/ID/link/history ผิด คืน ok:false และ counts:null ไม่รับรองรายได้หรือรถติดตั้งจริง
+
+auditSnapshot/validateStagingConfig เป็น pure functions สำหรับ inventory/snapshot ที่ผู้ดูแลยืนยันแล้ว ไม่ค้นหาแท็บสำรอง ไม่เปลี่ยน schema ไม่จับคู่ด้วยชื่อ ตัวเลข audit ที่ ok:false ใช้วินิจฉัยเท่านั้น วันที่เข้า audit ต้อง normalize ค.ศ. YYYY-MM-DD ตาม Asia/Bangkok
+
+## ไฟล์หลัก
+
+- fixes.test.cjs: รันฟังก์ชัน frontend จริงที่แก้ read failure/CSV/วันที่/Lead ID และโมดูล JobID ซ้ำ
+- legacy-regression.test.cjs: token/lock/schema/retry/stale edit/history และข้อจำกัดเดิม
+- staging-flow.test.cjs: Lead→Customer→Booking→ติดตั้ง/ยกเลิก, retry, auth/origin, snapshot/restore และ HTTP
+- staging-model.cjs: simulator หรือ writer VM ที่เลือกชัดเจน; wrapper validations บางส่วนไม่ได้แก้ backend จริง
+- staging-schema.cjs: เฉพาะหัวคอลัมน์ที่อ่านยืนยัน ไม่มีข้อมูลลูกค้า/credential
+- reconciliation.cjs/staging-audit.cjs: grain/ID/link/วันที่และหยุดยอดที่ไม่น่าเชื่อถือ
+
+UI คงเมนู/ฟอร์มเดิม คำเตือนใช้สี/ระยะ/radius ตาม DESIGN.html ของ workspace ตรวจ Desktop/Mobile ด้วยข้อมูลสมมติแล้ว ยังต้อง Google Staging และพนักงาน UAT ก่อนรับรอง P0 ทั้งระบบ

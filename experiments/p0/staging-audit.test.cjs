@@ -26,7 +26,7 @@ test('missing production inventory fails closed',() => assert.equal(validateStag
 const run=({snapshot,expected}) => auditSnapshot(snapshot,expected,'2026-10-27');
 test('one customer, two leads and two bookings retain distinct counts and future appointments are not completed',() => {
   const input=sample(),before=JSON.stringify(input),result=run(input);
-  assert.equal(result.ok,true);assert.deepEqual(result.counts,{leads:2,customers:1,bookings:2,payments:1,scheduled:1,completed:1,cancelled:0,unknownStatus:0,legacyBookingsWithoutLead:0,customersWithMultipleBookings:1,customersWithMultipleLeads:1,leadsWithMultipleBookings:0});
+  assert.equal(result.ok,true);assert.deepEqual(result.counts,{leads:2,customers:1,bookings:2,payments:1,scheduled:1,inProgress:0,completed:1,cancelled:0,unknownStatus:0,legacyBookingsWithoutLead:0,customersWithMultipleBookings:1,customersWithMultipleLeads:1,leadsWithMultipleBookings:0});
   assert.equal(JSON.stringify(input),before);
 });
 for (const [name,id] of [['lead','Lead ID'],['Customer','CustID'],['Bookings','JobID'],['PayIn','Pay_ID']]) {

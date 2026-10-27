@@ -56,7 +56,7 @@ function auditSnapshot(snapshot, expected, asOf) {
   if (issues.length) return {ok:false,issues,counts:null};
   const leads=indexes.lead, customers=indexes.Customer, bookings=indexes.Bookings;
   const counts={leads:leads.size,customers:customers.size,bookings:bookings.size,payments:indexes.PayIn.size,
-    scheduled:0,completed:0,cancelled:0,unknownStatus:0,legacyBookingsWithoutLead:0,customersWithMultipleBookings:0,customersWithMultipleLeads:0,leadsWithMultipleBookings:0};
+    scheduled:0,inProgress:0,completed:0,cancelled:0,unknownStatus:0,legacyBookingsWithoutLead:0,customersWithMultipleBookings:0,customersWithMultipleLeads:0,leadsWithMultipleBookings:0};
   const perCustomer=new Map(),perLead=new Map(),customerLeads=new Map(),leadCustomers=new Map(),phones=new Map();
   const phone=value => {const digits=text(value).replace(/\D/g,'');return digits.startsWith('66') && digits.length===11 ? '0'+digits.slice(2) : digits;};
   for (const [i,row] of [...customers.values()].entries()) {
@@ -83,6 +83,7 @@ function auditSnapshot(snapshot, expected, asOf) {
     }
     if (row.Status==='เสร็จสิ้น') {counts.completed++;if (date>asOf) issue('COMPLETED_IN_FUTURE','Bookings',i+2);}
     else if (row.Status==='คิวใหม่') counts.scheduled++;
+    else if (row.Status==='กำลังติดตั้ง') counts.inProgress++;
     else if (row.Status==='ยกเลิก') counts.cancelled++;
     else {counts.unknownStatus++;issue('STATUS_REVIEW_REQUIRED','Bookings',i+2);}
   }

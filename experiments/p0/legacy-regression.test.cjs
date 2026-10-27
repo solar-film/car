@@ -85,12 +85,12 @@ test('legacy booking plan never matches by a customer name alone', () => {
 });
 test('legacy booking plan leaves cancelled bookings alone and blocks customers with missing appointment dates', () => {
   const f=fixture();
-  assert.equal(f.plan([lead('L-SYN-1')],[customer],[booking('J-SYN-1','27/10/2569','ยกเลิก')]).skipped.otherStatus,1);
+  assert.equal(f.plan([lead('L-SYN-1')],[customer],[booking('J-SYN-1','27/10/2569','ยกเลิก')]).plan.length,0);
   assert.equal(f.plan([lead('L-SYN-1')],[customer],[booking('J-SYN-1','')]).skipped.missingDate,1);
 });
-test('P0-02 reproduction: repository planner assigns the latest customer booking to both distinct leads', () => {
+test('P0-02 fixed: explicit Lead ID keeps separate bookings for the same customer', () => {
   const result=fixture().plan([lead('L-SYN-1'),lead('L-SYN-2')],[customer],[booking('J-SYN-1','01/10/2569','เสร็จสิ้น','L-SYN-1'),booking('J-SYN-2','27/10/2569','คิวใหม่','L-SYN-2')]);
-  assert.deepEqual(result.plan.map(p => [p.leadId,p.jobId]),[['L-SYN-1','J-SYN-2'],['L-SYN-2','J-SYN-2']]);
+  assert.deepEqual(result.plan.map(p => [p.leadId,p.jobId]),[['L-SYN-1','J-SYN-1'],['L-SYN-2','J-SYN-2']]);
 });
 
 function extract(file, start, end) {
@@ -114,10 +114,10 @@ for (const page of ['contact-stats.html','sales-summary.html','overview.html']) 
 test('P0-03 reproduction: one nonempty lead row with an invalid date blocks the entire contact report', () => {
   assert.throws(() => summary.summarize([{sheetData:{date:'2026-10-27',channel:'FB'}},{sheetData:{date:'',channel:'Line'}}]),/วันที่/);
 });
-test('P0-04 reproduction: contact CSV reader accepts an HTML login response without a doctype', async () => {
+test('P0-04 fixed: contact CSV reader rejects an HTML login response without a doctype', async () => {
   const c=vm.createContext({sheetCsvUrl:() => 'https://synthetic.invalid',fetch:async () => ({ok:true,text:async () => '<html>synthetic login</html>'})});
   vm.runInContext(extract('contact-stats.html','async function fetchCsvText(name)','async function fetchContactReport()'),c);
-  assert.equal(await c.fetchCsvText('synthetic'),'<html>synthetic login</html>');
+  await assert.rejects(c.fetchCsvText('synthetic'),/Cannot parse/);
 });
 test('cloud Lead read sends the shared session to crmLead and preserves a backend 401 even on HTTP 200', async () => {
   let sent;
@@ -149,8 +149,7 @@ test('dashboard sales inclusion and completed-installation inclusion are separat
   const future={status:'คิวใหม่',customerGroup:'ลูกค้าใหม่',date:new Date('2026-11-01T00:00:00+07:00')};
   assert.equal(c.isOverviewSalesBooking(future),true);assert.equal(c.isCompletedBooking(future),false);
 });
-test('P0-08 reproduction: experimental report counts one JobID twice when attributed to two Lead IDs',() => {
+test('P0-08 fixed: experimental report rejects one JobID attributed to two Lead IDs',() => {
   const L=require('../lead-intelligence.js');
-  const result=L.report(['L-SYN-1','L-SYN-2'].map(leadId => ({leadId,jobId:'J-SYN-1',status:'completed',installedAt:'2026-10-27',revenueExVat:100})));
-  assert.equal(result.reduce((sum,row) => sum+row.completed,0),2);
+  assert.throws(() => L.report(['L-SYN-1','L-SYN-2'].map(leadId => ({leadId,jobId:'J-SYN-1',status:'completed',installedAt:'2026-10-27',revenueExVat:100}))),/ซ้ำและขัดแย้ง/);
 });
