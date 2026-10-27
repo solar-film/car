@@ -780,6 +780,7 @@
 
         function classifyCustomerType(value) {
             const normalized = normalizeText(value);
+            if (normalized.includes('งานค้าง')) return 'งานค้าง';
             if (normalized.includes('เคลม') || normalized.includes('ปัญหา')) return 'งานเคลม';
             if (normalized.includes('แก้') || normalized.includes('ในวัน')) return 'งานแก้';
             if (normalized.includes('เก่า')) return 'ลูกค้าเก่า';

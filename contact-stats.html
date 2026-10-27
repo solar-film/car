@@ -1011,6 +1011,7 @@
 
         function classifyCustomerType(value) {
             const normalized = normalizeText(value);
+            if (normalized.includes('งานค้าง')) return 'งานค้าง';
             if (!normalized) return '';
             if (normalized.includes('เคลม') || normalized.includes('ปัญหา')) return 'งานเคลม';
             if (normalized.includes('แก้') || normalized.includes('ในวัน')) return 'งานแก้';

@@ -580,7 +580,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="film-brands.js"></script>
     <link rel="stylesheet" href="booking-form-layout.css?v=20261005-no-clear-1">
-    <script src="booking-form-layout.js?v=20261005-no-clear-1" defer></script>
+    <script src="booking-form-layout.js?v=20261027-pending-1" defer></script>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
 </head>
 <body class="text-slate-800 auth-locked">
@@ -801,6 +801,7 @@
                             <option value="old">🟡 ลูกค้าเก่า</option>
                             <option value="claim">🔴 เคลม</option>
                             <option value="fix">🟠 งานแก้</option>
+                            <option value="pending">⏳ งานค้าง</option>
                         </select>
                         <button type="button" id="showCancelledToggle" data-active="false" aria-pressed="false" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 whitespace-nowrap transition-colors">แสดงคิวที่ยกเลิก</button>
                         <input type="date" id="dateFilter" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto hidden">
@@ -1197,6 +1198,7 @@
                         <button type="button" data-val="ลูกค้าเก่า" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">ลูกค้าเก่า</button>
                         <button type="button" data-val="ลูกค้าเคลม" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">ลูกค้าเคลม</button>
                         <button type="button" data-val="งานแก้(ในวัน)" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">งานแก้(ในวัน)</button>
+                        <button type="button" data-val="งานค้าง" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">งานค้าง</button>
                     </div>
                 </div>
 
@@ -3355,6 +3357,7 @@
 
         function getCustomerTypeGroup(customerType) {
             const normalized = textValue(customerType, "ไม่ระบุ").toLowerCase();
+            if (normalized.includes('งานค้าง')) return 'pending';
             if (normalized.includes('เคลม')) return 'claim';
             if (normalized.includes('แก้')) return 'fix';
             if (normalized.includes('เก่า')) return 'old';
@@ -3364,6 +3367,9 @@
         // ป้ายประเภทลูกค้า สไตล์ให้เหมือนในรูปตัวอย่าง
         function getCustomerTypeImageBadge(customerType) {
             const group = getCustomerTypeGroup(customerType);
+            if (group === 'pending') {
+                return `<span class="inline-flex items-center rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-600">งานค้าง</span>`;
+            }
             if (group === 'claim') {
                 return `<span class="inline-flex items-center rounded-full bg-rose-50 border border-rose-200 px-2 py-0.5 text-[11px] font-bold text-rose-600">เคลม</span>`;
             }
@@ -3438,7 +3444,7 @@
             const sorted = [...data];
             const summaryByDate = sorted.reduce((result, job) => {
                 const dateKey = job.date || '-';
-                const summary = result[dateKey] ||= { sales: 0, new: 0, old: 0, claim: 0, fix: 0, total: 0 };
+                const summary = result[dateKey] ||= { sales: 0, new: 0, old: 0, claim: 0, fix: 0, pending: 0, total: 0 };
                 const amount = isSalesJob(job) ? Number(job.price) || 0 : 0;
                 summary.sales += amount;
                 if (!isCancelledJob(job)) {
@@ -3460,7 +3466,7 @@
                     const daySummary = summaryByDate[job.date || '-'];
                     const dateSales = daySummary.sales;
                     const dateSalesExVat = Math.round(dateSales / 1.07);
-                    const vehicleCounts = [['new', 'ใหม่'], ['old', 'เก่า'], ['claim', 'เคลม'], ['fix', 'แก้']]
+                    const vehicleCounts = [['new', 'ใหม่'], ['old', 'เก่า'], ['claim', 'เคลม'], ['fix', 'แก้'], ['pending', 'งานค้าง']]
                         .filter(([key]) => daySummary[key] > 0)
                         .map(([key, label]) => `<span class="whitespace-nowrap font-normal text-slate-600">${label} ${daySummary[key]} คัน</span>`)
                         .join('<span class="text-slate-300" aria-hidden="true">•</span>');
@@ -3730,6 +3736,7 @@
                     if (typeFilter === 'old') return isOldCustomerJob(job);
                     if (typeFilter === 'claim') return isClaimCustomerJob(job);
                     if (typeFilter === 'fix') return isFixCustomerJob(job);
+                    if (typeFilter === 'pending') return getCustomerTypeGroup(job.customerType) === 'pending';
                     return true;
                 });
             }

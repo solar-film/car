@@ -147,7 +147,7 @@
             }
 
             .metric-grid {
-                grid-template-columns: repeat(4, minmax(0, 1fr));
+                grid-template-columns: repeat(5, minmax(0, 1fr));
             }
         }
 
@@ -215,6 +215,7 @@
                             <option value="ใหม่">ใหม่</option>
                             <option value="งานเคลม-ปัญหาฟิล์ม">งานเคลม</option>
                             <option value="งานแก้(ในวัน)">งานแก้</option>
+                            <option value="งานค้าง">งานค้าง</option>
                         </select>
                     </div>
                     
@@ -274,6 +275,11 @@
                 <p id="summaryFix" class="metric-value text-amber-700">0</p>
                 <p class="metric-note">งานแก้ทันที</p>
             </article>
+            <article class="metric-card">
+                <p class="metric-label">งานค้าง</p>
+                <p id="summaryPending" class="metric-value">0</p>
+                <p class="metric-note">แยกจากงานติดตั้งใหม่</p>
+            </article>
         </section>
 
 
@@ -324,11 +330,11 @@
         const CAR_MODEL_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(CAR_MODEL_SHEET_NAME)}`;
         const TECH_COMMISSION_ACCESS_KEY = 'technicianCommissionAccess';
 
-        const CUSTOMER_GROUPS = ['ใหม่', 'งานเคลม-ปัญหาฟิล์ม', 'งานแก้(ในวัน)'];
+        const CUSTOMER_GROUPS = ['ใหม่', 'งานเคลม-ปัญหาฟิล์ม', 'งานแก้(ในวัน)', 'งานค้าง'];
         const dom = {};
         const DOM_IDS = [
             'loginForm', 'loginUser', 'loginPass', 'loginError', 'monthFilter',
-            'summaryTotal', 'summaryNew', 'summaryClaim', 'summaryFix',
+            'summaryTotal', 'summaryNew', 'summaryClaim', 'summaryFix', 'summaryPending',
             'loadingMessage', 'errorMessage', 'tableWrap', 'summaryHead', 'summaryBody',
             'lastUpdated', 'connectionStatus',
             'filterMode', 'monthFilterContainer', 'customDateContainer', 'startDateInput', 'endDateInput',
@@ -478,6 +484,7 @@
 
         function classifyCustomerGroup(customerType) {
             const value = normalizeText(customerType);
+            if (value.includes('งานค้าง')) return 'งานค้าง';
             if (value.includes('fix') || value.includes('rework') || value.includes('sameday')) return 'งานแก้(ในวัน)';
             if (value.includes('claim') || value.includes('problem') || value.includes('warranty')) return 'งานเคลม-ปัญหาฟิล์ม';
             if (value.includes('แก้') || value.includes('ในวัน')) return 'งานแก้(ในวัน)';
@@ -614,7 +621,8 @@
                 summaryTotal: total,
                 summaryNew: totals['ใหม่'],
             summaryClaim: totals['งานเคลม-ปัญหาฟิล์ม'],
-                summaryFix: totals['งานแก้(ในวัน)']
+                summaryFix: totals['งานแก้(ในวัน)'],
+                summaryPending: totals['งานค้าง']
             };
 
             Object.entries(values).forEach(([id, value]) => {
@@ -749,7 +757,7 @@
             });
 
             // 1. Calculate overall metrics totals for the summary cards
-            const metrics = { 'ใหม่': 0, 'งานเคลม-ปัญหาฟิล์ม': 0, 'งานแก้(ในวัน)': 0 };
+            const metrics = { 'ใหม่': 0, 'งานเคลม-ปัญหาฟิล์ม': 0, 'งานแก้(ในวัน)': 0, 'งานค้าง': 0 };
             filteredBookings.forEach(b => {
                 const customerType = findField(b, ['ประเภทลูกค้า', 'Customer Type', 'CustomerType', 'customer_type']);
                 const group = classifyCustomerGroup(customerType);
@@ -757,7 +765,7 @@
                     metrics[group] += 1;
                 }
             });
-            const total = metrics['ใหม่'] + metrics['งานเคลม-ปัญหาฟิล์ม'] + metrics['งานแก้(ในวัน)'];
+            const total = Object.values(metrics).reduce((sum, count) => sum + count, 0);
             updateSummaryCards(total, metrics);
 
             // 2. Filter bookings further by selected Type for table rendering
