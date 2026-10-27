@@ -1,0 +1,20 @@
+name: Lead intelligence staging checks
+on:
+  pull_request:
+    paths:
+      - 'experiments/**'
+      - '.github/workflows/lead-intelligence-staging.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check Node version
+        run: node --version
+      - name: Run isolated tests
+        run: node experiments/lead-intelligence.test.js
