@@ -1,4 +1,7 @@
 # CAR CRM — Lead Quality & Attribution staging (not deployed)
+## P0 continuation · 2026-10-27
+Read the [P0 audit and test results](p0/P0_REVIEW_20261027.md) and [staging/backup/rollback plan](p0/STAGING_PLAN.md) before using the proposals below. `node experiments/p0/run-checks.cjs` now runs offline legacy regression and staging guards. The repository's backend sources differ from the local workspace and do not constitute a complete live Apps Script bundle. Reproduction tests confirm open defects, including per-JobID double counting in this experimental module; passing CI is not permission to integrate, merge or deploy.
+
 This change deliberately adds **standalone files only**; none are referenced by the live HTML or Apps Script. No database/schema/data/advertising edits happen in this PR.
 
 ## Audit of existing source (2026-10-27)

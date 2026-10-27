@@ -4,17 +4,26 @@ on:
     paths:
       - 'experiments/**'
       - '.github/workflows/lead-intelligence-staging.yml'
+      - '*.gs'
+      - 'crm-auth.js'
+      - 'lead-data-app.js'
+      - 'contact-report-summary.js'
+      - 'contact-stats.html'
+      - 'sales-summary.html'
+      - 'overview.html'
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   unit:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Check Node version
-        run: node --version
-      - name: Run isolated tests
-        run: node experiments/lead-intelligence.test.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run offline syntax, legacy regression and staging safety checks
+        run: node experiments/p0/run-checks.cjs
