@@ -255,7 +255,7 @@ window.applyLeadCustomerDraft = function () {
 };
 
 </script>
-    <link rel="stylesheet" href="booking-form-layout.css?v=20261005-no-clear-1">
+    <link rel="stylesheet" href="booking-form-layout.css?v=20261027-type-row-1">
     <script src="booking-form-layout.js?v=20261027-pending-1" defer></script>
 
 <style>
@@ -554,12 +554,12 @@ document.addEventListener('DOMContentLoaded',()=>{
                 <div>
                     <label class="block mb-1.5 text-xs font-semibold text-slate-700">ประเภทลูกค้า <span class="text-rose-500">*</span></label>
                     <input type="hidden" id="bk-custType" required>
-                    <div class="grid grid-cols-4 gap-2" id="bk-custTypeGroup">
-                        <button type="button" data-val="ลูกค้าใหม่" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">ลูกค้าใหม่</button>
-                        <button type="button" data-val="ลูกค้าเก่า" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">ลูกค้าเก่า</button>
-                        <button type="button" data-val="ลูกค้าเคลม" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">ลูกค้าเคลม</button>
-                        <button type="button" data-val="งานแก้(ในวัน)" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">งานแก้(ในวัน)</button>
-                        <button type="button" data-val="งานค้าง" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">งานค้าง</button>
+                    <div class="grid bk-customer-types gap-2" id="bk-custTypeGroup">
+                        <button type="button" data-val="ลูกค้าใหม่" title="ลูกค้าใหม่" aria-label="ลูกค้าใหม่" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">ใหม่</button>
+                        <button type="button" data-val="ลูกค้าเก่า" title="ลูกค้าเก่า" aria-label="ลูกค้าเก่า" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">เก่า</button>
+                        <button type="button" data-val="ลูกค้าเคลม" title="ลูกค้าเคลม" aria-label="ลูกค้าเคลม" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">เคลม</button>
+                        <button type="button" data-val="งานแก้(ในวัน)" title="งานแก้(ในวัน)" aria-label="งานแก้(ในวัน)" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">แก้ในวัน</button>
+                        <button type="button" data-val="งานค้าง" title="งานค้าง" aria-label="งานค้าง" onclick="setBtnGroup('bk-custType', this)" class="bk-pill rounded-lg border border-slate-200 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">งานค้าง</button>
                     </div>
                 </div>
 
