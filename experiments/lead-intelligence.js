@@ -11,7 +11,7 @@
     'ไม่ตอบกลับ', 'วันนัดไม่สะดวก', 'ระยะทาง', 'เลือกผู้ให้บริการอื่น', 'อื่น ๆ'
   ]);
   const normalize = v => String(v == null ? '' : v).trim();
-  const validDate = v => /^\d{4}-\d{2}-\d{2}$/.test(normalize(v)) && !Number.isNaN(Date.parse(v + 'T00:00:00Z'));
+  const validDate = v => { const t=normalize(v); if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return false; const d=new Date(t+'T00:00:00Z'); return !Number.isNaN(d.getTime()) && d.toISOString().slice(0,10)===t; };
   function qualify(lead) {
     const l = lead || {};
     const score = (normalize(l.carModel) ? 15 : 0)
@@ -51,7 +51,7 @@
   }
   function report(journeys) {
     const rows = Array.isArray(journeys) ? journeys : [];
-    const seen = new Set(), grouped = new Map();
+    const seen = new Set(), seenLeads = new Set(), grouped = new Map();
     for (const row of rows) {
       if (!validateJourney(row).ok) continue;
       // Use leadId + jobId to avoid counting repeats of the same booking.
@@ -62,7 +62,7 @@
       const key = JSON.stringify([a.source,a.medium,a.campaignId,a.adId]);
       if (!grouped.has(key)) grouped.set(key,{...a,leads:0,bookings:0,completed:0,revenueExVat:0});
       const g = grouped.get(key);
-      g.leads++;
+      if (!seenLeads.has(normalize(row.leadId))) { g.leads++; seenLeads.add(normalize(row.leadId)); }
       if (normalize(row.jobId)) g.bookings++;
       if (row.status === 'completed') {g.completed++;g.revenueExVat+=row.revenueExVat || 0;}
     }
