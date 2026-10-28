@@ -798,7 +798,7 @@
             if (!response.ok) throw new Error(`Cannot load ${name}`);
             const text = await response.text();
             // Google Returns HTML if query is invalid/sheet missing
-            if (text.trim().toLowerCase().startsWith('<!doctype html>') || text.includes('google.visualization.query')) {
+            if (/^\s*</.test(text) || /google\.visualization\.query/i.test(text)) {
                 throw new Error(`Cannot parse ${name}`);
             }
             return text;

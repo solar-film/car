@@ -1,0 +1,32 @@
+name: Lead intelligence staging checks
+on:
+  pull_request:
+    paths:
+      - 'experiments/**'
+      - '.github/workflows/lead-intelligence-staging.yml'
+      - '*.gs'
+      - 'crm-auth.js'
+      - 'lead-data-app.js'
+      - 'lead-data.html'
+      - 'lead-data.css'
+      - 'customer-data.html'
+      - 'contact-report-summary.js'
+      - 'contact-stats.html'
+      - 'sales-summary.html'
+      - 'overview.html'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run offline syntax, legacy regression and staging safety checks
+        run: node experiments/p0/run-checks.cjs

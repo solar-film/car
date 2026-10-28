@@ -1,0 +1,20 @@
+{
+  "name": "car-crm-p0-local-staging",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Offline assets for the isolated CAR CRM staging simulator",
+  "scripts": {
+    "prepare:assets": "node prepare-assets.cjs",
+    "start": "node staging-server.cjs"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "6.4.0",
+    "@phosphor-icons/web": "2.1.1",
+    "chart.js": "4.4.9",
+    "chartjs-plugin-datalabels": "2.2.0",
+    "lucide": "0.468.0",
+    "papaparse": "5.4.1",
+    "tailwindcss": "3.4.17",
+    "xlsx": "0.18.5"
+  }
+}
