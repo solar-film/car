@@ -1,4 +1,6 @@
 # P0 — Independent source acceptance review
+อัปเดต 28 ต.ค.2569: [ผลตรวจล่าสุด](../p0/P0_REVIEW_20261028.md) เพิ่ม direct writer probes ของ private candidate (ผ่าน4/ไม่ผ่าน5) โดยไม่ผ่าน simulator guards; regression ล่าสุด141/141 ส่วน G1–G7 ด้านล่างเป็นผล public checkout ที่ยังผ่าน4/ไม่ผ่าน3 คงแยกกันและยังไม่อนุมัติ release
+
 27 ตุลาคม 2569 · Asia/Bangkok · CAR CRM เท่านั้น
 
 **สถานะ: พร้อมรีวิวชุดโค้ด/Local Staging แต่ยังไม่พร้อมรับรอง Production**

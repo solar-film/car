@@ -1,8 +1,8 @@
 # CAR CRM · P0 regression และ Local Staging
 
-27 ตุลาคม 2569 · CAR CRM เท่านั้น · Draft / ยังไม่อนุมัติ merge/deploy
+28 ตุลาคม 2569 · CAR CRM เท่านั้น · Draft / ยังไม่อนุมัติ merge/deploy
 
-ดู [ผลตรวจและข้อจำกัด](P0_REVIEW_20261027.md) และ [Staging Plan](STAGING_PLAN.md) ชุดนี้มีโค้ดแก้ไขที่เสนอและเครื่องมือทดสอบ ยังไม่ได้เปลี่ยนระบบที่พนักงานใช้
+ดู [ผลตรวจล่าสุด 28 ต.ค.](P0_REVIEW_20261028.md), [ผลเดิม](P0_REVIEW_20261027.md), [ข้อกำหนดกระทบยอด](RECONCILIATION_SPEC.md) และ [Staging Plan](STAGING_PLAN.md) ชุดนี้มีโค้ดแก้ไขที่เสนอและเครื่องมือทดสอบ ยังไม่ได้เปลี่ยนระบบที่พนักงานใช้
 
 ## ตรวจโดยไม่ใช้ credential
 
@@ -11,7 +11,15 @@
     node experiments/p0/run-checks.cjs
     node experiments/p0/demo.cjs
 
-ผลล่าสุด: syntax28 ไฟล์ + inline9 scripts ใน4หน้า + assertion script เดิม + **109/109 tests** รวม HTTP loopback ชั่วคราว ไม่เรียก Google/Ads Tests reproduction P0-01/P0-03 ยังแสดงข้อจำกัดที่เปิดอยู่ CI ผ่านไม่ใช่อนุมัติ deploy
+ผล local ล่าสุด: syntax28 ไฟล์ + inline9 scripts ใน4หน้า + assertion script เดิม + **141/141 tests** รวม HTTP loopback ชั่วคราว ไม่เรียก Google/Ads Tests reproduction P0-01/P0-03 ยังแสดงข้อจำกัดที่เปิดอยู่ CI ผ่านไม่ใช่อนุมัติ deploy
+
+Strict public acceptance ยังคงผ่าน4/ไม่ผ่าน3 รันแยกด้วย `node --test experiments/p0-independent/acceptance-probes.cjs` ส่วน direct candidate probes ต้องระบุ private code.gs ที่ได้รับอนุญาต:
+
+    $env:CAR_P0_SOURCE_SNAPSHOT = (Resolve-Path experiments/p0/.local/backend-candidate/code.gs).Path
+    node --test experiments/p0-independent/direct-writer-probes.cjs
+    Remove-Item Env:CAR_P0_SOURCE_SNAPSHOT
+
+Direct probes เรียก doPost ตรงโดยไม่ผ่าน staging-model guards: ผ่าน4/ไม่ผ่าน5 (exit1) เป็น release blockers ที่เปิดเผย ไม่รวมเป็นผล regression ผ่าน ดูรายละเอียดและ hash ในรายงานล่าสุด ไม่ส่ง private source เข้า CI/Git
 
 ## เปิดหน้าทดสอบด้วยข้อมูลสมมติ
 
@@ -43,7 +51,7 @@ Builder เก็บครบ7ไฟล์จาก snapshot ไว้ส่ว�
 
 คำสั่งล็อกปลายทาง 127.0.0.1:3193 สำรองใน .local และ restore ตรวจ readback ตรงทั้งชุด ข้อมูลหายเมื่อหยุด process หากยังไม่ snapshot
 
-reconcile ตรวจทุกแถวสมมติรวมคิวที่ยกเลิก แยก Lead/Customer/Booking/scheduled/inProgress/completed/payment/contactEvent เมื่อ schema/ID/link/history ผิด คืน ok:false และ counts:null ไม่รับรองรายได้หรือรถติดตั้งจริง
+reconcile ตรวจทุกแถวสมมติรวมคิวที่ยกเลิก แยก Lead/Customer/Booking/scheduled/inProgress/completed/payment/contactEvent เมื่อ schema/ID/link/history/รูปแถว/วันเวลาผิด คืน ok:false และ counts:null ไม่เติมค่าว่างแทนช่องขาด ตรวจวันจริงและแปลง timestamp ตาม Asia/Bangkok ไม่รับรองรายได้หรือรถติดตั้งจริง
 
 auditSnapshot/validateStagingConfig เป็น pure functions สำหรับ inventory/snapshot ที่ผู้ดูแลยืนยันแล้ว ไม่ค้นหาแท็บสำรอง ไม่เปลี่ยน schema ไม่จับคู่ด้วยชื่อ ตัวเลข audit ที่ ok:false ใช้วินิจฉัยเท่านั้น วันที่เข้า audit ต้อง normalize ค.ศ. YYYY-MM-DD ตาม Asia/Bangkok
 
