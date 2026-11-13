@@ -64,126 +64,15 @@
         .team-check-dropdown[open] .team-check-menu {
             display: block;
         }
-
-        /* ส่วนหัวกระชับ (13.11.26) */
-        .tq-head .car-page-heading { gap: 10px; }
-        .tq-head .car-page-heading-icon { width: 36px; height: 36px; border-radius: 12px; }
-        .tq-head .car-page-heading-icon svg { width: 18px; height: 18px; }
-        .tq-head .car-page-heading-title { font-size: 18px; line-height: 1.3; }
-        .tq-head .car-page-heading-subtitle { font-size: 12px; margin-top: 0; }
-
-        /* ช่างแต่ละบาน (เจ้าของสั่ง 13.11.26): ใช้บนมือถือเป็นหลัก · เขียนเป็น CSS ของหน้าเอง เพราะเว็บ ERP ใช้ Tailwind ที่คอมไพล์ไว้ล่วงหน้า
-           และธีม ERP (typography.css) บังคับตัวอักษรเนื้อหา 14px ทั้งเว็บ จึงผูกขนาดตัวอักษรกับ #installerSheet / #ins-picker + !important
-           ให้ใหญ่เฉพาะในหน้าต่างนี้ (ปุ่มใหญ่ อ่านง่ายบนมือถือ) ส่วนอื่นของเว็บยังเป็น 14px */
-        h2.tq-today-title { color: #fff !important; }   /* ธีมเว็บ ERP ทับสีหัวข้อเป็นสีเข้ม (เจ้าของสั่ง 13.11.26: ต้องเป็นสีขาว) */
-        .queue-card[data-job-id] { cursor: pointer; }
-        .queue-card[data-job-id]:focus-visible { outline: 3px solid rgba(37, 99, 235, .4); outline-offset: 2px; }
-        .ins-card-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; padding: 6px 8px; border-radius: 10px; background: #dbeafe; border: 1px solid #bfdbfe; font-size: 12px !important; color: #475569; }
-        .ins-card-sum b { font-weight: 800 !important; color: #0f172a; }
-        .ins-card-sum .ins-card-item { padding: 2px 8px; border-radius: 8px; background: #fff; border: 1px solid #e2e8f0; }
-        .ins-card-empty { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 7px 10px; border-radius: 10px; border: 1px dashed #93c5fd; background: #eff6ff; font-size: 12px !important; font-weight: 700 !important; color: #1d4ed8; }
-        .ins-sheet, .ins-picker { position: fixed; inset: 0; display: none; align-items: flex-end; justify-content: center; background: rgba(2, 6, 23, .6); }
-        .ins-sheet { z-index: 10000; }   /* เหนือป้ายแจ้ง "ข้อมูลจากฐานข้อมูลใหม่" ของเว็บ ERP (z-index 9999) */
-        .ins-picker { z-index: 10001; background: rgba(2, 6, 23, .45); }
-        .ins-sheet.is-open, .ins-picker.is-open { display: flex; }
-        .ins-panel, .ins-pick-panel { display: flex; flex-direction: column; width: 100%; max-width: 480px; max-height: 94vh; overflow: hidden; background: #fff; border-radius: 24px 24px 0 0; box-shadow: 0 -12px 40px rgba(15, 23, 42, .25); }
-        @media (min-width: 640px) {
-            .ins-sheet, .ins-picker { align-items: center; padding: 16px; }
-            .ins-panel, .ins-pick-panel { border-radius: 24px; }
-        }
-        .ins-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 16px 10px; border-bottom: 1px solid #e2e8f0; }
-        .ins-title { color: #0f172a; line-height: 1.3; }
-        .ins-sub { margin-top: 2px; color: #64748b; line-height: 1.4; }
-        .ins-x { display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 12px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; line-height: 1; }
-        .ins-body { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; -webkit-overflow-scrolling: touch; }
-        .ins-car { display: block; width: 124px; height: auto; margin: 0 auto; }
-        .ins-glass { cursor: pointer; }
-        .ins-glass polygon { stroke-width: 1.2; }
-        .ins-g-empty { fill: #f1f5f9; stroke: #64748b; stroke-dasharray: 3 2; }
-        .ins-g-off { fill: #f8fafc; stroke: #cbd5e1; stroke-dasharray: 2 2; }
-        .ins-sum { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 8px 0 2px; }
-        .ins-sum span { padding: 4px 10px; border-radius: 999px; border: 1px solid; }
-        .ins-sum .ins-sum-empty { border-style: dashed; border-color: #94a3b8; color: #475569; font-weight: 700 !important; background: #fff; }
-        .ins-hint { margin: 4px 0 10px; text-align: center; color: #64748b; }
-        .ins-row { display: flex; align-items: stretch; gap: 6px; margin-bottom: 8px; }
-        .ins-row-main { display: flex; flex: 1; min-width: 0; align-items: center; justify-content: space-between; gap: 10px; min-height: 56px; padding: 8px 14px; border-radius: 14px; border: 1.5px solid #cbd5e1; background: #fff; text-align: left; }
-        .ins-row-main.is-empty { border-style: dashed; border-color: #94a3b8; }
-        .ins-row-text { display: flex; min-width: 0; flex-direction: column; }
-        .ins-pane { color: #1e293b; line-height: 1.3; }
-        .ins-film { overflow: hidden; margin-top: 1px; color: #64748b; white-space: nowrap; text-overflow: ellipsis; }
-        .ins-who { flex-shrink: 0; max-width: 55%; text-align: right; line-height: 1.25; }
-        .ins-who-empty { flex-shrink: 0; color: #2563eb; white-space: nowrap; }
-        .ins-del { flex-shrink: 0; width: 46px; border-radius: 14px; border: 1px solid #e2e8f0; background: #fff; color: #94a3b8; }
-        .ins-add { width: 100%; min-height: 50px; margin-top: 2px; border-radius: 14px; border: 1.5px dashed #93c5fd; background: #eff6ff; color: #1d4ed8; }
-        .ins-addform { margin-top: 2px; padding: 12px; border-radius: 14px; border: 1.5px solid #93c5fd; background: #eff6ff; }
-        .ins-addform label { display: block; margin-bottom: 6px; color: #1e3a8a; }
-        .ins-addline { display: flex; gap: 8px; }
-        .ins-addline input { flex: 1; min-width: 0; min-height: 48px; padding: 0 12px; border-radius: 12px; border: 1.5px solid #cbd5e1; background: #fff; color: #0f172a; }
-        .ins-addline input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .2); }
-        .ins-addline .ins-btn { min-width: 76px; }
-        .ins-sugg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-        .ins-sugg button { min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid #cbd5e1; background: #fff; color: #334155; }
-        .ins-linkbtn { margin-top: 8px; min-height: 40px; padding: 0 6px; border: 0; background: none; color: #64748b; }
-        .ins-foot { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid #e2e8f0; background: #f8fafc; }
-        .ins-foot-btns { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
-        .ins-btn { min-height: 50px; border-radius: 14px; border: 1px solid #cbd5e1; background: #fff; color: #334155; }
-        .ins-btn-primary { border-color: #2563eb; background: #2563eb; color: #fff; font-weight: 800 !important; }
-        .ins-btn:disabled { cursor: not-allowed; opacity: .55; }
-        .ins-msg { display: none; margin-bottom: 8px; padding: 8px 12px; border-radius: 12px; text-align: center; background: #f1f5f9; color: #475569; }
-        .ins-msg.is-shown { display: block; }
-        .ins-msg.is-ok { background: #ecfdf5; color: #047857; }
-        .ins-msg.is-error { background: #fef2f2; color: #dc2626; }
-        .ins-msg.is-warn { background: #fffbeb; color: #92400e; }
-        /* ขนาด/ความหนาตัวอักษรในหน้าต่างช่างแต่ละบาน (ชนะ typography.css ของ ERP เฉพาะในหน้าต่างนี้) */
-        :is(#installerSheet, #ins-picker) .ins-title { font-size: 17px !important; font-weight: 800 !important; }
-        :is(#installerSheet, #ins-picker) .ins-sub { font-size: 13px !important; }
-        :is(#installerSheet, #ins-picker) .ins-x { font-size: 24px !important; }
-        :is(#installerSheet, #ins-picker) .ins-sum span { font-size: 13px !important; font-weight: 800 !important; }
-        :is(#installerSheet, #ins-picker) .ins-hint { font-size: 12px !important; }
-        :is(#installerSheet, #ins-picker) .ins-pane { font-size: 15px !important; font-weight: 700 !important; }
-        :is(#installerSheet, #ins-picker) .ins-film { font-size: 12px !important; }
-        :is(#installerSheet, #ins-picker) .ins-who { font-size: 17px !important; font-weight: 800 !important; }
-        :is(#installerSheet, #ins-picker) .ins-who-empty { font-size: 14px !important; font-weight: 700 !important; }
-        :is(#installerSheet, #ins-picker) .ins-del { font-size: 22px !important; }
-        :is(#installerSheet, #ins-picker) .ins-add { font-size: 15px !important; font-weight: 800 !important; }
-        :is(#installerSheet, #ins-picker) .ins-addform label { font-size: 13px !important; font-weight: 700 !important; }
-        :is(#installerSheet, #ins-picker) .ins-addline input { font-size: 16px !important; }
-        :is(#installerSheet, #ins-picker) .ins-sugg button { font-size: 14px !important; font-weight: 600 !important; }
-        :is(#installerSheet, #ins-picker) .ins-linkbtn { font-size: 14px !important; font-weight: 600 !important; }
-        :is(#installerSheet, #ins-picker) .ins-btn { font-size: 16px !important; font-weight: 700 !important; }
-        :is(#installerSheet, #ins-picker) .ins-msg { font-size: 14px !important; font-weight: 700 !important; }
-        :is(#installerSheet, #ins-picker) .ins-name { font-size: 17px !important; font-weight: 800 !important; }
-        :is(#installerSheet, #ins-picker) .ins-name[aria-pressed="true"]::after { font-size: 12px !important; }
-        :is(#installerSheet, #ins-picker) .ins-fill { font-size: 15px !important; font-weight: 600 !important; }
-        :is(#installerSheet, #ins-picker) :is(.ins-who, .ins-fill) span { font-size: inherit !important; font-weight: inherit !important; }
-        .ins-pick-panel { padding: 16px 14px calc(14px + env(safe-area-inset-bottom)); }
-        .ins-pick-panel .ins-head { padding: 0 0 12px; border: 0; }
-        .ins-names { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; overflow: auto; }
-        .ins-name { position: relative; min-height: 54px; padding: 4px; border-radius: 14px; border: 1.5px solid #cbd5e1; background: #fff; color: #0f172a; }
-        .ins-name[aria-pressed="true"] { border-color: #2563eb; background: #2563eb; color: #fff; }
-        .ins-name[aria-pressed="true"]::after { content: "✓"; position: absolute; top: 4px; right: 8px; }
-        .ins-fill { display: flex; align-items: center; gap: 10px; min-height: 48px; margin-top: 10px; color: #334155; }
-        .ins-fill input { width: 22px; height: 22px; accent-color: #2563eb; }
-        .ins-fill[hidden] { display: none; }
-        .ins-pick-panel .ins-foot-btns { margin-top: 10px; }
-        .ins-btn:focus-visible, .ins-name:focus-visible, .ins-row-main:focus-visible, .ins-add:focus-visible, .ins-x:focus-visible, .ins-del:focus-visible { outline: 3px solid rgba(37, 99, 235, .4); outline-offset: 2px; }
-        /* สีประจำช่างในงานนี้ (ตามลำดับที่ปรากฏ) */
-        .ins-c0 { background: #eff6ff; border-color: #2563eb !important; color: #1d4ed8; } .ins-t0 { color: #1d4ed8; } .ins-g-c0 { fill: #93c5fd; stroke: #1d4ed8; }
-        .ins-c1 { background: #f5f3ff; border-color: #7c3aed !important; color: #6d28d9; } .ins-t1 { color: #6d28d9; } .ins-g-c1 { fill: #c4b5fd; stroke: #6d28d9; }
-        .ins-c2 { background: #ecfdf5; border-color: #059669 !important; color: #047857; } .ins-t2 { color: #047857; } .ins-g-c2 { fill: #6ee7b7; stroke: #047857; }
-        .ins-c3 { background: #fff7ed; border-color: #ea580c !important; color: #c2410c; } .ins-t3 { color: #c2410c; } .ins-g-c3 { fill: #fdba74; stroke: #c2410c; }
-        .ins-c4 { background: #fdf2f8; border-color: #db2777 !important; color: #be185d; } .ins-t4 { color: #be185d; } .ins-g-c4 { fill: #f9a8d4; stroke: #be185d; }
-        .ins-c5 { background: #f0fdfa; border-color: #0d9488 !important; color: #0f766e; } .ins-t5 { color: #0f766e; } .ins-g-c5 { fill: #5eead4; stroke: #0f766e; }
     </style>
-    <link rel="stylesheet" href="page-heading.css?v=20261112-1">
+    <link rel="stylesheet" href="page-heading.css?v=20261002-1">
 </head>
 <body class="min-h-screen text-slate-800">
     <main class="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col px-4 py-6 sm:px-6 xl:px-8">
         
         <!-- ส่วนหัวและสรุปตัวเลข -->
-        <!-- ส่วนหัวกระชับ (เจ้าของสั่ง 13.11.26): ชื่อหน้า + จำนวนคิว + รีเฟรช อยู่แถวเดียว -->
-        <header class="tq-head car-page-heading-surface mb-3 overflow-hidden rounded-2xl border border-white/15 bg-white/10 px-3 py-2 shadow-xl shadow-slate-950/20 backdrop-blur-xl sm:px-4">
-            <div class="flex flex-wrap items-center justify-between gap-2">
+        <header class="car-page-heading-surface mb-6 overflow-hidden rounded-[28px] border border-white/15 bg-white/10 p-4 shadow-2xl shadow-slate-950/20 backdrop-blur-xl sm:p-5">
+            <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div class="car-page-heading">
     <div class="car-page-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="images/page-heading-icons.svg#wrench"/></svg></div>
     <div class="car-page-heading-copy">
@@ -196,20 +85,25 @@
     </div>
 </div>
 
-                <!-- จำนวนคิว + รีเฟรช (ชิดขวา) -->
-                <div class="flex items-center gap-2">
-                    <div class="flex items-center gap-1.5 rounded-xl border border-white/70 bg-white/95 px-2.5 py-1.5 shadow-sm">
-                        <i data-lucide="sun" class="h-4 w-4 text-blue-600"></i>
-                        <span class="text-xs font-bold text-slate-500">วันนี้</span>
-                        <span id="todayCount" class="text-base font-extrabold leading-none text-slate-900">-</span>
+                <!-- กล่องสรุปตัวเลข (กระชับขึ้น) -->
+                <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end sm:gap-3">
+                    <div class="flex min-w-0 items-center justify-center gap-2 rounded-2xl border border-white/70 bg-white/95 px-2.5 py-2.5 shadow-sm sm:gap-3 sm:px-4 sm:py-3">
+                        <div class="shrink-0 rounded-xl bg-blue-100 p-2 text-blue-600"><i data-lucide="sun" class="h-5 w-5"></i></div>
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">วันนี้</p>
+                            <p id="todayCount" class="text-xl font-extrabold leading-none text-slate-900">-</p>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-1.5 rounded-xl border border-white/70 bg-white/95 px-2.5 py-1.5 shadow-sm">
-                        <i data-lucide="sunrise" class="h-4 w-4 text-sky-600"></i>
-                        <span class="text-xs font-bold text-slate-500">พรุ่งนี้</span>
-                        <span id="tomorrowCount" class="text-base font-extrabold leading-none text-slate-900">-</span>
+                    <div class="flex min-w-0 items-center justify-center gap-2 rounded-2xl border border-white/70 bg-white/95 px-2.5 py-2.5 shadow-sm sm:gap-3 sm:px-4 sm:py-3">
+                        <div class="shrink-0 rounded-xl bg-sky-100 p-2 text-sky-600"><i data-lucide="sunrise" class="h-5 w-5"></i></div>
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">พรุ่งนี้</p>
+                            <p id="tomorrowCount" class="text-xl font-extrabold leading-none text-slate-900">-</p>
+                        </div>
                     </div>
-                    <button type="button" onclick="fetchQueueData()" title="รีเฟรช" aria-label="รีเฟรช" class="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-blue-500 text-white shadow-md shadow-blue-950/20 transition-colors hover:bg-blue-400">
-                        <i data-lucide="refresh-cw" class="h-4 w-4"></i>
+
+                    <button type="button" onclick="fetchQueueData()" class="flex min-w-0 items-center justify-center gap-1.5 rounded-2xl border border-white/15 bg-blue-500 px-2.5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-950/20 transition-colors hover:bg-blue-400 sm:gap-2 sm:px-4 sm:py-3">
+                        <i data-lucide="refresh-cw" class="h-4 w-4 shrink-0"></i> <span class="truncate">รีเฟรช</span>
                     </button>
                 </div>
             </div>
@@ -236,7 +130,7 @@
                 <div class="bg-blue-600 border-b border-blue-500 px-5 py-3 flex justify-between items-center sticky top-0 z-20">
                     <div class="flex items-center gap-2">
                         <div class="w-2.5 h-2.5 rounded-full bg-white shadow-sm"></div>
-                        <h2 class="tq-today-title font-extrabold text-white">วันนี้</h2>
+                        <h2 class="font-extrabold text-white">วันนี้</h2>
                     </div>
                     <span id="todayTitle" class="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white">-</span>
                 </div>
@@ -318,44 +212,6 @@
         </div>
     </div>
 
-    <!-- ช่างแต่ละบาน (เจ้าของสั่ง 13.11.26): แตะการ์ดคิว → รูปรถย่อ + รายการบาน → แตะบาน → รายชื่อช่าง (เลือกได้หลายคน) -->
-    <div id="installerSheet" class="ins-sheet" role="dialog" aria-modal="true" aria-labelledby="ins-title">
-        <div class="ins-panel">
-            <div class="ins-head">
-                <div style="min-width:0">
-                    <h2 id="ins-title" class="ins-title">ช่างแต่ละบาน</h2>
-                    <p id="ins-sub" class="ins-sub">-</p>
-                </div>
-                <button type="button" class="ins-x" data-ins-close aria-label="ปิด">&times;</button>
-            </div>
-            <div id="ins-body" class="ins-body"></div>
-            <div class="ins-foot">
-                <p id="ins-msg" class="ins-msg" role="status" aria-live="polite"></p>
-                <div class="ins-foot-btns">
-                    <button type="button" class="ins-btn" data-ins-close>ปิด</button>
-                    <button type="button" id="ins-save" class="ins-btn ins-btn-primary" data-ins-save>บันทึก</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div id="ins-picker" class="ins-picker" role="dialog" aria-modal="true" aria-labelledby="ins-pick-title">
-        <div class="ins-pick-panel">
-            <div class="ins-head">
-                <div style="min-width:0">
-                    <h3 id="ins-pick-title" class="ins-title">ใครติดบานนี้</h3>
-                    <p class="ins-sub">เลือกได้หลายคน</p>
-                </div>
-                <button type="button" class="ins-x" data-ins-pick-close aria-label="ปิดรายชื่อช่าง">&times;</button>
-            </div>
-            <div id="ins-pick-names" class="ins-names"></div>
-            <label id="ins-pick-fill-wrap" class="ins-fill" hidden><input type="checkbox" id="ins-pick-fill"> <span id="ins-pick-fill-text"></span></label>
-            <div class="ins-foot-btns">
-                <button type="button" class="ins-btn" data-ins-pick-clear>ล้าง</button>
-                <button type="button" id="ins-pick-ok" class="ins-btn ins-btn-primary" data-ins-pick-ok>ตกลง</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         // เริ่มต้นการใช้งาน Icons
         lucide.createIcons();
@@ -376,10 +232,6 @@
         const FILM_SERIES_CSV_URL = sheetCsvUrl(FILM_SERIES_SHEET_NAME);
         const TEAM_CSV_URL = sheetCsvUrl(TEAM_SHEET_NAME);
         const REASON_CSV_URL = sheetCsvUrl(REASON_SHEET_NAME);
-        const INSTALLER_CSV_URL = sheetCsvUrl('Detail_Installer');
-        // คอลัมน์บานของแผ่น Detail_Installer (ตาม SCHEMA ใน Code.gs และฟอร์ม "ช่างต่อบาน" ของหน้าคิวจอง)
-        const INSTALLER_PANES = ['บานหน้า', 'บานหลัง', 'ประตูหน้า-ซ้าย', 'ประตูหน้า-ขวา', 'ประตูหลัง-ซ้าย', 'ประตูหลัง-ขวา',
-            'บานฟิก-ซ้าย', 'บานฟิก-ขวา', 'ซันรูฟ-ช่อง1', 'ซันรูฟ-ช่อง2', 'แครี่บอย'];
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwH0Vw5qzVO3YDsibqi_EF8KScpL5e0-wp8mYXxgqSj_3wjqH8QG5CyFOse4-Q18o3Rgg/exec';
         const WRITE_TOKEN_KEY = 'carCrmWriteToken';
 
@@ -487,11 +339,6 @@
         let teamOptions = [];
         let reasonOptions = [];
         let currentDamageJobId = null;
-        let installerRows = [];          // แผ่น Detail_Installer
-        let installerLoaded = false;     // โหลดสำเร็จหรือไม่ (ไม่สำเร็จ = ห้ามบันทึก เพราะอาจสร้างแถวซ้ำ)
-        let installerJobId = null;       // งานที่เปิดหน้าเลือกช่างอยู่
-        let installerPick = {};          // บาน → ชื่อช่างที่เลือกในหน้า
-        let installerSaving = false;
 
         function cacheDom() {
             DOM_IDS.forEach(id => {
@@ -842,7 +689,7 @@
                     </div>
 
                     <!-- การ์ดข้อมูล (ดีไซน์กระชับ) -->
-                    <div class="queue-card flex-1 rounded-2xl p-4 transition-all ${getCardClass(row.status)}" data-job-id="${escapeHtml(row.jobId)}" role="button" tabindex="0" aria-label="ระบุช่างแต่ละบาน ${escapeHtml(row.customerName)}">
+                    <div class="queue-card flex-1 rounded-2xl p-4 transition-all ${getCardClass(row.status)}" data-job-id="${escapeHtml(row.jobId)}">
                         
                         <!-- Header การ์ด -->
                         <div class="flex flex-wrap justify-between items-start gap-2 border-b border-slate-50 pb-2 mb-2">
@@ -889,9 +736,7 @@
                             <p class="text-[11px] font-medium">${escapeHtml(row.note)}</p>
                         </div>
                         ` : ''}
-
-                        <!-- ช่างแต่ละบาน (แตะการ์ดเพื่อเลือก) -->
-                        ${installerSummaryHtml(row)}
+                        
                     </div>
                 </div>`;
             }).join('');
@@ -1304,438 +1149,6 @@
             }
         }
 
-        // ============ ช่างแต่ละบาน (เจ้าของสั่ง 13.11.26) ============
-        // แตะการ์ดคิว → หน้าต่าง (มือถือเลื่อนขึ้นจากล่าง): รูปรถย่อ (แตะกระจกได้) + รายการบานปุ่มใหญ่
-        // แตะบาน → รายชื่อช่างเด้งขึ้น เลือกได้หลายคน (เก็บในช่องบานเดิม คั่นด้วย ", ")
-        // บานที่แสดง: บานที่มีฟิล์มในแผ่น Detail_film ของงาน (พร้อมรุ่นฟิล์ม) ถ้าไม่มีใช้ตำแหน่งติดตั้งของคิว + บานที่เคยบันทึกช่าง
-        // บันทึกลง Detail_Installer (หัวตารางตาม SCHEMA) · งานที่มีแถวแล้วแก้แถวเดิมด้วย Ins_ID ไม่สร้างแถวซ้ำ
-        // บานที่เพิ่มเอง (เช่น รถตู้) มีเฉพาะเว็บ Good Group ERP: คอลัมน์ "บานเพิ่มเติม" รูปแบบ "ชื่อบาน: ช่าง, ช่าง; ชื่อบาน: ช่าง"
-        const INSTALLER_EXTRA_COLUMN = 'บานเพิ่มเติม';
-        const INSTALLER_EXTRA_ENABLED = !!window.CarSupabaseBridge;   // เว็บเดิม (Apps Script) ไม่มีคอลัมน์นี้ จึงไม่แสดงปุ่มเพิ่มบาน
-        const INSTALLER_MAIN_PANES = INSTALLER_PANES.slice(0, 6);     // บานหน้า บานหลัง ประตู 4 บาน
-        const INSTALLER_SHORT = { 'ประตูหน้า-ซ้าย': 'ปต.หน้าซ้าย', 'ประตูหน้า-ขวา': 'ปต.หน้าขวา', 'ประตูหลัง-ซ้าย': 'ปต.หลังซ้าย', 'ประตูหลัง-ขวา': 'ปต.หลังขวา' };
-        // รูปรถมองจากด้านบน (viewBox 98 0 120 256): กระจกแต่ละบาน + พื้นที่แตะที่กว้างกว่ากระจกข้าง (กระจกข้างบาง แตะยากบนมือถือ)
-        const INSTALLER_GLASS = {
-            'บานหน้า': '124,58 192,58 185,88 131,88',
-            'บานหลัง': '132,176 184,176 191,198 125,198',
-            'ประตูหน้า-ซ้าย': '117,92 127,94 127,128 117,128',
-            'ประตูหน้า-ขวา': '199,92 189,94 189,128 199,128',
-            'ประตูหลัง-ซ้าย': '117,132 127,132 127,156 117,153',
-            'ประตูหลัง-ขวา': '199,132 189,132 189,156 199,153',
-            'บานฟิก-ซ้าย': '117,159 127,161 127,172 118,171',
-            'บานฟิก-ขวา': '199,159 189,161 189,172 198,171',
-            'ซันรูฟ-ช่อง1': '141,98 175,98 175,128 141,128',
-            'ซันรูฟ-ช่อง2': '141,134 175,134 175,164 141,164',
-            'แครี่บอย': '126,234 190,234 190,252 126,252'
-        };
-        const INSTALLER_GLASS_HIT = {
-            'ประตูหน้า-ซ้าย': '100,90 130,90 130,130 100,130', 'ประตูหน้า-ขวา': '186,90 216,90 216,130 186,130',
-            'ประตูหลัง-ซ้าย': '100,130 130,130 130,157 100,157', 'ประตูหลัง-ขวา': '186,130 216,130 216,157 186,157',
-            'บานฟิก-ซ้าย': '100,157 130,157 130,175 100,175', 'บานฟิก-ขวา': '186,157 216,157 216,175 186,175'
-        };
-        let installerNameOptions = [];
-        let installerExtra = [];         // บานที่เพิ่มเอง [{ name, techs: [] }]
-        let installerShown = [];         // บานมาตรฐานที่แสดงในรายการ
-        let installerAddOpen = false;
-        let installerPickerTarget = null; // { pane } หรือ { extra: ลำดับ }
-        let installerPickerSel = [];
-
-        async function loadInstallerData() {
-            try {
-                const response = await fetch(INSTALLER_CSV_URL);
-                const text = response.ok ? await response.text() : '';
-                const ok = response.ok && !text.trim().toLowerCase().startsWith('<html');
-                installerRows = ok ? await parseCsv(text) : [];
-                installerLoaded = ok;
-            } catch (error) {
-                installerRows = [];
-                installerLoaded = false;
-            }
-        }
-
-        // รายชื่อจากแผ่น "ทีมช่าง" เหมือนฟอร์มขอตัดฟิล์ม แต่ตัดค่าที่ไม่ใช่ชื่อคน (เช่น "เกิดจากฟิล์ม" ที่ใช้เป็นเหตุผลขอตัด)
-        async function loadTeamOptions() {
-            const rows = await fetchOptionalRows(TEAM_CSV_URL);
-            teamOptions = [...new Set(rows.flatMap(row => {
-                const key = findKey(Object.keys(row), ['ทีมช่าง', 'ชื่อทีม', 'ชื่อ']);
-                return key ? splitMultiValue(row[key]) : [];
-            }).filter(Boolean))];
-            installerNameOptions = teamOptions.filter(name => !/^เกิดจาก/.test(name));
-        }
-
-        async function loadDetailFilmRows() {
-            detailFilmRows = await fetchOptionalRows(DETAIL_FILM_CSV_URL);
-        }
-
-        function installerNames(value) {
-            return [...new Set(String(value || '').split(/[,，、]+/).map(name => name.trim()).filter(name => name && name !== '-'))];
-        }
-
-        function installerRowOf(jobId) {
-            const id = normalizeLookupId(jobId);
-            const rows = installerRows.filter(row => normalizeLookupId(findValue(row, ['JobID', 'Job ID'], '')) === id);
-            return rows[rows.length - 1] || null;   // แถวล่าสุดของงาน (ตามลำดับในชีต)
-        }
-
-        // อ่านคอลัมน์แบบตรงชื่อเท่านั้น (findValue จับชื่อบางส่วน อาจหยิบคอลัมน์ผิดบาน)
-        function installerCell(row, column) {
-            const key = Object.keys(row || {}).find(k => normalizeHeader(k) === normalizeHeader(column));
-            const value = key ? textValue(row[key], '') : '';
-            return value === '-' ? '' : value;
-        }
-
-        function installerNamesOf(row) {
-            const map = {};
-            INSTALLER_PANES.forEach(pane => {
-                const names = installerNames(installerCell(row, pane));
-                if (names.length) map[pane] = names;
-            });
-            return map;
-        }
-
-        function parseInstallerExtra(text) {
-            return String(text || '').split(/[;\n]+/).map(part => {
-                const at = part.indexOf(':');
-                const name = (at >= 0 ? part.slice(0, at) : part).trim();
-                return name ? { name, techs: at >= 0 ? installerNames(part.slice(at + 1)) : [] } : null;
-            }).filter(Boolean);
-        }
-
-        function formatInstallerExtra(list) {
-            return list.map(item => item.techs.length ? `${item.name}: ${item.techs.join(', ')}` : item.name).join('; ');
-        }
-
-        function cleanInstallerPaneName(value) {
-            return String(value || '').replace(/[:;,，、\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 30);
-        }
-
-        // บานที่มีฟิล์มของงาน (แถวล่าสุดใน Detail_film) → { บาน: รุ่นฟิล์ม }
-        function installerFilmOf(jobId) {
-            const rows = getDetailFilmRows(jobId);
-            const row = rows[rows.length - 1];
-            const map = {};
-            if (row) INSTALLER_PANES.forEach(pane => { const film = installerCell(row, pane); if (film) map[pane] = film; });
-            return map;
-        }
-
-        function installerPanesFor(job) {
-            const panes = new Set(Object.keys(installerNamesOf(installerRowOf(job.jobId))));
-            const film = Object.keys(installerFilmOf(job.jobId));
-            if (film.length) film.forEach(pane => panes.add(pane));
-            else {
-                String(job.installType || '').split(/[,，、/]+/).map(part => part.trim()).filter(part => part && part !== '-').forEach(part => {
-                    const token = normalizeHeader(part);
-                    const exact = INSTALLER_PANES.find(pane => normalizeHeader(pane) === token);
-                    if (exact) panes.add(exact);
-                    else if (/เต็มคัน|รอบคัน/.test(part)) INSTALLER_MAIN_PANES.forEach(pane => panes.add(pane));
-                    else if (/ซันรูฟ/.test(part)) panes.add('ซันรูฟ-ช่อง1');
-                    else if (/แครี่บอย/.test(part)) panes.add('แครี่บอย');
-                    else matchingDamagePositions(part).forEach(position => { if (INSTALLER_PANES.includes(position)) panes.add(position); });
-                });
-            }
-            return panes.size ? INSTALLER_PANES.filter(pane => panes.has(pane)) : INSTALLER_MAIN_PANES.slice();
-        }
-
-        function installerSummaryHtml(row) {
-            const saved = installerRowOf(row.jobId);
-            const byName = {};
-            const add = (name, pane) => { (byName[name] = byName[name] || []).push(pane); };
-            Object.entries(installerNamesOf(saved)).forEach(([pane, names]) => names.forEach(name => add(name, INSTALLER_SHORT[pane] || pane)));
-            if (INSTALLER_EXTRA_ENABLED) parseInstallerExtra(installerCell(saved, INSTALLER_EXTRA_COLUMN)).forEach(item => item.techs.forEach(name => add(name, item.name)));
-            const groups = Object.entries(byName);
-            if (!groups.length) return '<div class="ins-card-empty"><i data-lucide="hand" style="width:14px;height:14px"></i> แตะเพื่อระบุช่างแต่ละบาน</div>';
-            return `<div class="ins-card-sum"><i data-lucide="users" style="width:14px;height:14px;color:#2563eb"></i>${groups.map(([name, panes]) =>
-                `<span class="ins-card-item"><b>${escapeHtml(name)}</b> ${escapeHtml(panes.join(', '))}</span>`).join('')}</div>`;
-        }
-
-        function setInstallerMessage(text, tone) {
-            const el = document.getElementById('ins-msg');
-            el.textContent = text || '';
-            el.className = 'ins-msg' + (text ? ' is-shown' : '') + (tone ? ` is-${tone}` : '');
-        }
-
-        // สีประจำช่างในงานนี้ ตามลำดับที่ปรากฏ (บานมาตรฐานก่อน แล้วบานที่เพิ่มเอง)
-        function installerColorMap() {
-            const map = {};
-            let next = 0;
-            const add = name => { if (!(name in map)) map[name] = next++ % 6; };
-            INSTALLER_PANES.forEach(pane => (installerPick[pane] || []).forEach(add));
-            installerExtra.forEach(item => item.techs.forEach(add));
-            return map;
-        }
-
-        function installerCarSvg(colors) {
-            const glass = INSTALLER_PANES.map(pane => {
-                const names = installerPick[pane] || [];
-                const cls = names.length ? `ins-g-c${colors[names[0]]}` : installerShown.includes(pane) ? 'ins-g-empty' : 'ins-g-off';
-                const hit = INSTALLER_GLASS_HIT[pane];
-                return `<g class="ins-glass" data-pane="${escapeHtml(pane)}"><title>${escapeHtml(pane)}${names.length ? ' · ' + escapeHtml(names.join(', ')) : ''}</title>` +
-                    `<polygon class="${cls}" points="${INSTALLER_GLASS[pane]}"/>${hit ? `<polygon points="${hit}" fill="transparent" stroke="none"/>` : ''}</g>`;
-            }).join('');
-            return `<svg class="ins-car" viewBox="98 0 120 256" role="img" aria-label="รูปรถ แตะกระจกเพื่อเลือกช่าง">
-                <rect x="108" y="40" width="9" height="34" rx="3" fill="#475569"/><rect x="199" y="40" width="9" height="34" rx="3" fill="#475569"/>
-                <rect x="108" y="160" width="9" height="34" rx="3" fill="#475569"/><rect x="199" y="160" width="9" height="34" rx="3" fill="#475569"/>
-                <ellipse cx="110" cy="90" rx="6" ry="3.5" fill="#94a3b8"/><ellipse cx="206" cy="90" rx="6" ry="3.5" fill="#94a3b8"/>
-                <path d="M130,8 Q158,0 186,8 Q202,13 202,36 L202,200 Q201,222 182,225 L134,225 Q115,222 114,200 L114,36 Q114,13 130,8 Z" fill="#f8fafc" stroke="#64748b" stroke-width="1.2"/>
-                <path d="M126,24 Q158,17 190,24" fill="none" stroke="#cbd5e1"/>
-                <rect x="132" y="92" width="52" height="80" rx="7" fill="#fff" stroke="#cbd5e1"/>
-                ${glass}</svg>`;
-        }
-
-        function renderInstallerSheet(job) {
-            const colors = installerColorMap();
-            const film = installerFilmOf(job.jobId);
-            const counts = {};
-            let empty = 0;
-            const count = names => { if (!names.length) empty += 1; names.forEach(name => { counts[name] = (counts[name] || 0) + 1; }); };
-            installerShown.forEach(pane => count(installerPick[pane] || []));
-            installerExtra.forEach(item => count(item.techs));
-            const summary = Object.entries(counts).map(([name, n]) => `<span class="ins-c${colors[name]}">${escapeHtml(name)} ${n} บาน</span>`).join('') +
-                (empty ? `<span class="ins-sum-empty">ว่าง ${empty} บาน</span>` : '');
-            const who = names => names.length
-                ? `<span class="ins-who">${names.map(name => `<span class="ins-t${colors[name]}">${escapeHtml(name)}</span>`).join(', ')}</span>`
-                : '<span class="ins-who-empty">+ เลือกช่าง</span>';
-            const rowClass = names => names.length ? `ins-c${colors[names[0]]}` : 'is-empty';
-            const rows = installerShown.map(pane => {
-                const names = installerPick[pane] || [];
-                return `<div class="ins-row"><button type="button" class="ins-row-main ${rowClass(names)}" data-pane="${escapeHtml(pane)}">
-                    <span class="ins-row-text"><span class="ins-pane">${escapeHtml(pane)}</span>${film[pane] ? `<span class="ins-film">${escapeHtml(film[pane])}</span>` : ''}</span>${who(names)}</button></div>`;
-            }).join('');
-            const extras = installerExtra.map((item, index) => `<div class="ins-row"><button type="button" class="ins-row-main ${rowClass(item.techs)}" data-extra="${index}">
-                <span class="ins-row-text"><span class="ins-pane">${escapeHtml(item.name)}</span><span class="ins-film">บานที่เพิ่มเอง</span></span>${who(item.techs)}</button>
-                <button type="button" class="ins-del" data-extra-del="${index}" aria-label="ลบ ${escapeHtml(item.name)}">&times;</button></div>`).join('');
-            let add = '';
-            if (INSTALLER_EXTRA_ENABLED && installerAddOpen) {
-                const used = new Set(installerExtra.map(item => item.name));
-                const suggestions = [...new Set(installerRows.flatMap(row => parseInstallerExtra(installerCell(row, INSTALLER_EXTRA_COLUMN)).map(item => item.name)))]
-                    .filter(name => !used.has(name)).slice(0, 12);
-                add = `<div class="ins-addform"><label for="ins-add-name">ชื่อบานที่เพิ่ม</label>
-                    <div class="ins-addline"><input id="ins-add-name" maxlength="30" placeholder="เช่น แถว 3 ซ้าย" autocomplete="off" enterkeyhint="done">
-                    <button type="button" class="ins-btn ins-btn-primary" data-ins-add-ok>เพิ่ม</button></div>
-                    ${suggestions.length ? `<div class="ins-sugg">${suggestions.map(name => `<button type="button" data-ins-sugg="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}</div>` : ''}
-                    <button type="button" class="ins-linkbtn" data-ins-add-cancel>ยกเลิก</button></div>`;
-            } else if (INSTALLER_EXTRA_ENABLED) {
-                add = '<button type="button" class="ins-add" data-ins-add>+ เพิ่มบาน</button>';
-            }
-            document.getElementById('ins-body').innerHTML = `${installerCarSvg(colors)}<div class="ins-sum">${summary}</div>
-                <p class="ins-hint">แตะที่กระจก หรือแตะแถวด้านล่าง</p>${rows}${extras}${add}`;
-        }
-
-        function currentInstallerJob() {
-            return queueRows.find(row => row.jobId === installerJobId) || null;
-        }
-
-        function openInstallerSheet(jobId) {
-            const job = queueRows.find(row => row.jobId === jobId || normalizeLookupId(row.jobId) === normalizeLookupId(jobId));
-            if (!job) return;
-            const saved = installerRowOf(job.jobId);
-            installerJobId = job.jobId;
-            installerPick = installerNamesOf(saved);
-            installerExtra = INSTALLER_EXTRA_ENABLED ? parseInstallerExtra(installerCell(saved, INSTALLER_EXTRA_COLUMN)) : [];
-            installerShown = installerPanesFor(job);
-            installerAddOpen = false;
-            const car = [job.carModel, job.plate].filter(v => v && v !== '-').join(' ');
-            document.getElementById('ins-sub').textContent = [job.customerName, car].filter(v => v && v !== '-').join(' · ');
-            renderInstallerSheet(job);
-            // เว็บ ERP: บัญชีที่ไม่มีสิทธิ์งานติดตั้งดูได้ แต่บันทึกไม่ได้ (Worker ตรวจสิทธิ์ซ้ำทุกครั้ง)
-            const can = document.documentElement.getAttribute('data-car-can');
-            const noRight = INSTALLER_EXTRA_ENABLED && can !== null && !(` ${can} `).includes(' install ');
-            const save = document.getElementById('ins-save');
-            save.disabled = !installerLoaded || noRight;
-            save.textContent = 'บันทึก';
-            if (!installerLoaded) setInstallerMessage('โหลดข้อมูลช่างต่อบานไม่สำเร็จ กดรีเฟรชหน้าก่อนบันทึก (กันข้อมูลซ้ำ)', 'error');
-            else if (noRight) setInstallerMessage('บัญชีนี้ดูได้อย่างเดียว ไม่มีสิทธิ์บันทึกงานติดตั้ง', 'warn');
-            else setInstallerMessage('');
-            document.getElementById('installerSheet').classList.add('is-open');
-            document.body.style.overflow = 'hidden';
-            document.getElementById('ins-body').scrollTop = 0;
-            lucide.createIcons();
-            setTimeout(() => document.querySelector('#installerSheet .ins-x')?.focus({ preventScroll: true }), 60);
-        }
-
-        function closeInstallerSheet() {
-            if (installerSaving) return;
-            closeInstallerPicker();
-            installerJobId = null;
-            document.getElementById('installerSheet').classList.remove('is-open');
-            document.body.style.overflow = '';
-        }
-
-        function installerTargetNames(target) {
-            return target.extra !== undefined ? installerExtra[target.extra].techs : (installerPick[target.pane] || []);
-        }
-
-        function installerEmptyOthers(target) {
-            const panes = installerShown.filter(pane => pane !== target.pane && !(installerPick[pane] || []).length).length;
-            const extras = installerExtra.filter((item, index) => index !== target.extra && !item.techs.length).length;
-            return panes + extras;
-        }
-
-        function openInstallerPicker(target) {
-            if (installerSaving) return;
-            installerPickerTarget = target;
-            installerPickerSel = installerTargetNames(target).slice();
-            const label = target.extra !== undefined ? installerExtra[target.extra].name : target.pane;
-            document.getElementById('ins-pick-title').textContent = `ใครติด ${label}`;
-            document.getElementById('ins-pick-fill').checked = false;
-            renderInstallerPicker();
-            document.getElementById('ins-picker').classList.add('is-open');
-            setTimeout(() => document.querySelector('#ins-pick-names .ins-name')?.focus({ preventScroll: true }), 60);
-        }
-
-        function renderInstallerPicker() {
-            const names = installerNameOptions.slice();
-            installerPickerSel.forEach(name => { if (!names.includes(name)) names.push(name); });   // ชื่อเดิมที่ไม่อยู่ในรายชื่อแล้ว
-            document.getElementById('ins-pick-names').innerHTML = names.length
-                ? names.map(name => `<button type="button" class="ins-name" data-ins-name="${escapeHtml(name)}" aria-pressed="${installerPickerSel.includes(name)}">${escapeHtml(name)}</button>`).join('')
-                : '<p class="ins-sub" style="grid-column:1/-1">ไม่มีรายชื่อช่าง (แผ่น "ทีมช่าง")</p>';
-            const others = installerEmptyOthers(installerPickerTarget);
-            const wrap = document.getElementById('ins-pick-fill-wrap');
-            wrap.hidden = !others;
-            document.getElementById('ins-pick-fill-text').textContent = `ใส่ให้บานที่ยังว่างด้วย (${others} บาน)`;
-            document.getElementById('ins-pick-ok').textContent = installerPickerSel.length ? `ตกลง (${installerPickerSel.length} คน)` : 'ตกลง';
-        }
-
-        function confirmInstallerPicker() {
-            const target = installerPickerTarget;
-            const job = currentInstallerJob();
-            if (!target || !job) return;
-            const names = installerPickerSel.slice();
-            const setNames = (pane, list) => { if (list.length) installerPick[pane] = list.slice(); else delete installerPick[pane]; };
-            if (target.extra !== undefined) installerExtra[target.extra].techs = names;
-            else setNames(target.pane, names);
-            if (names.length && document.getElementById('ins-pick-fill').checked) {
-                installerShown.forEach(pane => { if (!(installerPick[pane] || []).length) setNames(pane, names); });
-                installerExtra.forEach(item => { if (!item.techs.length) item.techs = names.slice(); });
-            }
-            closeInstallerPicker();
-            renderInstallerSheet(job);
-            setInstallerMessage('ยังไม่ได้บันทึก', 'warn');
-        }
-
-        function closeInstallerPicker() {
-            installerPickerTarget = null;
-            document.getElementById('ins-picker').classList.remove('is-open');
-        }
-
-        function addInstallerExtra(value) {
-            const job = currentInstallerJob();
-            if (!job) return;
-            const name = cleanInstallerPaneName(value);
-            if (!name) { document.getElementById('ins-add-name')?.focus(); return; }
-            const standard = INSTALLER_PANES.find(pane => normalizeHeader(pane) === normalizeHeader(name));
-            installerAddOpen = false;
-            if (standard) {   // ชื่อซ้ำบานมาตรฐาน → แสดงบานนั้นแทน ไม่สร้างบานซ้ำ
-                if (!installerShown.includes(standard)) installerShown = INSTALLER_PANES.filter(pane => installerShown.includes(pane) || pane === standard);
-                renderInstallerSheet(job);
-                openInstallerPicker({ pane: standard });
-                return;
-            }
-            let index = installerExtra.findIndex(item => normalizeHeader(item.name) === normalizeHeader(name));
-            if (index < 0) { installerExtra.push({ name, techs: [] }); index = installerExtra.length - 1; }
-            renderInstallerSheet(job);
-            setInstallerMessage('ยังไม่ได้บันทึก', 'warn');
-            openInstallerPicker({ extra: index });
-        }
-
-        async function saveInstallerSheet() {
-            if (installerSaving) return;
-            const job = currentInstallerJob();
-            if (!job) return;
-            if (!installerLoaded) { setInstallerMessage('โหลดข้อมูลช่างต่อบานไม่สำเร็จ กดรีเฟรชหน้าก่อนบันทึก', 'error'); return; }
-            const existing = installerRowOf(job.jobId);
-            const payload = { sheetName: 'Detail_Installer', JobID: job.jobId, 'ตำแหน่งติดตั้ง': job.installType && job.installType !== '-' ? job.installType : '' };
-            INSTALLER_PANES.forEach(pane => { payload[pane] = (installerPick[pane] || []).join(', '); });
-            if (INSTALLER_EXTRA_ENABLED) payload[INSTALLER_EXTRA_COLUMN] = formatInstallerExtra(installerExtra);
-            const insId = existing ? installerCell(existing, 'Ins_ID') : '';
-            if (insId) { payload.action = 'update'; payload.recordId = insId; payload.Ins_ID = insId; }
-            const save = document.getElementById('ins-save');
-            installerSaving = true;
-            save.disabled = true;
-            save.textContent = 'กำลังบันทึก...';
-            setInstallerMessage('กำลังบันทึก...', '');
-            let closeAfter = false;
-            try {
-                const result = await postWithWriteToken(payload);
-                if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
-                // เก็บผลไว้ในหน้า (แถวใหม่ได้ Ins_ID จากผลบันทึก) เพื่อให้บันทึกครั้งต่อไปแก้แถวเดิม ไม่สร้างแถวซ้ำ
-                const row = existing || { Ins_ID: textValue(result.id, ''), JobID: job.jobId };
-                if (!existing) installerRows.push(row);
-                const columns = INSTALLER_EXTRA_ENABLED ? [...INSTALLER_PANES, INSTALLER_EXTRA_COLUMN] : INSTALLER_PANES;
-                columns.forEach(column => {
-                    const key = Object.keys(row).find(k => normalizeHeader(k) === normalizeHeader(column)) || column;
-                    row[key] = payload[column];
-                });
-                renderQueues(queueRows);
-                if (result.verified === false) setInstallerMessage('บันทึกแล้ว แต่ระบบยังยืนยันไม่ได้ กรุณารีเฟรชแล้วตรวจอีกครั้ง', 'warn');
-                else { setInstallerMessage('บันทึกแล้ว', 'ok'); closeAfter = true; }
-            } catch (error) {
-                // แผ่นนี้ไม่มีตัวกันคำขอซ้ำฝั่ง server: ถ้าเพิ่มแถวใหม่แล้วเน็ตหลุด แถวอาจถูกสร้างไปแล้ว
-                // โหลดข้อมูลใหม่ก่อน เพื่อให้กดบันทึกอีกครั้งเป็นการแก้แถวนั้น ไม่สร้างแถวซ้ำ
-                if (!existing) { await loadInstallerData(); renderQueues(queueRows); }
-                setInstallerMessage(`บันทึกไม่สำเร็จ: ${error.message}`, 'error');
-            }
-            setTimeout(() => {
-                installerSaving = false;
-                save.disabled = !installerLoaded;
-                save.textContent = 'บันทึก';
-                if (closeAfter && installerJobId === job.jobId) closeInstallerSheet();   // ไม่ปิดถ้าเปิดงานอื่นไปแล้ว
-            }, closeAfter ? 700 : 0);
-        }
-
-        // ปุ่มทั้งหมดในหน้าต่างช่างแต่ละบาน (ไม่ใช้ onclick ในแท็ก เพราะเว็บ ERP ห้าม inline handler)
-        function handleInstallerClick(target) {
-            const picker = target.closest('#ins-picker');
-            if (picker) {
-                const nameButton = target.closest('[data-ins-name]');
-                if (nameButton) {
-                    const name = nameButton.dataset.insName;
-                    installerPickerSel = installerPickerSel.includes(name) ? installerPickerSel.filter(n => n !== name) : [...installerPickerSel, name];
-                    renderInstallerPicker();
-                    document.querySelector(`#ins-pick-names [data-ins-name="${CSS.escape(name)}"]`)?.focus({ preventScroll: true });
-                } else if (target.closest('[data-ins-pick-ok]')) confirmInstallerPicker();
-                else if (target.closest('[data-ins-pick-clear]')) { installerPickerSel = []; renderInstallerPicker(); }
-                else if (target.closest('[data-ins-pick-close]') || target === picker) closeInstallerPicker();
-                return true;
-            }
-            const sheet = target.closest('#installerSheet');
-            if (!sheet) return false;
-            const job = currentInstallerJob();
-            if (target === sheet || target.closest('[data-ins-close]')) { closeInstallerSheet(); return true; }
-            if (target.closest('[data-ins-save]')) { saveInstallerSheet(); return true; }
-            if (!job || installerSaving) return true;
-            const del = target.closest('[data-extra-del]');
-            if (del) {
-                installerExtra.splice(Number(del.dataset.extraDel), 1);
-                renderInstallerSheet(job);
-                setInstallerMessage('ยังไม่ได้บันทึก', 'warn');
-                return true;
-            }
-            const extra = target.closest('[data-extra]');
-            if (extra) { openInstallerPicker({ extra: Number(extra.dataset.extra) }); return true; }
-            const paneEl = target.closest('[data-pane]');
-            if (paneEl) {
-                const pane = paneEl.getAttribute('data-pane');
-                if (!installerShown.includes(pane)) {   // แตะกระจกจางบนรูปรถ = เพิ่มบานนั้นเข้ารายการ
-                    installerShown = INSTALLER_PANES.filter(p => installerShown.includes(p) || p === pane);
-                    renderInstallerSheet(job);
-                }
-                openInstallerPicker({ pane });
-                return true;
-            }
-            if (target.closest('[data-ins-add]')) {
-                installerAddOpen = true;
-                renderInstallerSheet(job);
-                setTimeout(() => document.getElementById('ins-add-name')?.focus(), 30);
-                return true;
-            }
-            if (target.closest('[data-ins-add-cancel]')) { installerAddOpen = false; renderInstallerSheet(job); return true; }
-            const suggestion = target.closest('[data-ins-sugg]');
-            if (suggestion) { addInstallerExtra(suggestion.dataset.insSugg); return true; }
-            if (target.closest('[data-ins-add-ok]')) { addInstallerExtra(document.getElementById('ins-add-name')?.value); return true; }
-            return true;
-        }
-
         async function fetchQueueData() {
             dom.loadingMessage.classList.remove('hidden');
             dom.errorMessage.classList.add('hidden');
@@ -1744,10 +1157,7 @@
             try {
                 const [bookingRes, customerRes] = await Promise.all([
                     fetch(BOOKING_CSV_URL),
-                    fetch(CUSTOMER_CSV_URL),
-                    loadInstallerData(),
-                    loadTeamOptions(),
-                    loadDetailFilmRows()
+                    fetch(CUSTOMER_CSV_URL)
                 ]);
                 if (!bookingRes.ok || !customerRes.ok) throw new Error('Network Error');
 
@@ -1778,34 +1188,14 @@
         });
 
         window.addEventListener('keydown', event => {
-            const picker = document.getElementById('ins-picker');
-            const installerSheet = document.getElementById('installerSheet');
-            if (event.key === 'Escape' && picker && picker.classList.contains('is-open')) { closeInstallerPicker(); return; }
-            if (event.key === 'Escape' && installerSheet && installerSheet.classList.contains('is-open')) { closeInstallerSheet(); return; }
             if (event.key === 'Escape' && dom.damageModal && !dom.damageModal.classList.contains('hidden')) {
                 closeDamageModal();
-                return;
-            }
-            if (event.key === 'Enter' && event.target && event.target.id === 'ins-add-name') {
-                event.preventDefault();
-                addInstallerExtra(event.target.value);
-                return;
-            }
-            // การ์ดคิวเป็นปุ่ม: Enter / Space เปิดหน้าเลือกช่าง
-            const card = event.target.closest ? event.target.closest('.queue-card[data-job-id]') : null;
-            if (card && event.target === card && (event.key === 'Enter' || event.key === ' ')) {
-                event.preventDefault();
-                openInstallerSheet(card.dataset.jobId);
             }
         });
 
         document.addEventListener('click', event => {
             const activeDropdown = event.target.closest ? event.target.closest('.team-check-dropdown') : null;
             closeTeamDropdowns(activeDropdown);
-            if (!event.target.closest) return;
-            if (handleInstallerClick(event.target)) return;
-            const card = event.target.closest('.queue-card[data-job-id]');
-            if (card && !event.target.closest('a, button, input, select, textarea, details')) openInstallerSheet(card.dataset.jobId);
         });
     </script>
 </body>
