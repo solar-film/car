@@ -66,7 +66,7 @@
             : `<strong class="lead-contact-name" title="${esc(unnamedProfile(row,platform).hint)}">${esc(unnamedProfile(row,platform).label)}</strong>`;
     }
     let session, settings, tab = 'line', page = 0, installationPage = 0, contacts = [], account = core.LINE_ACCOUNT, summary = {total:0,fresh:0,selected:0};
-    let contactPage = 0, sheetLeads = [], leadsFromSnapshot = false;
+    let contactPage = 0, sheetLeads = [], leadsFromSnapshot = false, leadRefreshError = '';
     const followUpStatuses = ['สอบถามใหม่','เลื่อนติดตั้ง','ติดตามผล / รอตัดสินใจ'];
     const followUpAlertDays = 3;
     const normalizeFollowUp = value => {
@@ -152,14 +152,14 @@
         if (!response.ok) throw Object.assign(new Error(result.error || 'ดำเนินการไม่สำเร็จ'), {status:response.status,code:result.code});
         return result;
     }
-    function guard(fn) { return async event => { try { await fn(event); } catch (e) { notice(e.message, true); } }; }
+    function guard(fn) { return async event => { try { await fn(event); } catch (e) { if (!e.carLeadReadHandled) notice(e.message, true); } }; }
     function requireSession() { if (!session) throw new Error('ยังไม่ได้เชื่อมต่อระบบรับข้อมูล CAR กรุณาตรวจการตั้งค่าฝั่งเซิร์ฟเวอร์'); }
     function resetRecords() {
         formOptions.clear(); sheetContactCache.clear(); inboxLoader.clear(); editorOpenRequest++;
         sheetContacts = []; sheetSaved = null; sheetChecked = false; recordsLoaded = false; intakeRecordsRequest = null; inboxLoading = false; inboxIncomplete = false;
         lineProfilesConfigured = undefined;
         instagramError = null;
-        sheetLeads = []; leadsFromSnapshot = false; request++; records = { leads: [], installations: [] }; contacts = []; legacy = []; legacySources = null; session = null;
+        sheetLeads = []; leadsFromSnapshot = false; leadRefreshError = ''; request++; records = { leads: [], installations: [] }; contacts = []; legacy = []; legacySources = null; session = null;
         $('current-user').textContent = 'ยังไม่ได้เชื่อมต่อระบบลีด'; $('signout').hidden = true;
         $('editor').close(); $('legacy-dialog').close(); renderLeads(); renderInstallations(); renderInbox();
     }
@@ -210,23 +210,35 @@
         else await showTab(entryTab);
     }
     async function loadInstallationDates() {
-        const response = await fetch('https://docs.google.com/spreadsheets/d/1u__xYWoWZpmrnquc-Fpk19WtpcrckxSd0-_G35NWxXQ/gviz/tq?tqx=out:csv&sheet=Bookings&tq=' + encodeURIComponent('select A,B,D,T'), {cache:'no-store',signal:AbortSignal.timeout(15000)});
+        // AE is the Lead ID header verified against the current Bookings metadata. Reject a changed schema below.
+        const response = await fetch('https://docs.google.com/spreadsheets/d/1u__xYWoWZpmrnquc-Fpk19WtpcrckxSd0-_G35NWxXQ/gviz/tq?tqx=out:csv&sheet=Bookings&tq=' + encodeURIComponent('select A,B,D,T,AE'), {cache:'no-store',signal:AbortSignal.timeout(15000)});
         if (!response.ok) throw new Error('โหลดวันนัดไม่สำเร็จ');
         const rows = core.csv(await response.text()), dates = new Map();
-        if (rows.length && !Object.hasOwn(rows[0],'CustID')) throw new Error('หัวตารางคิวนัดไม่ตรง');
+        if (rows.length && ['CustID','JobID','Lead ID','วันที่ติดตั้ง','Status'].some(key=>!Object.hasOwn(rows[0],key))) throw new Error('หัวตารางคิวนัดไม่ตรง');
         for (const row of rows) {
             if (!row.JobID || !row.CustID) continue;
             const raw = String(row['วันที่ติดตั้ง'] || '').trim();
             const match = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(raw);
             let date = /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0,10) : '';
             if (match) { let year=Number(match[3]); if(year>2400)year-=543;else if(year<100)year+=year>=40?1957:2000; date=year+'-'+match[2].padStart(2,'0')+'-'+match[1].padStart(2,'0'); }
-            const validDate = date && Number.isFinite(Date.parse(date));
+            const parsedDate = new Date(date+'T00:00:00Z');
+            const validDate = date && Number.isFinite(parsedDate.getTime()) && parsedDate.toISOString().slice(0,10)===date;
             const label = validDate ? new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short',year:'2-digit'}).format(new Date(date+'T00:00:00+07:00')) : raw || 'ยังไม่ระบุวัน';
             const id=String(row.CustID).trim(); if(!dates.has(id))dates.set(id,[]);
-            dates.get(id).push({jobId:row.JobID,date:validDate ? date : '',label,status:row.Status || '',cancelled:/ยกเลิก|cancel/i.test(row.Status || '')});
+            dates.get(id).push({jobId:row.JobID,leadId:String(row['Lead ID']||'').trim(),date:validDate ? date : '',label,status:row.Status || '',cancelled:/ยกเลิก|cancel/i.test(row.Status || '')});
         }
         for (const items of dates.values()) items.sort((a,b) => b.date.localeCompare(a.date) || a.jobId.localeCompare(b.jobId));
         return dates;
+    }
+    function bookingMatchesLead(item,lead) {
+        const owner=String(item['Lead ID']||item.leadId||'').trim();
+        if(owner)return owner===String(lead.leadId||'').trim();
+        return sheetLeads.filter(other=>other.customerId===lead.customerId).length===1;
+    }
+    function installationDatesForLead(dates,lead) {
+        const items=dates.get(lead.customerId)||[],matched=items.filter(item=>bookingMatchesLead(item,lead));
+        if(items.some(item=>!item.leadId&&!bookingMatchesLead(item,lead)))matched.push({jobId:'',date:'',label:'มีคิวเก่าที่ต้องตรวจสอบการเชื่อม Lead',status:'',cancelled:false});
+        return matched.length?matched:'—';
     }
     function renderInstallationDates(value) {
         const content = Array.isArray(value) ? value.map(item => '<span class="contact-installation-date' + (item.cancelled ? ' cancelled' : '') + '" title="' + esc(item.jobId + (item.status ? ' · ' + item.status : '')) + '">' + esc(item.label) + (item.cancelled ? ' · ยกเลิก' : '') + '</span>').join('') : esc(value || '—');
@@ -289,7 +301,7 @@
         let result;
         const path = intake ? 'records?scope=intake' : 'records';
         try { result = await (early ? early.records.catch(() => api(path)) : api(path)); }
-        catch (error) { if (!isCurrent()) return; dropLeadsSnapshotView(); throw error; }
+        catch (error) { if (!isCurrent()) return; if (!intake) retainLeadsAfterReadFailure(error); throw error; }
         if (!isCurrent()) return;
         records = result; recordsLoaded = true; renderInstallations(); renderInbox();
         if (intake) {
@@ -303,19 +315,22 @@
         }
         try { const sheet = result.sheetLeads ? {leads:result.sheetLeads} : await api('sheet-leads'); if (!isCurrent()) return; sheetLeads=sheet.leads.map(lead => ({...lead,status:customerFollowUp(lead)}));
             writeLeadsSnapshot(sheet.leads);
-            if (leadsFromSnapshot) { leadsFromSnapshot = false; notice(''); }
+            if (leadsFromSnapshot || leadRefreshError) { leadsFromSnapshot = false; leadRefreshError = ''; notice(''); }
             renderStatusOptions();
             sheetLeads.forEach(lead => { lead.installationDate = lead.customerId ? 'กำลังโหลด…' : '—'; });
             renderLeads();
-            try { const dates = await datesRequest; if(!isCurrent()) return; sheetLeads.forEach(lead => { lead.installationDate = dates.get(lead.customerId) || '—'; }); }
+            try { const dates = await datesRequest; if(!isCurrent()) return; sheetLeads.forEach(lead => { lead.installationDate = installationDatesForLead(dates,lead); }); }
             catch { if(!isCurrent()) return; sheetLeads.forEach(lead => { lead.installationDate = lead.customerId ? 'โหลดไม่สำเร็จ' : '—'; }); }
             renderLeads(); }
-        catch(e) { if(!isCurrent()) return; if (leadsFromSnapshot) dropLeadsSnapshotView(); if(reportErrors) throw e; sheetLeads=[]; renderLeads(); updateFollowUpCount(null); notice('โหลดชีต lead ไม่สำเร็จ: '+e.message,true); }
+        catch(e) { if(!isCurrent()) return; retainLeadsAfterReadFailure(e); if(reportErrors) throw e; }
     }
-    // A failed refresh returns to the previous behaviour: no unverified list is left on screen.
-    function dropLeadsSnapshotView() {
-        if (!leadsFromSnapshot) return;
-        leadsFromSnapshot = false; sheetLeads = []; renderLeads();
+    // A failed refresh keeps the last complete list visible and view-only until a fresh read succeeds.
+    function retainLeadsAfterReadFailure(error) {
+        error.carLeadReadHandled = true;
+        leadRefreshError = error.message || 'ติดต่อแหล่งข้อมูลไม่ได้';
+        leadsFromSnapshot = sheetLeads.length > 0;
+        renderLeads(); updateFollowUpCount(null);
+        notice((sheetLeads.length ? 'แสดงข้อมูลเดิม · ยังยืนยันข้อมูลล่าสุดไม่ได้ · ' : '') + 'โหลดชีต lead ไม่สำเร็จ: ' + leadRefreshError, true);
     }
     async function showTab(next) {
         if (next === 'instagram' && !INSTAGRAM_ENABLED) next = 'line';
@@ -598,6 +613,11 @@
     }
     function renderLeads() {
         const now=Date.now();
+        const staleWarning = $('lead-stale-warning');
+        if (staleWarning) {
+            staleWarning.hidden = !leadRefreshError;
+            staleWarning.textContent = (sheetLeads.length ? 'แสดงข้อมูลเดิม · ยังยืนยันข้อมูลล่าสุดไม่ได้ · งดแก้ไขและจองคิวจนกว่าจะโหลดสำเร็จ' : 'ยังโหลดรายการไม่สำเร็จ กรุณาลองอัปเดตข้อมูลล่าสุด') + (leadRefreshError ? ' · ' + leadRefreshError : '');
+        }
         // An empty list means the contact report has not been read yet; the Line/Facebook tabs set the count from their own read.
         if (sheetLeads.length || !session) updateFollowUpCount(sheetLeads,now);
         const followUps = tab === 'followups';
@@ -769,7 +789,7 @@
     // The customer page opens a new customer form prefilled from the saved lead row.
     function startCustomerFromLead(lead) {
         const draft = {...lead.sheetData,note:window.CarLeadSheet.splitReminder(window.CarLeadSheet.splitHistory(lead.sheetData?.note).note).note};
-        sessionStorage.setItem('carLeadCustomerDraft',JSON.stringify({createdAt:Date.now(),data:draft}));
+        sessionStorage.setItem('carLeadCustomerDraft',JSON.stringify({createdAt:Date.now(),leadId:lead.leadId || '',data:draft}));
         location.href = 'customer-data.html?fromLead=1';
     }
     function openCustomerFromLead(lead) {
@@ -1385,18 +1405,20 @@
             bookingHistory.innerHTML = '<p class="lead-muted">กำลังโหลดคิวนัด…</p>';
             (async () => {
                 try {
-                    const query = 'select A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T';
+                    const query = 'select A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,AE';
                     const response = await fetch('https://docs.google.com/spreadsheets/d/1u__xYWoWZpmrnquc-Fpk19WtpcrckxSd0-_G35NWxXQ/gviz/tq?tqx=out:csv&sheet=Bookings&tq=' + encodeURIComponent(query), {cache:'no-store',signal:AbortSignal.timeout(30000)});
                     if (!response.ok) throw new Error('โหลดคิวนัดไม่สำเร็จ');
                     const rows = core.csv(await response.text());
-                    if (rows.length && (!Object.hasOwn(rows[0],'CustID') || !Object.hasOwn(rows[0],'JobID'))) throw new Error('หัวตารางคิวนัดไม่ตรง');
-                    const appointments = rows.filter(row => String(row.CustID || '').trim() === String(lead.customerId).trim() && row.JobID);
+                    if (rows.length && ['CustID','JobID','Lead ID'].some(key=>!Object.hasOwn(rows[0],key))) throw new Error('หัวตารางคิวนัดไม่ตรง');
+                    const customerAppointments = rows.filter(row => String(row.CustID || '').trim() === String(lead.customerId).trim() && row.JobID);
+                    const appointments = customerAppointments.filter(row=>bookingMatchesLead(row,lead));
+                    const needsReview = customerAppointments.some(row=>!String(row['Lead ID']||'').trim()&&!bookingMatchesLead(row,lead));
                     const appointmentOrder = row => {
                         const date = inputDate(String(row['วันที่ติดตั้ง'] || '').trim());
                         return date ? date + 'T' + (inputTime(String(row['เวลานัด'] || '').trim()) || '00:00') : '';
                     };
                     appointments.sort((a,b) => appointmentOrder(b).localeCompare(appointmentOrder(a)));
-                    bookingHistory.innerHTML = '<h4>คิวนัด (' + appointments.length + ')</h4>' + (appointments.map(row => {
+                    bookingHistory.innerHTML = '<h4>คิวนัด (' + appointments.length + ')</h4>' + (needsReview?'<p role="status" class="lead-muted">มีคิวเก่าที่ยังไม่ได้เชื่อม Lead กรุณาตรวจสอบก่อนอ้างอิง</p>':'') + (appointments.map(row => {
                         const details = [row['รุ่นรถยนต์'],row['ทะเบียนรถ'],row['ยี่ห้อฟิล์ม'],row['ตำแหน่งติดตั้ง']].filter(Boolean).join(' · ');
                         return '<article class="contact-history-entry booking-history-entry' + (/ยกเลิก|cancel/i.test(row.Status || '') ? ' cancelled' : '') + '"><div class="contact-history-header"><time>' + esc(row['วันที่ติดตั้ง'] || 'ยังไม่ระบุวัน') + ' ' + esc(row['เวลานัด'] || '') + '</time><span>' + esc(row['พน.ขาย'] || '') + '</span></div><p><strong>คิวนัด ' + esc(row.JobID) + '</strong></p><p>' + esc(details) + '</p><p class="booking-history-status">' + esc(row.Status || 'ยังไม่ระบุสถานะ') + '</p></article>';
                     }).join('') || '<p class="lead-muted">ยังไม่มีคิวนัด</p>');
@@ -1612,7 +1634,7 @@
     // While the list comes from the snapshot, opening, editing or booking waits for the fresh read.
     function leadsSnapshotBusy() {
         if (!leadsFromSnapshot) return false;
-        notice('กำลังอัปเดตรายการล่าสุด กรุณารอสักครู่แล้วลองอีกครั้ง');
+        notice(leadRefreshError ? 'ข้อมูลล่าสุดยังโหลดไม่สำเร็จ จึงเปิดดูข้อมูลเดิมได้อย่างเดียว กรุณาลองโหลดรายการใหม่' : 'กำลังอัปเดตรายการล่าสุด กรุณารอสักครู่แล้วลองอีกครั้ง', !!leadRefreshError);
         return true;
     }
     $('lead-list').addEventListener('keydown',guard(async event => {
@@ -1747,6 +1769,7 @@
     window.addEventListener('beforeunload',event => { if (backgroundSaves.size) { event.preventDefault(); event.returnValue = ''; } });
     $('editor-form').addEventListener('submit',async event => {
         event.preventDefault();
+        if (leadsSnapshotBusy()) return;
         if ($('save-editor').disabled) return;
         const saveLabel = $('save-editor').textContent;
         $('save-editor').disabled = true;
@@ -1836,6 +1859,7 @@
     }
     startLead().catch(e => {
         if (embeddedNewLead) { postToBooking('error',{message:e.message}); return; }
+        if (e.carLeadReadHandled) return;
         void showTab('connection'); notice(e.message,true);
     });
 })();

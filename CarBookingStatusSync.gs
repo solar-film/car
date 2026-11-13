@@ -2,20 +2,47 @@
 function carBookingStatusPlan_(leadRows, customerRows, bookingRows) {
   const norm=v=>String(v||'').normalize('NFKC').trim().toLowerCase().replace(/\s+/g,' ');
   const phone=v=>{let p=String(v||'').replace(/\D/g,'');return p.startsWith('66')&&p.length===11?'0'+p.slice(2):p;};
-  const dateKey=v=>{const t=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}/.test(t))return t.slice(0,10);const m=/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(t);if(!m)return '';let y=+m[3];if(y>2400)y-=543;else if(y<100)y+=y>=40?1957:2000;return y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');};
-  const latest=new Map(), blocked=new Set();
-  bookingRows.forEach((b,i)=>{const id=String(b.CustID||'').trim();if(!id||!b.JobID)return;const date=dateKey(b['วันที่ติดตั้ง']);if(!date){blocked.add(id);return;}const key=date+' '+String(b['เวลานัด']||'00:00').padStart(5,'0');const prev=latest.get(id);if(!prev||key>prev.key||key===prev.key&&i>prev.index)latest.set(id,{row:b,key:key,index:i});});
-  const plan=[],skipped={unmatched:0,ambiguous:0,noQueue:0,otherStatus:0,missingDate:0,missingLeadId:0};
+  const text=v=>String(v||'').trim();
+  const dateKey=v=>{
+    const t=text(v),iso=/^(\d{4})-(\d{2})-(\d{2})(?:\b|T)/.exec(t),local=/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\b|\s|,)/.exec(t);
+    let key='';
+    if(iso)key=iso[1]+'-'+iso[2]+'-'+iso[3];
+    else if(local){let y=+local[3];if(y>2400)y-=543;else if(y<100)y+=y>=40?1957:2000;key=y+'-'+local[2].padStart(2,'0')+'-'+local[1].padStart(2,'0');}
+    const date=new Date(key+'T00:00:00Z');return key&&Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===key?key:'';
+  };
+  const unique=(rows,key)=>{const seen=new Set();for(const row of rows){const id=text(row[key]);if(id&&seen.has(id))throw new Error(key+' ซ้ำ จึงยังไม่ปรับสถานะลีด');if(id)seen.add(id);}return seen;};
+  const leadIds=unique(leadRows,'Lead ID'),customerIds=unique(customerRows,'CustID');unique(bookingRows,'JobID');
+  const latest=new Map(),latestByLead=new Map(),blocked=new Set(),blockedLeads=new Set();
+  bookingRows.forEach((b,i)=>{
+    const id=text(b.CustID),own=text(b['Lead ID']);if(!id||!text(b.JobID))return;
+    if(!customerIds.has(id)||own&&!leadIds.has(own))throw new Error('คิวอ้างอิงลูกค้าหรือ Lead ที่ไม่พบ จึงยังไม่ปรับสถานะ');
+    const date=dateKey(b['วันที่ติดตั้ง']);if(!date){if(own)blockedLeads.add(own);else blocked.add(id);return;}
+    const key=date+' '+String(b['เวลานัด']||'00:00').padStart(5,'0'),target=own?latestByLead:latest,slot=own||id,prev=target.get(slot);
+    if(own&&prev&&text(prev.row.CustID)!==id)throw new Error('Lead เดียวอ้างอิงลูกค้าหลายรหัส จึงยังไม่ปรับสถานะ');
+    if(!prev||key>prev.key||key===prev.key&&i>prev.index)target.set(slot,{row:b,key,index:i});
+  });
+  // The verified release 97 fallback matches customers by phone only; profile names are not stable identifiers.
+  const matches=lead=>customerRows.filter(c=>{const p=phone(lead['เบอร์โทร']);return !!p&&p===phone(c['เบอร์โทรศัพท์']);});
+  const legacyOwners=new Map();
+  for(const lead of leadRows){if(!text(lead['Lead ID'])||latestByLead.has(text(lead['Lead ID'])))continue;const found=matches(lead);if(found.length===1){const id=text(found[0].CustID);legacyOwners.set(id,(legacyOwners.get(id)||0)+1);}}
+  const plan=[],skipped={unmatched:0,ambiguous:0,noQueue:0,otherStatus:0,missingDate:0,missingLeadId:0,keptStatus:0};
   leadRows.forEach((lead,i)=>{
-    if(!lead['Lead ID']){skipped.missingLeadId++;return;}
-    const matches=customerRows.filter(c=>{const p=phone(lead['เบอร์โทร']);if(p&&p===phone(c['เบอร์โทรศัพท์']))return true;const contact=norm(lead['ชื่อช่องทางติดต่อ']);return contact&&!['-','—'].includes(contact)&&norm(lead['ช่องทางติดต่อ'])&&norm(lead['ช่องทางติดต่อ'])===norm(c['ช่องทางติดต่อ'])&&contact===norm(c['ชื่อช่องทางติดต่อ']);});
-    if(matches.length!==1){skipped[matches.length?'ambiguous':'unmatched']++;return;}
-    const cid=String(matches[0].CustID||'').trim();if(blocked.has(cid)){skipped.missingDate++;return;}
-    const selected=latest.get(cid);if(!selected){skipped.noQueue++;return;}
+    const leadId=text(lead['Lead ID']);if(!leadId){skipped.missingLeadId++;return;}
+    if(blockedLeads.has(leadId)){skipped.missingDate++;return;}
+    let selected=latestByLead.get(leadId),cid=selected?text(selected.row.CustID):'';
+    if(!selected){
+      const found=matches(lead);if(found.length!==1){skipped[found.length?'ambiguous':'unmatched']++;return;}
+      cid=text(found[0].CustID);if(legacyOwners.get(cid)>1){skipped.ambiguous++;return;}
+      if(blocked.has(cid)){skipped.missingDate++;return;}
+      selected=latest.get(cid);if(!selected){skipped.noQueue++;return;}
+      const current=norm(lead['สถานะการติดตาม']);
+      if(current.includes('ปิดการขาย')||dateKey(lead['วันที่'])&&selected.key.slice(0,10)<dateKey(lead['วันที่'])){skipped.keptStatus++;return;}
+    }
     const status=String(selected.row.Status||'').trim();
-    const rule=status==='คิวใหม่'?{status:'🟢 มัดจำ/นัดติดตั้งแล้ว',text:'นัดคิวติดตั้งแล้ว'}:status==='เสร็จสิ้น'?{status:'✅ ปิดการขายสำเร็จ',text:'ติดตั้งเรียบร้อย ปิดการขายสำเร็จ'}:null;
+    if(status==='ยกเลิก'&&(!dateKey(lead['วันที่'])||selected.key.slice(0,10)<dateKey(lead['วันที่'])||/เลื่อนติดตั้ง|ยกเลิก/.test(text(lead['สถานะการติดตาม'])))){skipped.keptStatus++;return;}
+    const rule=status==='คิวใหม่'||status==='กำลังติดตั้ง'?{status:'🟢 มัดจำ/นัดติดตั้งแล้ว',text:'นัดคิวติดตั้งแล้ว',historyKey:'คิวใหม่'}:status==='เสร็จสิ้น'?{status:'✅ ปิดการขายสำเร็จ',text:'ติดตั้งเรียบร้อย ปิดการขายสำเร็จ',historyKey:'เสร็จสิ้น'}:status==='ยกเลิก'?{status:'❌ ยกเลิก / ไม่สนใจ',text:'ยกเลิกคิวติดตั้ง',historyKey:'ยกเลิก'}:null;
     if(!rule){skipped.otherStatus++;return;}
-    plan.push({row:i+2,leadId:String(lead['Lead ID']).trim(),customerId:cid,jobId:String(selected.row.JobID).trim(),bookingStatus:status,previous:lead['สถานะการติดตาม'],channel:lead['ช่องทางติดต่อ'],status:rule.status,text:rule.text,contactId:'CAR-BOOKING:'+lead['Lead ID']+':'+selected.row.JobID+':'+status});
+    plan.push({row:i+2,leadId,customerId:cid,jobId:text(selected.row.JobID),bookingStatus:status,previous:lead['สถานะการติดตาม'],channel:lead['ช่องทางติดต่อ'],status:rule.status,text:rule.text,contactId:'CAR-BOOKING:'+leadId+':'+text(selected.row.JobID)+':'+rule.historyKey});
   });return {plan:plan,skipped:skipped};
 }
 function carReadStatusSyncTable_(book,name,required) {

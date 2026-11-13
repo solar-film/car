@@ -185,6 +185,7 @@
     <script>
 /* Transfer a lead into the existing customer form; never submit automatically. */
 let customerFromLead = false;
+let customerFromLeadId = '';
 let customerSaveInProgress = false;
 let customerSaveLockedButtons = [];
 
@@ -238,6 +239,7 @@ window.applyLeadCustomerDraft = function () {
     if (!draft?.data || Date.now() - draft.createdAt > 30 * 60 * 1000) return;
     const data = draft.data;
     customerFromLead = true;
+    customerFromLeadId = /^L-\d{6}-[0-9A-F]{3}$/.test(String(draft.leadId || '')) ? String(draft.leadId) : '';
     const set = (id,value) => { const el = document.getElementById(id); if (el) el.value = String(value || ''); };
     set('custName',data.name); set('phone',data.phone); set('contactName',data.contact);
     const extra = [['รถยนต์',[data.carBrand,data.carModel].filter(Boolean).join(' ')],['ตำแหน่งติดตั้ง',data.positions],['ฟิล์มที่สนใจ',[data.filmBrand,data.filmModel].filter(Boolean).join(' ')],['งบประมาณ',data.budget],['ผู้ดูแล',data.admin]];
@@ -1531,6 +1533,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         // รีเซ็ตสถานะของฟอร์มกลับไปเป็น เพิ่มลูกค้าใหม่
         function resetForm() {
             customerFromLead = false;
+            customerFromLeadId = '';
             document.getElementById('customerLeadHint').hidden = true;
             window.CarFirstKnownOptions.populate(document.getElementById('firstKnown'), '');
             currentEditingPhone = null;
@@ -1552,6 +1555,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                 : allCustomers.find(c => c.phoneClean === phoneClean);
             if (!cust) return;
             customerFromLead = false;
+            customerFromLeadId = '';
             document.getElementById('customerLeadHint').hidden = true;
 
             currentEditingPhone = phoneClean;
@@ -1736,6 +1740,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                 if (result.success) {
                     if (isNewCustomer) customerInsertRequest.id = '';
                     const savedCustomerId = result.id || currentEditingId || '';
+                    const savedLeadId = customerFromLeadId;
                     // ในกรอบของหน้าคิวจอง: ปิดฟอร์มแล้วให้หน้าคิวจองโหลดข้อมูลใหม่เอง
                     if (customerEmbedded) { customerEmbedSaved = true; await closeCustomerDrawer(true); return; }
                     await closeCustomerDrawer(true);
@@ -1744,7 +1749,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                     document.getElementById('searchInput').value = '';
                     await fetchExistingCustomers();
                     if (isNewCustomer && savedCustomerId) {
-                        openBookingModal(savedCustomerId, name);
+                        openBookingModal(savedCustomerId, name, savedLeadId);
                     } else {
                         showAlert('สำเร็จ', 'บันทึกข้อมูลลูกค้าเรียบร้อยแล้ว', 'success');
                     }
