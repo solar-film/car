@@ -4215,6 +4215,42 @@
                     return s || '-';
                 };
                 const cellText = v => (v && String(v).trim() && String(v).trim() !== '-') ? escapeHtml(v) : '<span class="text-slate-300">-</span>';
+                // พื้นที่ (ตร.ฟุต) = กว้าง × ยาว (นิ้ว) × จำนวน ÷ 144 — สูตรเดียวกับหน้าคำนวณราคา (car-glass-panes.js)
+                // แสดงบนหน้าจออย่างเดียว ไม่เขียนกลับชีต · แถวที่ไม่มีขนาดหรือจำนวนไม่นำมารวม
+                const positiveNum = v => { const n = parseFloat(String(v ?? '').replace(/,/g, '').trim()); return Number.isFinite(n) && n > 0 ? n : null; };
+                const areaOf = (r) => {
+                    let w = positiveNum(getAnyField(r, ['กว้าง', 'W', 'Width'], ''));
+                    let l = positiveNum(getAnyField(r, ['ยาว', 'H', 'Length'], ''));
+                    if (w === null && l === null) {
+                        const m = String(getAnyField(r, ['ขนาด'], '')).match(/(\d+(?:\.\d+)?)\s*[x×*]\s*(\d+(?:\.\d+)?)/i);
+                        if (m) { w = positiveNum(m[1]); l = positiveNum(m[2]); }
+                    }
+                    const q = positiveNum(getAnyField(r, ['จำนวน'], ''));
+                    return w === null || l === null || q === null ? null : { sq: w * l * q / 144, q };
+                };
+                const fmtSq = n => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                let totalSq = 0, skipped = 0;
+                const byFilm = new Map();
+                rows.forEach(r => {
+                    const a = areaOf(r);
+                    if (!a) { skipped++; return; }
+                    totalSq += a.sq;
+                    const film = String(getAnyField(r, ['รุ่นฟิล์ม', 'ยี่ห้อฟิล์ม'], '') || '').trim() || 'ไม่ระบุรุ่นฟิล์ม';
+                    const g = byFilm.get(film) || { sq: 0, q: 0 };
+                    g.sq += a.sq; g.q += a.q; byFilm.set(film, g);
+                });
+                const areaSummary = byFilm.size ? `
+                    <div class="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div class="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2">
+                            <div class="text-[11px] font-medium text-blue-700">พื้นที่รวมคันนี้</div>
+                            <div class="text-lg font-bold text-blue-800">${fmtSq(totalSq)} <span class="text-xs font-medium">ตร.ฟุต</span></div>
+                        </div>
+                        ${[...byFilm].map(([film, g]) => `
+                        <div class="rounded-lg bg-white border border-rose-100 px-3 py-2">
+                            <div class="text-[11px] font-medium text-slate-500 truncate" title="${escapeHtml(film)}">${escapeHtml(film)}</div>
+                            <div class="text-base font-bold text-slate-700">${fmtSq(g.sq)} <span class="text-xs font-medium text-slate-500">ตร.ฟุต · ${g.q.toLocaleString('th-TH')} บาน</span></div>
+                        </div>`).join('')}
+                    </div>` : '';
 
                 el.innerHTML = `
                     <div class="overflow-x-auto -mx-1">
@@ -4225,6 +4261,7 @@
                                     <th class="px-2 py-1.5 text-left font-bold border border-rose-200">รุ่นฟิล์ม</th>
                                     <th class="px-2 py-1.5 text-center font-bold border border-rose-200">ขนาด</th>
                                     <th class="px-2 py-1.5 text-center font-bold border border-rose-200">จำนวน</th>
+                                    <th class="px-2 py-1.5 text-center font-bold border border-blue-200 bg-blue-50 text-blue-800 whitespace-nowrap">พื้นที่ (ตร.ฟุต)</th>
                                     <th class="px-2 py-1.5 text-left font-bold border border-rose-200">ทีมช่าง</th>
                                     <th class="px-2 py-1.5 text-left font-bold border border-rose-200">เหตุผล</th>
                                     <th class="px-2 py-1.5 text-left font-bold border border-rose-200">หมายเหตุ</th>
@@ -4239,11 +4276,13 @@
                                     const reasonRaw = getAnyField(r, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล'], '');
                                     const reason = reasonMap[reasonRaw] || reasonMap[normalizeLookupId(reasonRaw)] || reasonRaw;
                                     const note = getAnyField(r, ['หมายเหตุ'], '');
+                                    const area = areaOf(r);
                                     return `<tr class="hover:bg-rose-50/50">
                                         <td class="px-2 py-1.5 border border-rose-100 font-medium text-slate-700">${cellText(pos)}</td>
                                         <td class="px-2 py-1.5 border border-rose-100 text-slate-700">${cellText(film)}</td>
                                         <td class="px-2 py-1.5 border border-rose-100 text-center font-mono text-slate-700">${escapeHtml(fmtSize(r))}</td>
                                         <td class="px-2 py-1.5 border border-rose-100 text-center font-mono text-slate-700">${cellText(qty)}</td>
+                                        <td class="px-2 py-1.5 border border-blue-100 bg-blue-50/40 text-right font-mono font-semibold text-blue-700">${area ? fmtSq(area.sq) : '<span class="text-slate-300">—</span>'}</td>
                                         <td class="px-2 py-1.5 border border-rose-100 text-slate-700">${cellText(team)}</td>
                                         <td class="px-2 py-1.5 border border-rose-100 text-slate-700">${cellText(reason)}</td>
                                         <td class="px-2 py-1.5 border border-rose-100 text-slate-500 italic">${cellText(note)}</td>
@@ -4252,7 +4291,8 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="mt-2 text-[11px] font-medium text-rose-700">รวม ${rows.length} รายการ</div>
+                    ${areaSummary}
+                    <div class="mt-2 text-[11px] font-medium text-rose-700">รวม ${rows.length} รายการ${skipped ? ` · ไม่รวมพื้นที่ ${skipped} รายการที่ไม่มีขนาดหรือจำนวน` : ''} · พื้นที่ = กว้าง × ยาว (นิ้ว) × จำนวน ÷ 144</div>
                 `;
             })();
 
