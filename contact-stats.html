@@ -1466,6 +1466,53 @@
             renderLeadInquiryReport();
         }
 
+        // แถว "คนที่ทักเข้ามา" ในสถิติ Lead รายวัน (เจ้าของสั่ง 23.11.69) · อ่านอย่างเดียวจากบริการลีดเดียวกับหน้าข้อมูลการติดต่อ
+        // ทักเข้ามา = Lead ที่บันทึกของวันนั้น + คนทัก LINE / FB ที่ยังไม่บันทึก (ตามวันทักล่าสุด) · มีเฉพาะวันในช่วงที่ระบบเก็บรายชื่อไว้
+        let contactCounts = null;
+        async function loadContactCounts() {
+            if (!window.CarCrmAuth || typeof window.CarCrmAuth.leadRequest !== 'function') return;
+            try {
+                const [feed, status] = await Promise.all([window.CarCrmAuth.leadRequest('contact-feed', {query: {}}), window.CarCrmAuth.leadRequest('sheet-status', {query: {}})]);
+                if (!feed || !Array.isArray(feed.contacts)) return;
+                const norm = value => String(value || '').trim().toLowerCase();
+                const platformOf = value => { const text = norm(value); return text === 'line' ? 'line' : text === 'fb' || text === 'facebook' ? 'facebook' : ''; };
+                const keys = new Set(((status && status.saved) || []).map(item => item.platform + ':' + item.userId));
+                const names = new Set(((status && status.contacts) || []).map(item => platformOf(item.channel) && norm(item.contact) ? platformOf(item.channel) + ':' + norm(item.contact) : '').filter(Boolean));
+                const thaiDay = value => new Intl.DateTimeFormat('sv-SE', {timeZone: 'Asia/Bangkok'}).format(new Date(value));
+                const unsaved = new Map();
+                for (const row of feed.contacts) {
+                    if (!['line', 'facebook'].includes(row.platform) || keys.has(row.platform + ':' + row.user_id)) continue;
+                    if (row.display_name && names.has(row.platform + ':' + norm(row.display_name))) continue;
+                    const day = thaiDay(row.last_seen_at);
+                    unsaved.set(day, (unsaved.get(day) || 0) + 1);
+                }
+                contactCounts = {start: feed.start || '', end: thaiDay(Date.now()), unsaved};
+                if (document.getElementById('leadInquiryDimension')?.value === 'customerType') renderLeadInquiryReport();
+            } catch (error) {
+                console.warn('Cannot load contact counts:', error);
+            }
+        }
+
+        // แถวคนทัก / ยังไม่บันทึก / สำเร็จ % จากคนทัก (ต่อจากรวมรายวัน) · สำเร็จ = ปิดการขายสำเร็จ หรือ มัดจำ/นัดติดตั้งแล้ว (เหมือนหัววันหน้าข้อมูลการติดต่อ)
+        function contactRowsHtml(show, dates, items, daily) {
+            if (!show) return '';
+            const success = new Map();
+            items.forEach(row => { if (/ปิดการขายสำเร็จ|มัดจำ\s*\/\s*นัดติดตั้งแล้ว/.test(row.followUp || '')) success.set(row.date, (success.get(row.date) || 0) + 1); });
+            const inWindow = day => day >= contactCounts.start && day <= contactCounts.end;
+            const unsavedOf = day => contactCounts.unsaved.get(day) || 0;
+            const contactsOf = day => (daily.get(day) || 0) + unsavedOf(day);
+            const shown = dates.filter(inWindow), sum = read => shown.reduce((total, day) => total + read(day), 0);
+            const td = (text, extra = '') => '<td class="px-4 py-3 text-center tabular-nums whitespace-nowrap' + extra + '">' + text + '</td>';
+            const count = value => value ? value.toLocaleString('th-TH') : '–';
+            const rate = (part, whole) => whole ? (part / whole * 100).toLocaleString('th-TH', {maximumFractionDigits: 1}) + '%' : '–';
+            const row = (label, perDay, total, rowClass) => '<tr class="bg-white font-normal ' + rowClass + '"><th scope="row" class="source-column sticky left-0 bg-white px-5 py-3 text-left font-medium">' + label + '</th>'
+                + dates.map(day => inWindow(day) ? perDay(day) : td('–', ' text-slate-300')).join('') + total + '</tr>';
+            return ''
+                + row('ทักเข้ามา', day => td(count(contactsOf(day))), td(count(sum(contactsOf)), ' font-semibold'), 'text-slate-800')
+                + row('ยังไม่บันทึก', day => td(count(unsavedOf(day)), unsavedOf(day) > (daily.get(day) || 0) ? ' font-semibold text-amber-600' : ''), td(count(sum(unsavedOf))), 'text-slate-500')
+                + row('สำเร็จ % จากคนทัก', day => td(rate(success.get(day) || 0, contactsOf(day))), td(rate(sum(day => success.get(day) || 0), sum(contactsOf))), 'text-slate-500');
+        }
+
         function renderLeadInquiryReport() {
             const month = dom.monthFilter.value;
             const dimensions = { car: 'รุ่นรถ', film: 'ฟิล์มที่สนใจ', positions: 'เต็มคัน / เฉพาะบาน', channel: 'ช่องทางติดต่อ', knownFrom: 'รู้จักเราจาก', followUp: 'สถานะการติดตาม', customerType: 'สถานะลูกค้า', sales: 'ยอดขาย (Ex VAT)' };
@@ -1493,7 +1540,12 @@
                 table.innerHTML = '<p class="px-6 py-8 text-center text-slate-500">ไม่มีข้อมูล Lead ในช่วงที่เลือก</p>';
                 return;
             }
-            const dates = [...new Set(items.map(row => row.date))].sort();
+            const dates = [...new Set(items.map(row => row.date))];
+            const contactNote = () => ' · แถวทักเข้ามา = Lead ที่บันทึก + คนทัก LINE / FB ที่ยังไม่บันทึก (มีข้อมูลตั้งแต่ ' + new Date(contactCounts.start + 'T12:00:00').toLocaleDateString('th-TH', {day: 'numeric', month: 'short'}) + ')';
+            const showContacts = selected === 'customerType' && !isSales && contactCounts;
+            if (showContacts) for (const day of contactCounts.unsaved.keys()) if ((!month || day.startsWith(month + '-')) && !dates.includes(day)) dates.push(day);
+            dates.sort();
+            if (showContacts && contactCounts.start) summary.textContent += contactNote();
             const counts = new Map();
             const daily = new Map();
             items.forEach(row => {
@@ -1505,7 +1557,7 @@
             const cell = value => '<td class="px-4 py-3 text-center tabular-nums whitespace-nowrap">' + display(value) + '</td>';
             const header = dates.map(date => '<th class="whitespace-nowrap px-4 py-3 text-center">' + escapeHtml(new Date(date + 'T12:00:00').toLocaleDateString('th-TH', {day:'numeric',month:'short', ...(month ? {} : {year:'2-digit'})})) + '</th>').join('');
             const rowsHtml = groupLeadInterests(items, [field]).map(group => '<tr><th scope="row" class="source-column sticky left-0 bg-white px-5 py-3 text-left font-medium">' + escapeHtml(group.values[0]) + '</th>' + dates.map(date => cell(counts.get(JSON.stringify([group.values[0], date])))).join('') + '<td class="px-4 py-3 text-center font-bold text-blue-600">' + display(dates.reduce((sum, date) => sum + (counts.get(JSON.stringify([group.values[0], date])) || 0), 0)) + '</td></tr>').join('');
-            table.innerHTML = '<table class="first-known-report-table min-w-full text-sm" aria-label="สถิติ Lead รายวัน"><thead class="bg-slate-50"><tr><th class="source-column sticky left-0 z-10 bg-slate-50 px-5 py-3 text-left">' + dimensions[field] + '</th>' + header + '<th class="px-4 py-3 text-center">รวม</th></tr></thead><tbody class="divide-y divide-slate-100">' + rowsHtml + '</tbody><tfoot class="bg-blue-50 font-bold text-blue-700"><tr><th class="source-column sticky left-0 bg-blue-50 px-5 py-3 text-left">รวมรายวัน</th>' + dates.map(date => cell(daily.get(date))).join('') + '<td class="px-4 py-3 text-center">' + display(totalValue) + '</td></tr></tfoot></table>';
+            table.innerHTML = '<table class="first-known-report-table min-w-full text-sm" aria-label="สถิติ Lead รายวัน"><thead class="bg-slate-50"><tr><th class="source-column sticky left-0 z-10 bg-slate-50 px-5 py-3 text-left">' + dimensions[field] + '</th>' + header + '<th class="px-4 py-3 text-center">รวม</th></tr></thead><tbody class="divide-y divide-slate-100">' + rowsHtml + '</tbody><tfoot class="bg-blue-50 font-bold text-blue-700"><tr><th class="source-column sticky left-0 bg-blue-50 px-5 py-3 text-left">' + 'รวมรายวัน' + '</th>' + dates.map(date => cell(daily.get(date))).join('') + '<td class="px-4 py-3 text-center">' + display(totalValue) + '</td></tr>' + contactRowsHtml(showContacts, dates, items, daily) + '</tfoot></table>';
         }
 
         function renderStats() {
@@ -1912,6 +1964,7 @@
             dom.addStatsForm.addEventListener('submit', submitContactStats);
             loadRecorderOptions();
             fetchContactStats();
+            void loadContactCounts();   // แถวคนทักเข้ามา (โหลดเบื้องหลัง ไม่ให้ตารางเดิมรอ)
         }
 
         function startAppOnce() {
