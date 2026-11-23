@@ -744,8 +744,15 @@
             const outcomeRate = (total ? outcomeCount/total*100 : 0).toLocaleString('th-TH',{maximumFractionDigits:1});
             const summaryTitle = followUps ? 'สถานะยกเลิกทุกประเภท ÷ Lead ทั้งหมดที่อัปเดตล่าสุดในวันนั้น × 100 รวมรายการที่ไม่ได้แสดงในหน้าติดตาม' : 'ปิดการขายสำเร็จและมัดจำ/นัดติดตั้งแล้ว ÷ Lead ทั้งหมดของวันตามตัวกรอง × 100';
             const prefix = followUps ? '' : (date ? 'วันนี้ ' : 'ไม่ระบุวันที่ ');
-            const unsavedText = unsaved ? ` · ยังไม่บันทึก ${unsaved.toLocaleString('th-TH')} คน` : '';
-            return `<section class="contact-day-group"><h3 class="contact-day-heading"><span class="contact-day-dot"></span><time datetime="${esc(date)}">${esc(label)}</time><span title="${esc(summaryTitle)}">${total || !unsaved ? `${prefix}${total.toLocaleString('th-TH')} รายการ · ${outcomeLabel} ${outcomeCount.toLocaleString('th-TH')} รายการ · คิดเป็น ${outcomeRate}%${unsavedText}` : `ยังไม่บันทึก ${unsaved.toLocaleString('th-TH')} คน`}</span></h3>${track(dayItems)}</section>`;
+            // With the "ยังไม่บันทึก" rows (เจ้าของสั่ง 23.11.69): the success rate counts everyone who messaged that day, saved or not.
+            const withContacts = !followUps && contactFeedAvailable;
+            const contactsTotal = total + unsaved, n = value => value.toLocaleString('th-TH');
+            const contactRate = (contactsTotal ? successful/contactsTotal*100 : 0).toLocaleString('th-TH',{maximumFractionDigits:1});
+            const heading = withContacts
+                ? `ทักเข้ามา ${n(contactsTotal)} คน · บันทึกแล้ว ${n(total)} · สำเร็จ ${n(successful)} รายการ (${contactRate}%) · ยังไม่บันทึก ${n(unsaved)} คน`
+                : `${prefix}${n(total)} รายการ · ${outcomeLabel} ${n(outcomeCount)} รายการ · คิดเป็น ${outcomeRate}%`;
+            const headingTitle = withContacts ? 'ปิดการขายสำเร็จและมัดจำ/นัดติดตั้งแล้ว ÷ (Lead ที่บันทึก + คนที่ทัก LINE / FB แต่ยังไม่บันทึก) ของวันตามตัวกรอง × 100' : summaryTitle;
+            return `<section class="contact-day-group"><h3 class="contact-day-heading"><span class="contact-day-dot"></span><time datetime="${esc(date)}">${esc(label)}</time><span title="${esc(headingTitle)}">${heading}</span></h3>${track(dayItems)}</section>`;
         }).join('') || empty(session ? 'ยังไม่มีผู้ติดต่อที่ตรงกับรายการค้นหา' : 'กำลังเชื่อมต่อเพื่อโหลดรายชื่อผู้ติดต่อ');
     }
     function renderInstallations() {
