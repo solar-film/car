@@ -882,7 +882,7 @@
 
             <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10 sm:pl-16">
                 <!-- Slide-over panel -->
-                <div id="jobModalPanel" class="pointer-events-auto w-screen max-w-2xl transform transition ease-in-out duration-300 translate-x-full bg-white shadow-2xl flex flex-col h-full border-l border-slate-200">
+                <div id="jobModalPanel" class="pointer-events-auto w-screen max-w-4xl transform transition ease-in-out duration-300 translate-x-full bg-white shadow-2xl flex flex-col h-full border-l border-slate-200">
 
                     <!-- Header -->
                     <div class="px-4 py-5 sm:px-6 border-b border-slate-200 bg-white sticky top-0 z-10 flex items-center justify-between gap-3">
@@ -4259,10 +4259,10 @@
                                 <tr>
                                     <th class="px-2 py-1.5 text-left font-bold border border-rose-200">ตำแหน่ง</th>
                                     <th class="px-2 py-1.5 text-left font-bold border border-rose-200">รุ่นฟิล์ม</th>
-                                    <th class="px-2 py-1.5 text-center font-bold border border-rose-200">ขนาด</th>
-                                    <th class="px-2 py-1.5 text-center font-bold border border-rose-200">จำนวน</th>
+                                    <th class="px-2 py-1.5 text-center font-bold border border-rose-200 whitespace-nowrap">ขนาด</th>
+                                    <th class="px-2 py-1.5 text-center font-bold border border-rose-200 whitespace-nowrap">จำนวน</th>
                                     <th class="px-2 py-1.5 text-center font-bold border border-blue-200 bg-blue-50 text-blue-800 whitespace-nowrap">พื้นที่ (ตร.ฟุต)</th>
-                                    <th class="px-2 py-1.5 text-left font-bold border border-rose-200">ทีมช่าง</th>
+                                    <th class="px-2 py-1.5 text-left font-bold border border-rose-200 whitespace-nowrap">ทีมช่าง</th>
                                     <th class="px-2 py-1.5 text-left font-bold border border-rose-200">เหตุผล</th>
                                     <th class="px-2 py-1.5 text-left font-bold border border-rose-200">หมายเหตุ</th>
                                 </tr>
@@ -4280,9 +4280,9 @@
                                     return `<tr class="hover:bg-rose-50/50">
                                         <td class="px-2 py-1.5 border border-rose-100 font-medium text-slate-700">${cellText(pos)}</td>
                                         <td class="px-2 py-1.5 border border-rose-100 text-slate-700">${cellText(film)}</td>
-                                        <td class="px-2 py-1.5 border border-rose-100 text-center font-mono text-slate-700">${escapeHtml(fmtSize(r))}</td>
+                                        <td class="px-2 py-1.5 border border-rose-100 text-center font-mono text-slate-700 whitespace-nowrap">${escapeHtml(fmtSize(r))}</td>
                                         <td class="px-2 py-1.5 border border-rose-100 text-center font-mono text-slate-700">${cellText(qty)}</td>
-                                        <td class="px-2 py-1.5 border border-blue-100 bg-blue-50/40 text-right font-mono font-semibold text-blue-700">${area ? fmtSq(area.sq) : '<span class="text-slate-300">—</span>'}</td>
+                                        <td class="px-2 py-1.5 border border-blue-100 bg-blue-50/40 text-right font-mono font-semibold text-blue-700 whitespace-nowrap">${area ? fmtSq(area.sq) : '<span class="text-slate-300">—</span>'}</td>
                                         <td class="px-2 py-1.5 border border-rose-100 text-slate-700">${cellText(team)}</td>
                                         <td class="px-2 py-1.5 border border-rose-100 text-slate-700">${cellText(reason)}</td>
                                         <td class="px-2 py-1.5 border border-rose-100 text-slate-500 italic">${cellText(note)}</td>
