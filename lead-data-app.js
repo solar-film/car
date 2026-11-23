@@ -83,8 +83,9 @@
     function renderStatusOptions() {
         const previousStatus = $('lead-status').value;
         const statuses = [...new Set(sheetLeads.filter(lead => tab !== 'followups' || isFollowUp(lead)).map(lead => lead.status))];
-        $('lead-status').innerHTML = '<option value="">ทุกสถานะ</option>' + statuses.map(value => '<option value="' + esc(value) + '">' + esc(value) + '</option>').join('');
-        if (statuses.includes(previousStatus)) $('lead-status').value = previousStatus;
+        const unsavedOption = tab === 'leads' && contactFeedAvailable ? '<option value="' + UNSAVED_STATUS + '">ยังไม่บันทึก (ทักทาง LINE / FB)</option>' : '';
+        $('lead-status').innerHTML = '<option value="">ทุกสถานะ</option>' + unsavedOption + statuses.map(value => '<option value="' + esc(value) + '">' + esc(value) + '</option>').join('');
+        if (statuses.includes(previousStatus) || unsavedOption && previousStatus === UNSAVED_STATUS) $('lead-status').value = previousStatus;
     }
     let records = { leads: [], installations: [] }, saveEditor, legacy = [], legacySources = null, request = 0, connection = 0;
     let leadEditorSnapshot = '', leadEditorHistoryChanged = false;
@@ -344,6 +345,7 @@
         const panel = ['line','facebook','instagram'].includes(next) ? 'inbox' : next === 'followups' ? 'leads' : next;
         document.querySelectorAll('[data-panel]').forEach(el => { el.hidden = el.dataset.panel !== panel; });
         renderLineProfileWarning();
+        if (next === 'leads' && session) void loadContactFeed();
         if (['leads','followups'].includes(next) && session) await loadRecords(false);
         if (panel === 'inbox') {
             contacts = []; page = 0; summary = {total:0,fresh:0,selected:0};
@@ -596,6 +598,80 @@
         badge.setAttribute('aria-label',badge.title);
         window.carCrmSetFollowUpCount?.(count);
     }
+    // ===== แถว "ยังไม่บันทึก" ในรายงานข้อมูลการติดต่อ: คนที่ทัก LINE / Facebook ใน 7 วัน (แสดงอย่างเดียว ไม่เขียนชีต) =====
+    // เฉพาะทาง Apps Script (GitHub Pages) ที่มี action contact-feed · ERP / Node ในเครื่องยังไม่มี จึงไม่แสดง
+    // var (not const/let): renderLeads and renderStatusOptions may run before this line, and then simply see the feature off.
+    var contactFeedAvailable = typeof cloudLead !== 'undefined' && cloudLead;
+    var UNSAVED_STATUS = '__unsaved', FEED_SNAPSHOT_KEY = 'carLeadInbox:contact-feed';
+    var feedRows = [], feedMeta = null, feedLoading = false, feedRequest = 0;
+    function readFeedSnapshot() {
+        if (!snapshotsEnabled()) return null;
+        try {
+            const saved = JSON.parse(sessionStorage.getItem(FEED_SNAPSHOT_KEY) || 'null');
+            return saved && Date.now() - saved.savedAt < 30 * 60 * 1000 && saved.value && Array.isArray(saved.value.contacts) ? saved.value : null;
+        } catch { return null; }
+    }
+    function writeFeedSnapshot(value) {
+        if (!snapshotsEnabled()) return;
+        try { sessionStorage.setItem(FEED_SNAPSHOT_KEY, JSON.stringify({savedAt:Date.now(),value})); } catch {}
+    }
+    // The page shows the remembered list at once, then reads the server's ready list in the background.
+    async function loadContactFeed({refresh = false} = {}) {
+        if (!contactFeedAvailable || !session) return;
+        const mine = ++feedRequest, currentSession = session;
+        if (!feedMeta) { const stored = readFeedSnapshot(); if (stored) { feedRows = stored.contacts; feedMeta = {...stored,fromSnapshot:true}; } }
+        feedLoading = true; if (tab === 'leads') renderLeads();
+        try {
+            const value = await api('contact-feed' + (refresh ? '?refresh=1' : ''));
+            if (mine !== feedRequest || session !== currentSession) return;
+            if (!Array.isArray(value.contacts)) throw new Error('รายชื่อผู้ทักมาผิดรูปแบบ');
+            feedRows = value.contacts; feedMeta = value; writeFeedSnapshot(value);
+        } catch (error) {
+            // A failed read keeps the rows already shown and says so; it never reports nobody.
+            if (mine === feedRequest) feedMeta = {...(feedMeta || {}),error:error.message};
+        } finally {
+            if (mine === feedRequest) { feedLoading = false; if (tab === 'leads') { renderStatusOptions(); renderLeads(); } }
+        }
+    }
+    function contactFeedStatus() {
+        if (!contactFeedAvailable) return '';
+        const at = feedMeta?.fetchedAt && Number.isFinite(Date.parse(feedMeta.fetchedAt)) ? new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(feedMeta.fetchedAt)) : '';
+        const parts = [feedLoading ? 'กำลังอัปเดตรายชื่อที่ยังไม่บันทึก…' : at ? `รายชื่อที่ยังไม่บันทึก (LINE / FB 7 วัน) ดึงล่าสุด ${at} น.` : ''];
+        if (feedMeta?.error) parts.push('อัปเดตรายชื่อที่ยังไม่บันทึกไม่สำเร็จ: ' + feedMeta.error);
+        if (Array.isArray(feedMeta?.errors) && feedMeta.errors.length) parts.push('อ่านไม่ครบ: ' + feedMeta.errors.join(' · '));
+        return parts.filter(Boolean).map(text => ' · ' + text).join('');
+    }
+    // A contact is already saved when a lead carries its contact key, or names it on the same channel (main or extra channels).
+    function unsavedFeedLeads() {
+        if (!contactFeedAvailable || !feedRows.length) return [];
+        const norm = value => String(value || '').trim().toLowerCase();
+        const platformOf = channel => { const group = channelGroup(channel); return group === 'line' ? 'line' : group === 'fb' ? 'facebook' : ''; };
+        const keys = new Set(), names = new Set();
+        for (const lead of [...sheetLeads,...(records.sheetLeads || [])]) {
+            const sourceKey = lead.intakeSource;
+            if (sourceKey?.platform && sourceKey.userId) keys.add(sourceKey.platform + ':' + sourceKey.userId);
+            const data = lead.sheetData || {};
+            for (const entry of [{channel:data.channel,contact:data.contact},...parseExtraChannels(data.extraChannels)]) {
+                const platform = platformOf(entry.channel);
+                if (platform && norm(entry.contact)) names.add(platform + ':' + norm(entry.contact));
+            }
+        }
+        const time = new Intl.DateTimeFormat('th-TH',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+        return feedRows.filter(row => ['line','facebook'].includes(row.platform) && row.user_id && !keys.has(row.platform + ':' + row.user_id)
+            && !(row.display_name && names.has(row.platform + ':' + norm(row.display_name))))
+            .map(row => ({id:'feed:' + row.platform + ':' + row.user_id,unsaved:true,feed:row,name:row.display_name || '',status:'ยังไม่บันทึก',
+                createdAt:row.last_seen_at,sheetData:{date:day(row.last_seen_at),time:time.format(new Date(row.last_seen_at)),channel:row.platform === 'line' ? 'Line' : 'FB',contact:row.display_name || ''}}));
+    }
+    function renderUnsavedLead(l, index) {
+        const data = l.sheetData, name = l.name || (l.feed.platform === 'line' ? 'LINE ยังไม่มีชื่อ' : 'Facebook ยังไม่มีชื่อ');
+        const cell = (label, value) => `<div class="contact-report-field" aria-label="${esc(label)}"><span class="contact-inline-detail" title="${esc(value)}">${esc(value)}</span></div>`;
+        return `<article class="contact-timeline-item is-unsaved" title="ทักเข้ามาแต่ยังไม่บันทึกเป็นลีด"><div class="contact-time"><span>${esc(data.time)}</span><small>#${index}</small></div><div class="contact-timeline-card">`
+            + `<div class="contact-report-field" aria-label="ชื่อลูกค้า"><strong class="contact-inline-name" title="${esc(name)}">${esc(name)}</strong></div>`
+            + cell('ช่องทางติดต่อ / ชื่อช่องทางติดต่อ',`${data.channel} : ${data.contact || '—'}`) + cell('เบอร์โทร','—') + cell('รุ่นรถยนต์','—')
+            + `<div class="contact-report-field contact-status-with-count" aria-label="สถานะการติดตาม"><span class="lead-badge unsaved-badge">ยังไม่บันทึก</span></div>`
+            + renderInstallationDates('—') + cell('ประวัติการติดต่อล่าสุด','—')
+            + `<button type="button" class="lead-button feed-save" data-feed-save="${esc(l.id)}" title="เปิดฟอร์มลีดโดยเติมช่องทางและชื่อให้ ยังไม่บันทึกจนกว่าจะกดบันทึก">+ บันทึกเป็นลีด</button></div></article>`;
+    }
     function renderLeads() {
         const now=Date.now();
         // An empty list means the contact report has not been read yet; the Line/Facebook tabs set the count from their own read.
@@ -607,7 +683,10 @@
             || (Date.parse(b.createdAt)||0)-(Date.parse(a.createdAt)||0)
             || Number(String(b.id).replace('sheet-lead:',''))-Number(String(a.id).replace('sheet-lead:',''))
             || String(b.id).localeCompare(String(a.id));
-        const list = sheetLeads.filter(l => (!followUps || isFollowUp(l)) && (!status || l.status === status) && [l.name,l.phone,l.salesperson,l.sheetData?.contact,l.sheetData?.admin,l.sheetData?.extraChannels].join(' ').toLowerCase().includes(query));
+        const savedList = status === UNSAVED_STATUS ? [] : sheetLeads.filter(l => (!followUps || isFollowUp(l)) && (!status || l.status === status) && [l.name,l.phone,l.salesperson,l.sheetData?.contact,l.sheetData?.admin,l.sheetData?.extraChannels].join(' ').toLowerCase().includes(query));
+        // People who messaged LINE/Facebook in the last 7 days but have no lead yet: shown only, saved when an admin saves them.
+        const unsavedList = !followUps && (!status || status === UNSAVED_STATUS) ? unsavedFeedLeads().filter(l => [l.name,l.sheetData.contact].join(' ').toLowerCase().includes(query)) : [];
+        const list = [...savedList,...unsavedList];
         // Follow-ups run from the oldest update to the latest and are grouped by Bangkok update date; leads without a usable date stay on top.
         const updatedAt = new Map(followUps ? sheetLeads.map(l => { const {at}=latestContactTimestamp(l,now); return [l,Number.isFinite(at) ? at : -Infinity]; }) : []);
         const groupDate = l => followUps ? (Number.isFinite(updatedAt.get(l)) ? new Date(updatedAt.get(l)+7*3600000).toISOString().slice(0,10) : '') : contactDate(l);
@@ -616,8 +695,10 @@
         // Cancelled leads are absent from the follow-up list; its summary covers every lead last updated that day.
         (followUps ? sheetLeads : list).forEach(lead => {
             const date = groupDate(lead);
-            if (!dailySummary.has(date)) dailySummary.set(date,{total:0,successful:0,unsuccessful:0});
+            if (!dailySummary.has(date)) dailySummary.set(date,{total:0,successful:0,unsuccessful:0,unsaved:0});
             const summary = dailySummary.get(date);
+            // Unsaved rows are not leads: they never count in the day's totals or success rate.
+            if (lead.unsaved) { summary.unsaved++; return; }
             summary.total++;
             const followUp = customerFollowUp(lead);
             if (isAutomaticClosedStatus(followUp) || normalizeFollowUp(followUp) === normalizeFollowUp('มัดจำ/นัดติดตั้งแล้ว')) summary.successful++;
@@ -626,11 +707,12 @@
         const totalPages = Math.max(1,Math.ceil(list.length/pageSize));
         contactPage = Math.min(contactPage,totalPages-1);
         const offset = contactPage*pageSize, visible = list.slice(offset,offset+pageSize);
-        $('contact-count').textContent = list.length.toLocaleString('th-TH') + ' ราย';
-        $('contact-page-label').textContent = list.length ? `หน้า ${contactPage+1} / ${totalPages} · รายการ ${offset+1}–${offset+visible.length} จาก ${list.length.toLocaleString('th-TH')} · แสดง ${pageSize} รายการต่อหน้า` : '0 รายการ';
+        $('contact-count').textContent = savedList.length.toLocaleString('th-TH') + ' ราย';
+        $('contact-page-label').textContent = (list.length ? `หน้า ${contactPage+1} / ${totalPages} · รายการ ${offset+1}–${offset+visible.length} จาก ${list.length.toLocaleString('th-TH')} · แสดง ${pageSize} รายการต่อหน้า` : '0 รายการ') + (followUps ? '' : contactFeedStatus());
         $('contact-previous').disabled = contactPage === 0;
         $('contact-next').disabled = contactPage+1 >= totalPages;
         const renderLead = ({l,index}) => {
+            if (l.unsaved) return renderUnsavedLead(l,index);
             const data=l.sheetData||{}, createdDay=day(l.createdAt);
             const age=followUpAge(l,now), date=contactDate(l);
             // Only the follow-up list highlights due leads; the contact report stays plain.
@@ -649,20 +731,21 @@
             ];
             // "เกินกำหนด" แสดงต่างจาก "วันนี้" (คลาสเดิม followup-overdue) และมีข้อความกำกับใต้ชื่อลูกค้า ไม่สื่อด้วยสีอย่างเดียว
             const overdue=highlight === 'overdue' ? age.overdue : null;
-            return `<article class="contact-timeline-item${{today:' followup-overdue',tomorrow:' followup-due-tomorrow',overdue:' followup-past-due'}[highlight] || ''}" title="${esc((overdue ? overdue.title + ' · ' : {today:'ต้องติดตามวันนี้ · ',tomorrow:'ต้องติดตามพรุ่งนี้ · '}[highlight] || '') + age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}${overdue ? ' · ' + esc(overdue.text) : ''}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}>${i===0 && overdue ? `<small class="followup-past-due-note">${esc(overdue.text)}</small>` : ''}</div>`).join('')}${tab === 'followups' ? renderFollowUpUpdated(l) : ''}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck || !leadHasPhone(l) ? 'disabled' : ''}${!l.isCustomer && !l.pendingCustomerCheck && !leadHasPhone(l) ? ` title="${esc(noPhoneCustomerHint)}"` : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : !leadHasPhone(l) ? 'ใส่เบอร์โทรก่อน' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
+            return `<article class="contact-timeline-item${{today:' followup-overdue',tomorrow:' followup-due-tomorrow',overdue:' followup-past-due'}[highlight] || ''}${l.isCustomer && !followUps ? ' is-customer' : ''}" title="${esc((overdue ? overdue.title + ' · ' : {today:'ต้องติดตามวันนี้ · ',tomorrow:'ต้องติดตามพรุ่งนี้ · '}[highlight] || '') + age.label)}" data-lead-details="${esc(l.id)}" tabindex="0" aria-label="รายละเอียด ${esc(l.name || 'ผู้ติดต่อ')}${overdue ? ' · ' + esc(overdue.text) : ''}"><div class="contact-time"><span>${esc(time)}</span><small>#${index}</small></div><div class="contact-timeline-card">${columns.map(([label,value],i)=>label === 'วันที่นัดติดตั้ง' ? renderInstallationDates(value) : `<div class="contact-report-field ${label === 'สถานะการติดตาม' ? 'contact-status-with-count' : ''}" aria-label="${esc(label)}">${label === 'สถานะการติดตาม' ? `<span class="contact-history-count ${Number(l.historyCount ?? 0) === 0 ? 'is-zero' : ''}" title="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ" aria-label="ประวัติการติดต่อ ${l.historyCount ?? 0} รายการ">${l.historyCount ?? 0}</span>` : ''}<${i===0?'strong':'span'} class="${i===0?'contact-inline-name':label==='สถานะการติดตาม'?'lead-badge':'contact-inline-detail'}" title="${esc(value)}">${esc(value)}</${i===0?'strong':'span'}>${i===0 && overdue ? `<small class="followup-past-due-note">${esc(overdue.text)}</small>` : ''}</div>`).join('')}${tab === 'followups' ? renderFollowUpUpdated(l) : ''}<button class="lead-button ${l.isCustomer ? 'existing-customer' : ''}" data-lead="${esc(l.id)}" ${l.isCustomer || l.pendingCustomerCheck || !leadHasPhone(l) ? 'disabled' : ''}${!l.isCustomer && !l.pendingCustomerCheck && !leadHasPhone(l) ? ` title="${esc(noPhoneCustomerHint)}"` : ''}>${l.isCustomer ? 'ลูกค้า' : l.pendingCustomerCheck ? 'กำลังตรวจข้อมูลลูกค้า' : !leadHasPhone(l) ? 'ใส่เบอร์โทรก่อน' : 'เพิ่มข้อมูลลูกค้า'}</button></div></article>`;
         };
         const track = items => `<div class="contact-day-track">${items.map(renderLead).join('')}</div>`;
         const groups = new Map();
         visible.forEach((l,index) => { const date=groupDate(l); if (!groups.has(date)) groups.set(date,[]); groups.get(date).push({l,index:offset+index+1}); });
         $('lead-list').innerHTML = [...groups].map(([date,dayItems]) => {
             const label = date ? new Date(date+'T12:00:00+07:00').toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'long',year:'numeric'}) : 'ไม่ระบุวันที่';
-            const {total,successful,unsuccessful} = dailySummary.get(date);
+            const {total,successful,unsuccessful,unsaved} = dailySummary.get(date);
             const outcomeLabel = followUps ? 'ไม่สำเร็จ' : 'สำเร็จ';
             const outcomeCount = followUps ? unsuccessful : successful;
             const outcomeRate = (total ? outcomeCount/total*100 : 0).toLocaleString('th-TH',{maximumFractionDigits:1});
             const summaryTitle = followUps ? 'สถานะยกเลิกทุกประเภท ÷ Lead ทั้งหมดที่อัปเดตล่าสุดในวันนั้น × 100 รวมรายการที่ไม่ได้แสดงในหน้าติดตาม' : 'ปิดการขายสำเร็จและมัดจำ/นัดติดตั้งแล้ว ÷ Lead ทั้งหมดของวันตามตัวกรอง × 100';
             const prefix = followUps ? '' : (date ? 'วันนี้ ' : 'ไม่ระบุวันที่ ');
-            return `<section class="contact-day-group"><h3 class="contact-day-heading"><span class="contact-day-dot"></span><time datetime="${esc(date)}">${esc(label)}</time><span title="${esc(summaryTitle)}">${prefix}${total.toLocaleString('th-TH')} รายการ · ${outcomeLabel} ${outcomeCount.toLocaleString('th-TH')} รายการ · คิดเป็น ${outcomeRate}%</span></h3>${track(dayItems)}</section>`;
+            const unsavedText = unsaved ? ` · ยังไม่บันทึก ${unsaved.toLocaleString('th-TH')} คน` : '';
+            return `<section class="contact-day-group"><h3 class="contact-day-heading"><span class="contact-day-dot"></span><time datetime="${esc(date)}">${esc(label)}</time><span title="${esc(summaryTitle)}">${total || !unsaved ? `${prefix}${total.toLocaleString('th-TH')} รายการ · ${outcomeLabel} ${outcomeCount.toLocaleString('th-TH')} รายการ · คิดเป็น ${outcomeRate}%${unsavedText}` : `ยังไม่บันทึก ${unsaved.toLocaleString('th-TH')} คน`}</span></h3>${track(dayItems)}</section>`;
         }).join('') || empty(session ? 'ยังไม่มีผู้ติดต่อที่ตรงกับรายการค้นหา' : 'กำลังเชื่อมต่อเพื่อโหลดรายชื่อผู้ติดต่อ');
     }
     function renderInstallations() {
@@ -1195,9 +1278,10 @@
     async function editLead(lead = {}, contact = null) {
         requireSession();
         const openRequest = ++editorOpenRequest;
-        const platform = contact ? tab : lead.source?.platform;
+        // Rows from the contact report carry their own channel and account (the LINE/Facebook tabs use the open tab).
+        const platform = contact ? contact.platform || tab : lead.source?.platform;
         const isNewLead = platform !== 'sheet-lead' && !lead.id && !lead.leadId && !lead.sheetKey && !lead.sheetSavedAt;
-        const source = contact ? {platform,account,userId:platform === 'instagram' ? contact.instagram_user_id : platform === 'line' ? contact.line_user_id : contact.facebook_user_id,displayName:contact.display_name} : lead.source;
+        const source = contact ? {platform,account:contact.account_key || account,userId:platform === 'instagram' ? contact.instagram_user_id : platform === 'line' ? contact.line_user_id : contact.facebook_user_id,displayName:contact.display_name} : lead.source;
         if ([lead.leadId,lead.id].some(id => id && backgroundSaves.has(id))) throw new Error('กำลังบันทึกรายการนี้อยู่ กรุณารอให้บันทึกเสร็จก่อนเปิดอีกครั้ง');
         const key = platform === 'sheet-lead' ? `sheet-edit:${crypto.randomUUID()}` : lead.sheetKey || (source?.userId ? `${source.platform}:${source.account}:${source.userId}` : `manual:${lead.id || crypto.randomUUID()}`);
         const previous = {...lead.sheetData};
@@ -1594,7 +1678,7 @@
         if (button.disabled) return;
         requireSession();
         button.disabled = true; button.setAttribute('aria-busy','true');
-        try { await loadRecords(false,{reportErrors:true}); }
+        try { await Promise.all([loadRecords(false,{reportErrors:true}),loadContactFeed({refresh:true})]); }
         finally { button.disabled = false; button.removeAttribute('aria-busy'); }
     }));
     $('contact-previous').addEventListener('click',() => { contactPage=Math.max(0,contactPage-1); renderLeads(); $('lead-list').scrollIntoView({block:'start'}); });
@@ -1620,6 +1704,19 @@
         event.preventDefault(); if (leadsSnapshotBusy()) return; await showLeadDetails(event.target.dataset.leadDetails);
     }));
     $('lead-list').addEventListener('click',guard(async event => {
+        const feedSave = event.target.closest('[data-feed-save]');
+        if (feedSave) {
+            if (feedSave.disabled || leadsSnapshotBusy()) return;
+            const row = unsavedFeedLeads().find(item => item.id === feedSave.dataset.feedSave)?.feed;
+            if (!row) { notice('รายชื่อนี้มีลีดแล้วหรือไม่อยู่ในรายการล่าสุด กรุณากดอัปเดต',true); return; }
+            const label = feedSave.textContent;
+            feedSave.disabled = true; feedSave.textContent = 'กำลังเปิด…'; feedSave.setAttribute('aria-busy','true');
+            // The same form as the LINE/Facebook tabs: channel and name filled in, nothing saved until the admin saves.
+            const contact = {...row,id:row.platform + ':' + row.user_id,line_user_id:row.platform === 'line' ? row.user_id : undefined,facebook_user_id:row.platform === 'facebook' ? row.user_id : undefined};
+            try { await editLead({},contact); }
+            finally { feedSave.disabled = false; feedSave.textContent = label; feedSave.removeAttribute('aria-busy'); }
+            return;
+        }
         if (event.target.closest('[data-lead],[data-install-lead],[data-lead-details]') && leadsSnapshotBusy()) return;
         const edit = event.target.closest('[data-lead]'), install = event.target.closest('[data-install-lead]');
         if (edit) {

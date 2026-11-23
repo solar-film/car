@@ -556,3 +556,10 @@ html[data-lead-embed] .lead-dialog::backdrop { background:transparent; backdrop-
 .contact-history-editing label { display:grid; gap:4px; font-size:11px; color:#64748b; }
 .contact-history-editing select,.contact-history-editing textarea { font-family:inherit; font-size:13px; }
 .contact-history-edit-actions { display:flex; gap:8px; justify-content:flex-end; }
+/* รายงานข้อมูลการติดต่อ: แถวลูกค้าแล้วพื้นเขียวอ่อนทั้งแถว · แถว "ยังไม่บันทึก" (ทัก LINE / FB ยังไม่เป็นลีด) พื้นขาว ป้ายเทา ปุ่มขอบน้ำเงิน */
+.contact-timeline-item.is-customer,.contact-timeline-item.is-customer .contact-timeline-card,.contact-timeline-item.is-customer .contact-timeline-card:hover { background:#f2fbf5; }
+.contact-timeline-item.is-unsaved:before { background:#cbd5e1; }
+.contact-timeline-item.is-unsaved .contact-inline-detail { color:#94a3b8; }
+.contact-timeline-card .lead-badge.unsaved-badge { background:#f1f5f9; color:#64748b; border:0; }
+.contact-timeline-card .lead-button.feed-save { background:#fff; color:#1d4ed8; border:1px solid #bfdbfe; }
+.contact-timeline-card .lead-button.feed-save:hover { background:#eff6ff; }
