@@ -102,6 +102,10 @@
         #dm-tableBody td { padding: 4px 6px !important; }
         #dm-tableBody .damage-cell { padding-top: 6px !important; padding-bottom: 6px !important; }
         #dm-tableBody .team-check-dropdown summary { min-height: 36px !important; }
+        #dm-tableBody [aria-invalid="true"] {
+            border-color: #be123c !important;
+            box-shadow: 0 0 0 2px #fecdd3 !important;
+        }
     </style>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
 </head>
@@ -281,7 +285,7 @@
                 </div>
 
                 <div class="border-t border-slate-200 bg-slate-50 px-6 py-4">
-                    <p id="dm-error" class="mb-3 hidden rounded-xl bg-red-50 px-3 py-2 text-center text-sm font-semibold text-red-600"></p>
+                    <p id="dm-error" role="alert" class="mb-3 hidden rounded-xl bg-rose-50 px-3 py-2 text-center text-sm font-semibold text-rose-700"></p>
                     <p id="dm-success" class="mb-3 hidden rounded-xl bg-emerald-50 px-3 py-2 text-center text-sm font-semibold text-emerald-600"></p>
                     <div class="grid grid-cols-2 gap-3">
                         <button type="button" onclick="closeDamageModal()" class="rounded-xl border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50">ยกเลิก</button>
@@ -1249,6 +1253,43 @@
             };
         }
 
+        const CUT_ROW_FIELDS = ['กว้าง', 'ยาว', 'จำนวน', 'เหตุผลขอตัดฟิล์ม'];
+
+        function hasCutFieldValue(value) {
+            const text = String(value ?? '').trim();
+            return text !== '' && text !== '-';
+        }
+
+        function clearCutFieldError(event) {
+            event.currentTarget.removeAttribute('aria-invalid');
+        }
+
+        function validateCutRows(rows, tableBody, errorEl) {
+            tableBody.querySelectorAll('[aria-invalid=true]').forEach(field => field.removeAttribute('aria-invalid'));
+            const incomplete = rows.find(row => {
+                const filled = CUT_ROW_FIELDS.filter(field => hasCutFieldValue(row[field])).length;
+                return filled > 0 && filled < CUT_ROW_FIELDS.length;
+            });
+            if (!incomplete) return true;
+
+            const position = incomplete['ตำแหน่งติดตั้ง'];
+            const missing = CUT_ROW_FIELDS.filter(field => !hasCutFieldValue(incomplete[field]));
+            errorEl.textContent = `ตำแหน่ง ${position} กรุณากรอกหรือเลือก ${missing.join(' / ')}`;
+            errorEl.classList.remove('hidden');
+
+            const formRow = Array.from(tableBody.querySelectorAll('tr[data-position]'))
+                .find(row => row.dataset.position === position);
+            const missingControls = missing.map(field => formRow?.querySelector(`[data-field="${field}"]`)).filter(Boolean);
+            missingControls.forEach(field => {
+                field.setAttribute('aria-invalid', 'true');
+                field.addEventListener('input', clearCutFieldError, { once: true });
+            });
+            const first = missingControls[0];
+            first?.scrollIntoView({ block: 'center', inline: 'nearest' });
+            first?.focus({ preventScroll: true });
+            return false;
+        }
+
         const CUT_DATA_NOT_LOADED_MESSAGE = 'โหลดรายการขอตัดเดิมของงานนี้ไม่สำเร็จ จึงยังบันทึกไม่ได้ เพื่อไม่ให้รายการเดิมหาย กรุณาโหลดข้อมูลใหม่แล้วลองอีกครั้ง';
         // ===== จบส่วนแถวขอตัดเดิม =====
 
@@ -1404,8 +1445,7 @@
             }
 
             const rows = collectDamageRows();
-            // หมายเหตุ: ถอดการบังคับกรอกครบทุกช่องออกแล้ว เพื่อให้ทำงานเหมือนหน้า index
-            // (อนุญาตให้เว้นว่างได้) — คงเหลือเฉพาะการตรวจตัวเลขพื้นฐานด้านล่าง
+            if (!validateCutRows(rows, dom['dm-tableBody'], dom['dm-error'])) return;
 
             const invalidQuantity = rows.find(row => Number(row['จำนวน'] || 1) <= 0);
             if (invalidQuantity) {

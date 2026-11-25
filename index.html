@@ -573,6 +573,10 @@
             box-shadow: 0 6px 24px #0f172a20;
             font-size: 14px;
         }
+        #dt-tableBody [aria-invalid="true"] {
+            border-color: #be123c !important;
+            box-shadow: 0 0 0 2px #fecdd3 !important;
+        }
     </style>
     <link rel="stylesheet" href="apple-style.css?v=20260520-4">
     <script src="crm-auth.js?v=20261002-1" defer></script>
@@ -1146,7 +1150,7 @@
                 </div>
 
                 <div class="border-t border-slate-200 bg-slate-50 px-6 py-4">
-                    <p id="dt-error" class="mb-3 hidden rounded-xl bg-red-50 px-3 py-2 text-center text-sm font-semibold text-red-600"></p>
+                    <p id="dt-error" role="alert" class="mb-3 hidden rounded-xl bg-rose-50 px-3 py-2 text-center text-sm font-semibold text-rose-700"></p>
                     <p id="dt-success" class="mb-3 hidden rounded-xl bg-emerald-50 px-3 py-2 text-center text-sm font-semibold text-emerald-600"></p>
                     <div class="grid grid-cols-2 gap-3">
                         <button type="button" onclick="closeDataCutModal()" class="rounded-xl border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50">ยกเลิก</button>
@@ -4468,6 +4472,43 @@
             };
         }
 
+        const CUT_ROW_FIELDS = ['กว้าง', 'ยาว', 'จำนวน', 'เหตุผลขอตัดฟิล์ม'];
+
+        function hasCutFieldValue(value) {
+            const text = String(value ?? '').trim();
+            return text !== '' && text !== '-';
+        }
+
+        function clearCutFieldError(event) {
+            event.currentTarget.removeAttribute('aria-invalid');
+        }
+
+        function validateCutRows(rows, tableBody, errorEl) {
+            tableBody.querySelectorAll('[aria-invalid=true]').forEach(field => field.removeAttribute('aria-invalid'));
+            const incomplete = rows.find(row => {
+                const filled = CUT_ROW_FIELDS.filter(field => hasCutFieldValue(row[field])).length;
+                return filled > 0 && filled < CUT_ROW_FIELDS.length;
+            });
+            if (!incomplete) return true;
+
+            const position = incomplete['ตำแหน่งติดตั้ง'];
+            const missing = CUT_ROW_FIELDS.filter(field => !hasCutFieldValue(incomplete[field]));
+            errorEl.textContent = `ตำแหน่ง ${position} กรุณากรอกหรือเลือก ${missing.join(' / ')}`;
+            errorEl.classList.remove('hidden');
+
+            const formRow = Array.from(tableBody.querySelectorAll('tr[data-position]'))
+                .find(row => row.dataset.position === position);
+            const missingControls = missing.map(field => formRow?.querySelector(`[data-field="${field}"]`)).filter(Boolean);
+            missingControls.forEach(field => {
+                field.setAttribute('aria-invalid', 'true');
+                field.addEventListener('input', clearCutFieldError, { once: true });
+            });
+            const first = missingControls[0];
+            first?.scrollIntoView({ block: 'center', inline: 'nearest' });
+            first?.focus({ preventScroll: true });
+            return false;
+        }
+
         const CUT_DATA_NOT_LOADED_MESSAGE = 'โหลดรายการขอตัดเดิมของงานนี้ไม่สำเร็จ จึงยังบันทึกไม่ได้ เพื่อไม่ให้รายการเดิมหาย กรุณาโหลดข้อมูลใหม่แล้วลองอีกครั้ง';
         // ===== จบส่วนแถวขอตัดเดิม =====
 
@@ -4519,6 +4560,7 @@
                 const reasonRaw = getAnyField(existing, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล'], '');
                 // ใช้ text ของเหตุผลแทน id (เพราะ select เก็บ text)
                 const reasonText = reasonMap[reasonRaw] || reasonRaw;
+                const reasonsForRow = hasCutFieldValue(reasonText) && !reasons.includes(reasonText) ? [reasonText, ...reasons] : reasons;
                 const misId = getAnyField(existing, ['MIS_ID'], '');
 
                 return `<tr data-position="${escapeHtml(pos)}" data-row-id="${escapeHtml(misId)}" class="border-b border-slate-200 last:border-b-0">
@@ -4540,7 +4582,7 @@
                     <td class="border border-slate-200">${dtTeamDropdown(team)}</td>
                     <td class="border border-slate-200">
                         <select data-field="เหตุผลขอตัดฟิล์ม" class="dt-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
-                            ${dtOptionHtml(reasons, reasonText)}
+                            ${dtOptionHtml(reasonsForRow, reasonText)}
                         </select>
                     </td>
                 </tr>`;
@@ -4616,15 +4658,7 @@
                 return;
             }
 
-            // Validate
-            const required = ['รุ่นฟิล์ม', 'กว้าง', 'ยาว', 'จำนวน', 'เหตุผลขอตัดฟิล์ม'];
-            const incomplete = null; // Removed strict validation to allow blanks
-            if (incomplete) {
-                const missing = required.filter(f => !incomplete[f] || incomplete[f] === '-').join(', ');
-                errEl.textContent = `กรุณากรอก ${missing} ของตำแหน่ง ${incomplete['ตำแหน่งติดตั้ง']}`;
-                errEl.classList.remove('hidden');
-                return;
-            }
+            if (!validateCutRows(rows, document.getElementById('dt-tableBody'), errEl)) return;
             const note = document.getElementById('dt-note').value.trim();
             // แถวเดิมที่ฟอร์มไม่ได้แสดงส่งกลับไปตามเดิม (ดู cutRowsNotShown) หมายเหตุใช้ร่วมกันทั้งงานเหมือนแถวอื่น
             const savedRows = rows.concat(dtHiddenRows.map(row => cutRowForResave(row, dtReadCutField)));
