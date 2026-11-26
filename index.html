@@ -576,6 +576,203 @@
             border-color: #be123c !important;
             box-shadow: 0 0 0 2px #fecdd3 !important;
         }
+
+        /* Detail_film uses the CAR report drawer and the existing form controls. */
+        html:has(#detailFilmModal[open]) { overflow: hidden; }
+        #detailFilmModal {
+            position: fixed;
+            inset: 0 0 0 auto;
+            width: var(--df-width, min(72vw, 1080px));
+            max-width: min(1400px, calc(100% - 40px));
+            height: 100%;
+            height: 100dvh;
+            max-height: none;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            border-radius: 20px 0 0 20px;
+            background: #f8fafc;
+            color: #1e293b;
+            box-shadow: -16px 0 60px #0f172a30;
+            overflow: hidden;
+            container: detail-film / inline-size;
+        }
+        #detailFilmModal[open] { animation: df-slide-in .38s cubic-bezier(.22, 1, .36, 1) both; }
+        #detailFilmModal::backdrop { background: rgb(15 23 42 / 40%); }
+        @keyframes df-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        #detailFilmForm { display: flex; flex-direction: column; height: 100%; }
+        .df-header, .df-footer {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: none;
+            padding: 10px 20px;
+        }
+        .df-header { background: #eff6ff; border-bottom: 1px solid #bfdbfe; }
+        #df-title { flex: 1; margin: 0; color: #1e40af !important; font-size: 18px; font-weight: 700; }
+        .df-header-icon, #detailFilmModal .df-close {
+            display: grid;
+            flex: none;
+            place-items: center;
+            width: 40px;
+            height: 40px;
+        }
+        .df-header-icon { border-radius: 12px; background: #2563eb; color: #fff; }
+        .df-header svg { width: 20px; height: 20px; }
+        #detailFilmModal .df-close {
+            border: 1px solid #bfdbfe;
+            border-radius: 50% !important;
+            background: #fff;
+            color: #475569;
+        }
+        #detailFilmModal .df-close:hover { background: #dbeafe; color: #1d4ed8; }
+        .df-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 14px 20px 20px;
+        }
+        .df-summary, .df-card {
+            margin: 0;
+            min-width: 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fff;
+        }
+        .df-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px 16px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+        }
+        .df-summary dt { color: #64748b; font-size: 12px; line-height: 1.3; }
+        .df-summary dd { margin: 1px 0 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+        #df-jobId, #df-plate { font-variant-numeric: tabular-nums; }
+        .df-sections { display: grid; gap: 12px; align-items: start; }
+        .df-card { padding: 12px 14px 14px; }
+        .df-card h3 {
+            margin: 0 0 10px;
+            padding: 0 0 8px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #0f172a;
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .df-positions, .df-cut-fields { display: grid; gap: 8px 12px; }
+        .df-positions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .df-field { display: grid; min-width: 0; gap: 3px; }
+        .df-span { grid-column: 1 / -1; }
+        .df-label { color: #475569; font-size: 13px; font-weight: 600; line-height: 1.35; }
+        .df-required { color: #be123c; }
+        #detailFilmModal .df-control {
+            box-sizing: border-box;
+            width: 100%;
+            min-width: 0;
+            min-height: 38px;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 9px !important;
+            padding: 6px 10px;
+            background: #fff !important;
+            color: #1e293b !important;
+            box-shadow: none !important;
+            font: inherit;
+            font-size: 14px;
+        }
+        #detailFilmModal select.df-control { text-overflow: ellipsis; }
+        #detailFilmModal textarea.df-control { min-height: 76px; resize: vertical; }
+        #detailFilmModal .df-film-select:has(option:checked[value=""]) { color: #64748b !important; }
+        #detailFilmModal .df-film-select:has(option:checked:not([value=""])) {
+            border-color: #bfdbfe !important;
+            background: #eff6ff !important;
+        }
+        #detailFilmModal .df-control option { color: #1e293b; background: #fff; }
+        #detailFilmModal .df-control:focus {
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 3px #2563eb24 !important;
+            outline: none;
+        }
+        .df-footer {
+            display: grid;
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+            gap: 8px;
+            border-top: 1px solid #e2e8f0;
+            background: #fff;
+        }
+        .df-actions { display: flex; justify-content: flex-end; gap: 8px; }
+        #detailFilmModal .df-button {
+            min-height: 40px;
+            padding: 6px 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            background: #fff;
+            color: #475569;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        #detailFilmModal .df-button:hover { background: #f8fafc; }
+        #detailFilmModal .df-primary { border-color: #2563eb; background: #2563eb; color: #fff; }
+        #detailFilmModal .df-primary:hover { border-color: #1d4ed8; background: #1d4ed8; }
+        #detailFilmModal :is(button, .df-control):disabled { opacity: .6; cursor: not-allowed; }
+        #detailFilmModal :is(button, .df-resize):focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+        .df-message {
+            margin: 0;
+            padding: 7px 10px;
+            border: 1px solid #fecdd3;
+            border-radius: 8px;
+            background: #fff1f2;
+            color: #be123c;
+            font-size: 13px;
+            overflow-wrap: anywhere;
+        }
+        #df-success { border-color: #a7f3d0; background: #ecfdf5; color: #047857; }
+        .df-resize {
+            position: absolute;
+            inset: 10px auto 10px 0;
+            z-index: 1;
+            width: 12px;
+            cursor: ew-resize;
+            touch-action: none;
+        }
+        .df-resize::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 4px;
+            width: 4px;
+            height: 44px;
+            transform: translateY(-50%);
+            border-radius: 4px;
+            background: #cbd5e1;
+        }
+        .df-resize:is(:hover, :focus-visible)::after { background: #2563eb; }
+        @container detail-film (min-width: 820px) {
+            .df-sections { grid-template-columns: minmax(0, 1fr) minmax(260px, 32%); }
+        }
+        @media (max-width: 1023px) {
+            #detailFilmModal { width: 90%; max-width: 90%; }
+            .df-resize { display: none; }
+        }
+        @media (max-width: 640px) {
+            #detailFilmModal { width: 100%; max-width: 100%; border-radius: 0; }
+            .df-header, .df-footer { padding-inline: 12px; }
+            .df-body { padding: 10px 12px 14px; }
+            .df-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; }
+            .df-card, .df-summary { padding-inline: 10px; }
+            .df-positions { column-gap: 8px; }
+            .df-actions > button { flex: 1; }
+            #detailFilmModal .df-control { min-height: 44px; font-size: 16px; }
+            #detailFilmModal :is(.df-close, .df-button) { min-height: 44px; }
+            #detailFilmModal .df-close { width: 44px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #detailFilmModal[open] { animation: none; }
+        }
+        #dt-tableBody [aria-invalid="true"] {
+            border-color: #be123c !important;
+            box-shadow: 0 0 0 2px #fecdd3 !important;
+        }
     </style>
     <link rel="stylesheet" href="apple-style.css?v=20260520-4">
     <script src="crm-auth.js?v=20261002-1" defer></script>
@@ -1639,139 +1836,112 @@
         </div>
     </div>
 
-    <!-- Modal: กรอก Detail_film -->
-    <div id="detailFilmModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    กรอกข้อมูลการติดตั้ง (Detail_film)
-                </h3>
-                <button onclick="closeDetailFilmModal()" class="text-slate-400 hover:text-slate-600 rounded-lg p-1 hover:bg-slate-100 transition-colors">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+    <!-- Detail_film installation drawer -->
+    <dialog id="detailFilmModal" aria-labelledby="df-title">
+        <form id="detailFilmForm" onsubmit="submitDetailFilm(event)">
+            <header class="df-header car-dialog-header">
+                <span class="df-header-icon" aria-hidden="true">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                </span>
+                <h2 id="df-title">ข้อมูลการติดตั้ง</h2>
+                <button type="button" id="df-close" class="df-close" aria-label="ปิดข้อมูลการติดตั้ง" autofocus onclick="closeDetailFilmModal()">
+                    <svg aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
+            </header>
+            <div class="df-body" id="df-body">
+                <dl class="df-summary">
+                    <div><dt>รหัสงาน</dt><dd id="df-jobId"></dd></div>
+                    <div><dt>รุ่นรถ</dt><dd id="df-carModel"></dd></div>
+                    <div><dt>ทะเบียน</dt><dd id="df-plate"></dd></div>
+                    <div><dt>ตำแหน่งติดตั้ง</dt><dd id="df-position-text"></dd></div>
+                    <div><dt>ยี่ห้อฟิล์ม</dt><dd id="df-brand-text"></dd></div>
+                    <div><dt>ประเภทงาน</dt><dd id="df-custType-text"></dd></div>
+                </dl>
+                <input type="hidden" name="ตำแหน่งติดตั้ง" id="df-position">
+                <input type="hidden" name="ขอตัดฟิล์ม" id="df-custType">
+                <input type="hidden" name="ยี่ห้อฟิล์ม" id="df-brand">
+                <div class="df-sections">
+                    <section class="df-card" aria-labelledby="df-films-heading">
+                        <h3 id="df-films-heading">รุ่นฟิล์มแต่ละตำแหน่ง</h3>
+                        <div class="df-positions">
+                            <label class="df-field">
+                                <span class="df-label">บานหน้า</span>
+                                <select name="บานหน้า" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                            <label class="df-field">
+                                <span class="df-label">บานหลัง</span>
+                                <select name="บานหลัง" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                            <label class="df-field">
+                                <span class="df-label">ประตูหน้า · ซ้าย</span>
+                                <select name="ประตูหน้า-ซ้าย" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                            <label class="df-field">
+                                <span class="df-label">ประตูหน้า · ขวา</span>
+                                <select name="ประตูหน้า-ขวา" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                            <label class="df-field">
+                                <span class="df-label">ประตูหลัง · ซ้าย</span>
+                                <select name="ประตูหลัง-ซ้าย" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                            <label class="df-field">
+                                <span class="df-label">ประตูหลัง · ขวา</span>
+                                <select name="ประตูหลัง-ขวา" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                            <label class="df-field">
+                                <span class="df-label">บานฟิก · ซ้าย</span>
+                                <select name="บานฟิก-ซ้าย" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                            <label class="df-field">
+                                <span class="df-label">บานฟิก · ขวา</span>
+                                <select name="บานฟิก-ขวา" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                            <label class="df-field">
+                                <span class="df-label">คาดหน้า</span>
+                                <select name="คาดหน้า" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                            <label class="df-field">
+                                <span class="df-label">ซันรูฟ · ช่อง 1</span>
+                                <select name="ซันรูฟ-ช่อง1" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                            <label class="df-field">
+                                <span class="df-label">ซันรูฟ · ช่อง 2</span>
+                                <select name="ซันรูฟ-ช่อง2" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                            <label class="df-field df-span">
+                                <span class="df-label">แครี่บอย</span>
+                                <select name="แครี่บอย" class="df-control df-film-select"><option value="">ไม่ระบุ</option></select>
+                            </label>
+                        </div>
+                    </section>
+                    <section class="df-card" aria-labelledby="df-cut-heading">
+                        <h3 id="df-cut-heading">ขอตัดฟิล์ม</h3>
+                        <div class="df-cut-fields">
+                            <label class="df-field" for="df-reason">
+                                <span class="df-label">เหตุผลขอตัดฟิล์ม <span class="df-required" aria-hidden="true">*</span></span>
+                                <select name="เหตุผลขอตัดฟิล์ม" id="df-reason" class="df-control" required>
+                                    <option value="">เลือกเหตุผล</option>
+                                </select>
+                            </label>
+                            <label class="df-field" for="df-note">
+                                <span class="df-label">หมายเหตุ</span>
+                                <textarea name="หมายเหตุ" id="df-note" class="df-control" rows="2"></textarea>
+                            </label>
+                        </div>
+                    </section>
+                </div>
             </div>
-            <form id="detailFilmForm" class="px-6 py-5 space-y-4" onsubmit="submitDetailFilm(event)">
-                <div class="flex flex-wrap gap-x-6 gap-y-1 bg-blue-50 rounded-xl p-3 text-sm">
-                    <div><span class="text-slate-500 font-medium">JobID:</span> <span id="df-jobId" class="font-bold text-slate-800"></span></div>
-                    <div><span class="text-slate-500 font-medium">รุ่นรถ:</span> <span id="df-carModel" class="font-bold text-slate-800"></span></div>
-                    <div><span class="text-slate-500 font-medium">ทะเบียน:</span> <span id="df-plate" class="font-bold text-slate-800"></span></div>
+            <footer class="df-footer">
+                <p id="df-error" class="df-message" role="alert" hidden></p>
+                <p id="df-success" class="df-message" role="status" hidden></p>
+                <div class="df-actions">
+                    <button type="button" id="df-cancel" class="df-button" onclick="closeDetailFilmModal()">ยกเลิก</button>
+                    <button type="submit" id="df-submitBtn" class="df-button df-primary">บันทึกข้อมูล</button>
                 </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">ตำแหน่งติดตั้ง</label>
-                        <input type="text" name="ตำแหน่งติดตั้ง" id="df-position" readonly class="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-600 cursor-not-allowed">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">ขอตัดฟิล์ม</label>
-                        <input type="text" name="ขอตัดฟิล์ม" id="df-custType" readonly class="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-600 cursor-not-allowed">
-                    </div>
-                    <div class="col-span-2">
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">ยี่ห้อฟิล์ม <span class="text-slate-400">(จาก Bookings)</span></label>
-                        <input type="text" name="ยี่ห้อฟิล์ม" id="df-brand" readonly class="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700 font-semibold cursor-not-allowed">
-                    </div>
-                </div>
-                <!-- ตำแหน่งแต่ละบาน PLACEHOLDER_REMOVE -->
-                <div class="grid grid-cols-2 gap-3">
-
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">บานหน้า</label>
-                        <select name="บานหน้า" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">บานหลัง</label>
-                        <select name="บานหลัง" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">ประตูหน้า-ซ้าย</label>
-                        <select name="ประตูหน้า-ซ้าย" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">ประตูหน้า-ขวา</label>
-                        <select name="ประตูหน้า-ขวา" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">ประตูหลัง-ซ้าย</label>
-                        <select name="ประตูหลัง-ซ้าย" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">ประตูหลัง-ขวา</label>
-                        <select name="ประตูหลัง-ขวา" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">บานฟิก-ซ้าย</label>
-                        <select name="บานฟิก-ซ้าย" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">บานฟิก-ขวา</label>
-                        <select name="บานฟิก-ขวา" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">คาดหน้า</label>
-                        <select name="คาดหน้า" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">ซันรูฟ-ช่อง1</label>
-                        <select name="ซันรูฟ-ช่อง1" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">ซันรูฟ-ช่อง2</label>
-                        <select name="ซันรูฟ-ช่อง2" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                    <div class="col-span-2">
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">แครี่บอย</label>
-                        <select name="แครี่บอย" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- ไม่ระบุ --</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-red-600 mb-1">เหตุผลขอตัดฟิล์ม <span class="text-red-500">*</span></label>
-                        <select name="เหตุผลขอตัดฟิล์ม" id="df-reason" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-                            <option value="">-- เลือกเหตุผล (บังคับ) --</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">หมายเหตุ</label>
-                        <input type="text" name="หมายเหตุ" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-                    </div>
-                </div>
-
-                <p id="df-error" class="hidden text-sm font-semibold text-red-600 text-center"></p>
-                <p id="df-success" class="hidden text-sm font-semibold text-emerald-600 text-center"></p>
-
-                <div class="flex gap-3 pt-1">
-                    <button type="button" onclick="closeDetailFilmModal()" class="flex-1 rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">ยกเลิก</button>
-                    <button type="submit" id="df-submitBtn" class="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white hover:bg-blue-700 transition-colors">บันทึกข้อมูล</button>
-                </div>
-            </form>
-        </div>
-    </div>
+            </footer>
+        </form>
+        <div id="df-resize" class="df-resize" role="separator" tabindex="0" aria-label="ปรับความกว้างแผง" aria-controls="df-body" aria-orientation="vertical" aria-valuemin="560" aria-valuemax="1400" aria-valuenow="800" title="ลากหรือใช้ปุ่มลูกศรเพื่อปรับความกว้าง"></div>
+    </dialog>
 
     <!-- Modal: กรอกการรับประกัน -->
     <div id="warrantyModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
@@ -6155,6 +6325,71 @@
             }
         }
         // ============ Detail Film Form ============
+        (() => {
+            const dialog = document.getElementById('detailFilmModal');
+            const handle = document.getElementById('df-resize');
+            const widthKey = 'carDetailFilmDrawerWidth';
+            const minWidth = 560;
+            const maxWidth = () => Math.min(1400, window.innerWidth - 40);
+            let preferredWidth = 0;
+            let startX, startWidth, pressedBackdrop;
+            try { preferredWidth = Number(localStorage.getItem(widthKey)) || 0; } catch (_) {}
+
+            function applyWidth(width = preferredWidth) {
+                const max = Math.max(minWidth, maxWidth());
+                const next = Math.max(minWidth, Math.min(max, width || Math.min(1080, Math.round(window.innerWidth * .72))));
+                if (width) dialog.style.setProperty('--df-width', `${next}px`);
+                else dialog.style.removeProperty('--df-width');
+                handle.setAttribute('aria-valuemax', String(max));
+                handle.setAttribute('aria-valuenow', String(next));
+                return next;
+            }
+            function saveWidth(width) {
+                preferredWidth = width ? applyWidth(width) : 0;
+                if (!width) applyWidth();
+                try { localStorage.setItem(widthKey, String(preferredWidth)); } catch (_) {}
+            }
+            applyWidth();
+            window.addEventListener('resize', () => applyWidth());
+            handle.addEventListener('pointerdown', event => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+                startX = event.clientX;
+                startWidth = dialog.offsetWidth;
+                handle.setPointerCapture(event.pointerId);
+            });
+            handle.addEventListener('pointermove', event => {
+                if (handle.hasPointerCapture(event.pointerId)) applyWidth(startWidth + startX - event.clientX);
+            });
+            handle.addEventListener('lostpointercapture', () => saveWidth(dialog.offsetWidth));
+            handle.addEventListener('dblclick', () => saveWidth(0));
+            handle.addEventListener('keydown', event => {
+                const width = dialog.offsetWidth;
+                const sizes = { ArrowLeft: width + 32, ArrowRight: width - 32, Home: minWidth, End: maxWidth(), Enter: 0 };
+                if (!Object.hasOwn(sizes, event.key)) return;
+                event.preventDefault();
+                saveWidth(sizes[event.key]);
+            });
+            dialog.addEventListener('pointerdown', event => { pressedBackdrop = event.target === dialog; });
+            dialog.addEventListener('click', event => {
+                if (pressedBackdrop && event.target === dialog) closeDetailFilmModal();
+            });
+            dialog.addEventListener('cancel', event => {
+                event.preventDefault();
+                closeDetailFilmModal();
+            });
+            window.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && dialog.open && document.getElementById('df-submitBtn').disabled) event.preventDefault();
+            });
+        })();
+
+        function setDetailFilmSaving(saving) {
+            document.getElementById('detailFilmModal').setAttribute('closedby', saving ? 'none' : 'closerequest');
+            for (const control of document.querySelectorAll('#detailFilmForm :is(.df-control, button)')) {
+                control.disabled = saving;
+            }
+        }
+
         function fillAllFilmSelects(val) {
             document.querySelectorAll('#detailFilmForm .df-film-select').forEach(sel => {
                 sel.value = val || '';
@@ -6162,27 +6397,38 @@
         }
 
         function openDetailFilmModal() {
-            if (!currentViewJobId) return;
+            const dialog = document.getElementById('detailFilmModal');
+            if (!currentViewJobId || dialog.open) return;
             const job = allData.find(j => j.id === currentViewJobId);
             if (!job) return;
             document.getElementById('df-jobId').textContent    = job.id;
-            document.getElementById('df-carModel').textContent = job.carModel;
-            document.getElementById('df-plate').textContent    = job.plate || '-';
-            document.getElementById('df-position').value       = job.installType || '';
-            document.getElementById('df-custType').value       = job.customerType || '';
+            document.getElementById('df-carModel').textContent = job.carModel || '—';
+            document.getElementById('df-plate').textContent    = job.plate || '—';
+            for (const [id, value] of [
+                ['df-position', job.installType || ''],
+                ['df-custType', job.customerType || ''],
+                ['df-brand', job.film && job.film !== '-' ? job.film : ''],
+            ]) {
+                document.getElementById(id).value = value;
+                document.getElementById(id + '-text').textContent = value || '—';
+            }
 
-            // Set brand from job (read-only)
-            document.getElementById('df-brand').value = job.film && job.film !== '-' ? job.film : '';
             // Include models from every selected brand, without unrelated brands.
             const filmOpts = FilmBrands.filterModels(filmSeriesOptions, job.film);
+            const [brand, otherBrand] = FilmBrands.parse(job.film);
+            const brandPrefix = brand && !otherBrand ? `${brand.toLowerCase()} - ` : '';
+            const filmLabel = value => brandPrefix && value.length > brandPrefix.length && value.toLowerCase().startsWith(brandPrefix)
+                ? value.slice(brandPrefix.length) : value;
 
             const dfData = job.filmDetails;
+            document.getElementById('df-note').value = dfData?.['หมายเหตุ'] ?? '';
 
             document.querySelectorAll('#detailFilmForm .df-film-select').forEach(sel => {
-                sel.innerHTML = '<option value="">-- ไม่ระบุ --</option>';
+                sel.innerHTML = '<option value="">ไม่ระบุ</option>';
                 filmOpts.forEach(f => {
                     const o = document.createElement('option');
-                    o.value = o.textContent = f.full;
+                    o.value = f.full;
+                    o.textContent = filmLabel(f.full);
                     sel.appendChild(o);
                 });
 
@@ -6190,7 +6436,8 @@
                     const existingVal = findRowValue(dfData, [sel.name], '');
                     if (existingVal && existingVal !== '-' && !Array.from(sel.options).some(o => o.value === existingVal)) {
                         const option = document.createElement('option');
-                        option.value = option.textContent = existingVal;
+                        option.value = existingVal;
+                        option.textContent = filmLabel(existingVal);
                         sel.appendChild(option);
                     }
                     sel.value = (existingVal && existingVal !== '-') ? existingVal : '';
@@ -6201,7 +6448,7 @@
 
             // Populate reason dropdown (store ID, show text)
             const reasonSel = document.getElementById('df-reason');
-            reasonSel.innerHTML = '<option value="">-- เลือกเหตุผล (บังคับ) --</option>';
+            reasonSel.innerHTML = '<option value="">เลือกเหตุผล</option>';
             reasonOptions.forEach(r => {
                 const o = document.createElement('option');
                 o.value = r.id;
@@ -6221,25 +6468,30 @@
                 reasonSel.value = '';
             }
 
-            document.getElementById('df-error').classList.add('hidden');
-            document.getElementById('df-success').classList.add('hidden');
-            document.getElementById('df-submitBtn').disabled = false;
+            document.getElementById('df-error').hidden = true;
+            document.getElementById('df-success').hidden = true;
+            setDetailFilmSaving(false);
             document.getElementById('df-submitBtn').textContent = 'บันทึกข้อมูล';
-            document.getElementById('detailFilmModal').classList.remove('hidden');
+            dialog.showModal();
+            document.getElementById('df-body').scrollTop = 0;
         }
 
-        function closeDetailFilmModal() { document.getElementById('detailFilmModal').classList.add('hidden'); }
+        function closeDetailFilmModal() {
+            if (!document.getElementById('df-submitBtn').disabled) document.getElementById('detailFilmModal').close();
+        }
 
         async function submitDetailFilm(e) {
             e.preventDefault();
             const errEl = document.getElementById('df-error');
             const okEl  = document.getElementById('df-success');
             const btn   = document.getElementById('df-submitBtn');
-            errEl.classList.add('hidden'); okEl.classList.add('hidden');
-            if (!SCRIPT_URL) { errEl.textContent = 'ยังไม่ได้ตั้งค่า SCRIPT_URL'; errEl.classList.remove('hidden'); return; }
-            btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
-            const job = allData.find(j => j.id === currentViewJobId);
+            if (btn.disabled) return;
+            errEl.hidden = true; okEl.hidden = true;
+            if (!SCRIPT_URL) { errEl.textContent = 'ยังไม่ได้ตั้งค่า SCRIPT_URL'; errEl.hidden = false; return; }
             const form = new FormData(e.target);
+            setDetailFilmSaving(true);
+            btn.textContent = 'กำลังบันทึก…';
+            const job = allData.find(j => j.id === currentViewJobId);
             const payload = {
                 sheetName: 'Detail_film',
                 JobID: job?.id || '',
@@ -6261,15 +6513,20 @@
                 const data = await postWithWriteToken(payload);
                 if (data.success) {
                     okEl.textContent = `บันทึกสำเร็จ! ID: ${data.id}`;
-                    okEl.classList.remove('hidden');
-                    btn.textContent = '✓ บันทึกแล้ว';
+                    okEl.hidden = false;
+                    btn.textContent = 'บันทึกแล้ว';
                     setTimeout(async () => {
-                        closeDetailFilmModal();
+                        document.getElementById('detailFilmModal').close();
                         await fetchGoogleSheetData();
                         if (currentViewJobId) openJobModal(currentViewJobId);
                     }, 1200);
                 } else throw new Error(data.error||'เกิดข้อผิดพลาด');
-            } catch(err) { errEl.textContent=`บันทึกไม่สำเร็จ: ${err.message}`; errEl.classList.remove('hidden'); btn.disabled=false; btn.textContent='บันทึกข้อมูล'; }
+            } catch(err) {
+                errEl.textContent = `บันทึกไม่สำเร็จ: ${err.message}`;
+                errEl.hidden = false;
+                setDetailFilmSaving(false);
+                btn.textContent = 'บันทึกข้อมูล';
+            }
         }
         // ============ Warranty Form ============
         function thaiDateToday() {
