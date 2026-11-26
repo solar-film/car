@@ -238,15 +238,31 @@ html:has(.film-cut-modal:not(.hidden, [hidden])) { overflow: hidden; }
     outline-offset: -2px;
 }
 
-.film-cut-table :is(.dt-team-menu, .team-check-menu) {
+.film-cut-table :is(.dt-team-menu, .team-check-menu):not([popover]) {
     width: max(100%, 154px);
     max-height: 144px;
 }
 
-.film-cut-table tbody tr:nth-last-child(-n + 6) :is(.dt-team-menu, .team-check-menu) {
+.film-cut-table tbody tr:nth-last-child(-n + 6) :is(.dt-team-menu, .team-check-menu):not([popover]) {
     bottom: calc(100% + 4px);
     margin-top: 0;
 }
+
+.film-cut-team-menu[popover] {
+    display: none;
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    max-height: none;
+    box-sizing: border-box;
+    overscroll-behavior: contain;
+    overflow-y: auto;
+    background: #fff;
+    color: #334155;
+}
+
+.film-cut-table .film-cut-team-menu[popover]:popover-open { display: block; }
+.film-cut-team-menu label { white-space: normal; overflow-wrap: anywhere; }
 
 .film-cut-note {
     display: flex;
