@@ -1,6 +1,7 @@
 const DamageCalculator = (function() {
         let reasonMap = {};
-        
+        let responsibleMap = {};
+
         function normalizeFieldName(name) {
             return textValue(name).replace(/[\s._\-–—/\\]+/g, '').toLowerCase();
         }
@@ -607,8 +608,33 @@ const DamageCalculator = (function() {
                 findField(booking, ['ยี่ห้อฟิล์ม', 'รุ่นฟิล์มที่เลือก', 'แบรนด์ฟิล์ม']);
         }
 
+        // ผู้รับผิดชอบความเสียหาย: ใช้คอลัมน์ "ผู้รับผิดชอบ" ในชีตเหตุผลก่อน ถ้าไม่มีใช้คำนำหน้า (ช่าง)/(ขาย) ของเหตุผล
+        const DEDUCTIBLE_RESPONSIBLES = ['ช่าง', 'ฝ่ายขาย'];
+
+        function responsibleFromPrefix(reasonText) {
+            const text = textValue(reasonText);
+            if (text.includes('(ช่าง)')) return 'ช่าง';
+            if (text.includes('(ขาย)')) return 'ฝ่ายขาย';
+            return '';
+        }
+
+        function normalizeResponsible(value) {
+            const text = textValue(value);
+            if (!text) return '';
+            if (text.includes('ช่าง')) return 'ช่าง';
+            if (text.includes('ขาย')) return 'ฝ่ายขาย';
+            return text;
+        }
+
+        function responsibleForReason(reasonText) {
+            const key = textValue(reasonText);
+            const explicit = Object.prototype.hasOwnProperty.call(responsibleMap, key) ? responsibleMap[key] : '';
+            return explicit || responsibleFromPrefix(key);
+        }
+
         function buildReasonMap(rows) {
             reasonMap = {};
+            responsibleMap = {};
             rows.forEach(row => {
                 const idKey = findKey(row, ['ID']);
                 const reasonKey = findKey(row, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล']);
@@ -618,6 +644,8 @@ const DamageCalculator = (function() {
                 if (!id || !reason) return;
                 reasonMap[id] = reason;
                 reasonMap[normalizeLookupId(id)] = reason;
+                const explicit = normalizeResponsible(findField(row, ['ผู้รับผิดชอบ']));
+                if (explicit) responsibleMap[reason] = explicit;
             });
         }
 
@@ -752,6 +780,8 @@ const DamageCalculator = (function() {
                         damageValue,
                         installer: installerNames.join(', ') || (detail && findField(detail, ['ทีมช่าง', 'ช่างติดตั้ง', 'ช่าง'])) || '-',
                         reasonText: reasonText || (detail ? 'ยังไม่ระบุเหตุผล' : 'ยังไม่มี data'),
+                        responsible: responsibleForReason(reasonText),
+                        salesperson: findField(booking, ['พน.ขาย', 'พนักงานขาย', 'ฝ่ายขาย']),
                         note: (detail && findField(detail, ['หมายเหตุ'])) || findField(booking, ['หมายเหตุ']),
                         hasDetail: Boolean(detail),
                         date,
@@ -762,8 +792,8 @@ const DamageCalculator = (function() {
                     return item;
                 });
                 return CarInstallPositions.beforeRoof(items, item => item.position);
-            }).filter(item => item.jobId && String(item.reasonText).includes('(ช่าง)'));
+            }).filter(item => item.jobId && DEDUCTIBLE_RESPONSIBLES.includes(item.responsible));
         }
 
-return { buildDamageRows };
+return { buildDamageRows, DEDUCTIBLE_RESPONSIBLES };
 })();

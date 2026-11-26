@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="car-install-positions.js?v=20261126-1"></script>
-    <script src="damage-calculator.js?v=20261126-strip"></script>
+    <script src="damage-calculator.js?v=20261126-resp"></script>
     <style>
         body {
             font-family: 'Prompt', sans-serif;
@@ -416,6 +416,21 @@
                 </table>
             </div>
             
+            <div id="salesDamageWrap" class="hidden overflow-x-auto rounded-xl border border-rose-200 shadow-sm m-5">
+                <table class="summary-table min-w-full border-collapse">
+                    <caption class="bg-rose-50 text-left text-sm font-extrabold text-rose-700 px-3 py-2">ความเสียหายที่ฝ่ายขายสั่งผิด แยกตามฝ่ายขาย (ไม่หักคอมช่าง)</caption>
+                    <thead class="bg-slate-600 text-white">
+                        <tr>
+                            <th class="text-left font-bold text-white text-xs px-3 py-2 border-r border-white/20">ฝ่ายขาย</th>
+                            <th class="text-right font-bold text-white text-xs px-3 py-2 border-r border-white/20">จำนวนรายการ</th>
+                            <th class="text-right font-bold text-white text-xs px-3 py-2 border-r border-white/20">ยอดเต็ม</th>
+                            <th class="text-right font-bold text-white text-xs px-3 py-2 whitespace-nowrap" id="salesShareHead">ยอดหัก (50%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salesDamageBody" class="divide-y divide-slate-200 bg-white"></tbody>
+                </table>
+            </div>
+
             <div id="damageLoadingMessage" class="px-6 py-8 text-center text-slate-500">
                 <p class="text-sm font-bold text-slate-700">กำลังประมวลผลข้อมูลความเสียหาย...</p>
             </div>
@@ -1014,8 +1029,12 @@
             `;
         }
 
+        // สัดส่วนหักความเสียหาย: ช่างและฝ่ายขายใช้ 50% เท่ากัน (เจ้าของสั่ง 26.11.26) เปลี่ยนที่นี่ที่เดียว
+        const INSTALLER_DAMAGE_SHARE = 0.5;
+        const SALES_DAMAGE_SHARE = 0.5;
+
         function updateSummaryCards(totals, totalFilmDamage = 0, totalOtherDamage = 0) {
-            const filmDamageDeduction = totalFilmDamage / 2;
+            const filmDamageDeduction = totalFilmDamage * INSTALLER_DAMAGE_SHARE;
             const values = {
                 summaryTotal: formatMoney(totals.commission),
                 summaryNew: formatMoney(filmDamageDeduction),
@@ -1155,7 +1174,11 @@
             
             let html = '';
             let totalValue = 0;
+            let salesValue = 0;
             let totalSqf = 0;
+            const salesBySeller = new Map();
+            const salesWrap = document.getElementById('salesDamageWrap');
+            if (salesWrap) salesWrap.classList.add('hidden');
             
             if (!allDamageRows.length) {
                 if (dom.damageSummaryBody) dom.damageSummaryBody.innerHTML = `<tr><td colspan="8" class="py-8 text-center font-semibold text-slate-400">ยังไม่มีข้อมูลความเสียหายตามตัวกรองที่เลือก</td></tr>`;
@@ -1201,8 +1224,19 @@
                 
                 const sqf = row.sqf || 0;
                 const damageVal = cost * sqf;
-                totalValue += damageVal;
-                totalSqf += sqf;
+                const isSalesFault = row.responsible === 'ฝ่ายขาย';
+                // ความเสียหายที่ฝ่ายขายสั่งผิด ไม่หักคอมช่าง แสดงยอดเต็มแยกไว้ ส่วนสัดส่วนหักไปคิดตอนคิดค่าคอมฝ่ายขาย
+                if (isSalesFault) {
+                    salesValue += damageVal;
+                    const seller = row.salesperson || 'ไม่ระบุฝ่ายขาย';
+                    const entry = salesBySeller.get(seller) || { count: 0, value: 0 };
+                    entry.count += 1;
+                    entry.value += damageVal;
+                    salesBySeller.set(seller, entry);
+                } else totalValue += damageVal;
+                if (!isSalesFault) totalSqf += sqf;
+                const responsibleBadge = `<span class="ml-1 inline-block rounded px-1.5 py-0.5 text-xs font-semibold ${isSalesFault ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}">${isSalesFault ? 'ฝ่ายขาย' + (row.salesperson ? ' · ' + escapeHtml(row.salesperson) : '') : 'ช่าง'}</span>`;
+                
                 
                 html += `
                     <tr class="border-b border-slate-100 bg-white hover:bg-slate-50">
@@ -1210,7 +1244,7 @@
                         <td class="text-slate-700 border-r border-slate-200 py-2 px-3">${displayFilm}</td>
                         <td class="text-slate-700 border-r border-slate-200 py-2 px-3">${displayInstaller}</td>
                         <td class="text-slate-700 border-r border-slate-200 py-2 px-3">${escapeHtml(row.position)}</td>
-                        <td class="text-slate-700 border-r border-slate-200 py-2 px-3 text-sm">${escapeHtml(row.reasonText)}${row.note ? '<br><span class="text-slate-400 text-xs">' + escapeHtml(row.note) + '</span>' : ''}</td>
+                        <td class="text-slate-700 border-r border-slate-200 py-2 px-3 text-sm">${escapeHtml(row.reasonText)}${responsibleBadge}${row.note ? '<br><span class="text-slate-400 text-xs">' + escapeHtml(row.note) + '</span>' : ''}</td>
                         <td class="text-right border-r border-slate-100 py-2 px-3">${sqf ? sqf.toLocaleString('th-TH', { maximumFractionDigits: 2 }) : '-'}</td>
                         <td class="text-right border-r border-slate-100 py-2 px-3">${cost ? cost.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
                         <td class="text-right font-semibold text-rose-600 py-2 px-3">${damageVal ? damageVal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
@@ -1227,7 +1261,37 @@
                 </tr>
             `;
             
+            if (salesValue > 0) {
+                html += `
+                <tr class="bg-rose-50">
+                    <td colspan="7" class="text-right font-semibold text-rose-700 py-2 px-3">ฝ่ายขายสั่งผิด (ไม่หักคอมช่าง · ยอดเต็ม)</td>
+                    <td class="text-right font-extrabold text-rose-700 py-2 px-3">${salesValue.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>`;
+            }
+
             if (dom.damageSummaryBody) dom.damageSummaryBody.innerHTML = html;
+            const salesBody = document.getElementById('salesDamageBody');
+            if (salesWrap && salesBody && salesBySeller.size) {
+                const share = SALES_DAMAGE_SHARE;
+                const money = value => value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const head = document.getElementById('salesShareHead');
+                if (head) head.textContent = `ยอดหัก (${Math.round(share * 100)}%)`;
+                const sellerRows = [...salesBySeller.entries()].sort((a, b) => b[1].value - a[1].value);
+                salesBody.innerHTML = sellerRows.map(([seller, item]) => `
+                    <tr>
+                        <td class="font-semibold text-slate-700 border-r border-slate-200 py-2 px-3">${escapeHtml(seller)}</td>
+                        <td class="text-right border-r border-slate-100 py-2 px-3">${item.count}</td>
+                        <td class="text-right border-r border-slate-100 py-2 px-3">${money(item.value)}</td>
+                        <td class="text-right font-semibold text-rose-600 py-2 px-3">${money(item.value * share)}</td>
+                    </tr>`).join('') + `
+                    <tr class="commission-grand-total border-t-2 border-slate-600 bg-slate-50">
+                        <td class="font-bold py-2 px-3">รวมทั้งหมด</td>
+                        <td class="text-right font-bold py-2 px-3">${sellerRows.reduce((sum, [, item]) => sum + item.count, 0)}</td>
+                        <td class="text-right font-extrabold py-2 px-3">${money(salesValue)}</td>
+                        <td class="text-right font-extrabold text-rose-600 py-2 px-3">${money(salesValue * share)}</td>
+                    </tr>`;
+                salesWrap.classList.remove('hidden');
+            }
             return totalValue;
         }
 

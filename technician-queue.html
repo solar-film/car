@@ -70,7 +70,7 @@
         }
     </style>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
-    <link rel="stylesheet" href="film-cut-form.css?v=20261126-1">
+    <link rel="stylesheet" href="film-cut-form.css?v=20261126-2">
     <script src="car-install-positions.js?v=20261126-3"></script>
 </head>
 <body class="min-h-screen text-slate-800">
@@ -185,7 +185,7 @@
                 <div class="film-cut-body min-h-0 flex-1">
                     <p class="film-cut-hint">เลื่อนตารางซ้าย–ขวาเพื่อดูทุกช่อง</p>
                     <div class="film-cut-table-scroll" role="region" aria-label="ตารางตัดฟิล์ม" tabindex="0">
-                        <table class="film-cut-table text-left">
+                        <table class="film-cut-table has-responsible text-left">
                             <thead>
                                 <tr>
                                     <th scope="col">ตำแหน่งติดตั้ง</th>
@@ -195,6 +195,7 @@
                                     <th scope="col">จำนวน</th>
                                     <th scope="col">ทีมช่าง</th>
                                     <th scope="col">เหตุผลขอตัดฟิล์ม</th>
+                                    <th scope="col">ผู้รับผิดชอบ</th>
                                 </tr>
                             </thead>
                             <tbody id="dm-tableBody" class="bg-white"></tbody>
@@ -347,6 +348,25 @@
         let filmSeriesOptions = [];
         let teamOptions = [];
         let reasonOptions = [];
+        let reasonResponsible = {};
+
+        // ผู้รับผิดชอบความเสียหาย: คอลัมน์ "ผู้รับผิดชอบ" ในชีตเหตุผล ถ้าไม่มีใช้คำนำหน้า (ช่าง)/(ขาย) ของเหตุผล
+        function responsibleLabel(reason) {
+            const text = textValue(reason, '');
+            if (!text) return '';
+            const explicit = reasonResponsible[text] || '';
+            if (explicit) return explicit.includes('ช่าง') ? 'ช่าง' : explicit.includes('ขาย') ? 'ฝ่ายขาย' : explicit;
+            if (text.includes('(ช่าง)')) return 'ช่าง';
+            if (text.includes('(ขาย)')) return 'ฝ่ายขาย';
+            return 'ไม่หักใคร';
+        }
+
+        function responsibleBadgeHtml(reason) {
+            const label = responsibleLabel(reason);
+            if (!label) return '<span class="text-slate-400">-</span>';
+            const cls = label === 'ฝ่ายขาย' ? 'bg-rose-50 text-rose-700' : label === 'ช่าง' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600';
+            return `<span class="inline-block rounded-lg px-2 py-1 text-sm font-semibold ${cls}">${escapeHtml(label)}</span>`;
+        }
         let cutReasonLabels = new Map();
         let currentDamageJobId = null;
 
@@ -538,6 +558,15 @@
 
         function setCutReasonOptions(reasonRows) {
             cutReasonLabels = new Map();
+            reasonResponsible = {};
+            reasonRows.forEach(row => {
+                const keys = Object.keys(row);
+                const reasonKey = findKey(keys, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล']);
+                const ownerKey = findKey(keys, ['ผู้รับผิดชอบ']);
+                const reason = reasonKey ? textValue(row[reasonKey], '') : '';
+                const owner = ownerKey ? textValue(row[ownerKey], '') : '';
+                if (reason && owner) reasonResponsible[reason] = owner;
+            });
             reasonOptions = [...new Set(reasonRows.map(row => {
                 const reason = CarInstallPositions.detailCutReason(row);
                 const id = CarInstallPositions.detailValue(row, ['ID']);
@@ -1054,9 +1083,15 @@
                                 ${optionHtml(reasons, reason)}
                             </select>
                         </td>
+                        <td class="border border-slate-200 px-2 py-2 text-center" data-responsible>${responsibleBadgeHtml(reason)}</td>
                     </tr>
                 `;
             }).join('');
+            dom['dm-tableBody'].onchange = event => {
+                const select = event.target.closest('select[data-field="เหตุผลขอตัดฟิล์ม"]');
+                const cell = select && select.closest('tr')?.querySelector('[data-responsible]');
+                if (cell) cell.innerHTML = responsibleBadgeHtml(select.value);
+            };
         }
 
         function getDamageNote(jobId) {

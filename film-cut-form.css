@@ -120,6 +120,13 @@
 .film-cut-table th:nth-child(6) { width: 18%; }
 .film-cut-table th:nth-child(7) { width: 23%; }
 
+/* ฟอร์มที่มีคอลัมน์ผู้รับผิดชอบ (technician-queue) แบ่งความกว้างใหม่ให้ครบ 100% */
+.film-cut-table.has-responsible { min-width: 860px; }
+.film-cut-table.has-responsible th:nth-child(2) { width: 21%; }
+.film-cut-table.has-responsible th:nth-child(6) { width: 16%; }
+.film-cut-table.has-responsible th:nth-child(7) { width: 20%; }
+.film-cut-table.has-responsible th:nth-child(8) { width: 11%; }
+
 .film-cut-table tr > :nth-child(n + 3):nth-child(-n + 5) {
     text-align: center;
 }
