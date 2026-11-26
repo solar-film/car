@@ -14,6 +14,29 @@
             ...items.slice(roof).filter(item => !isStrip(position(item)))];
     }
 
+    const detailMetadata = new Set([
+        'jobid', 'detailid', 'ขอตัดฟิล์ม', 'การติดตั้ง', 'ประเภทการติดตั้ง', 'ตำแหน่งติดตั้ง', 'ยี่ห้อฟิล์ม',
+        'วันที่ลงรายการ', 'วันลงรายการ', 'timestamp', 'createdat', 'updatedat'
+    ]);
+
+    function detailSummary(detail, escape, reasonLabel, renderCutAction) {
+        const rows = [];
+        for (const [field, raw] of beforeRoof(Object.entries(detail || {}), ([name]) => name)) {
+            const label = field.trim().replace(/[:：]+$/, '').trim();
+            const normalized = key(label).replace(/_/g, '');
+            let value = String(raw ?? '').trim();
+            if (!label || detailMetadata.has(normalized) || !value || value === '-') continue;
+
+            const isCutReason = normalized.includes('เหตุผล') && normalized.includes('ตัดฟิล์ม');
+            if (label.includes('เหตุผล') || label.includes('ตัดฟิล์ม')) value = reasonLabel(value) || value;
+            const multiline = isCutReason || normalized.includes('หมายเหตุ');
+            const action = isCutReason && renderCutAction ? renderCutAction() : '';
+            rows.push(`<div class="car-install-details-row${multiline ? ' car-install-details-row--note' : ''}"><dt>${escape(label)}</dt><dd>${escape(value)}${action}</dd></div>`);
+        }
+        if (!rows.length) return '<p class="car-install-details-empty">ยังไม่มีข้อมูลการติดตั้ง กรอกข้อมูลในหน้าคิวก่อนพิมพ์ใบงาน</p>';
+        return `<dl class="car-install-details-list">${rows.join('')}</dl>`;
+    }
+
     function detailValue(detail, labels) {
         const names = labels.map(key);
         const field = Object.keys(detail || {}).find(name => names.includes(key(name.trim().replace(/[:：]+$/, ''))));
@@ -67,7 +90,7 @@
         return {receipt, cutting};
     }
 
-    const api = {beforeRoof, detailValue, detailCutReason, shouldCollectCutRow, isStrip, stripRowsByJob, printStrip};
+    const api = {beforeRoof, detailSummary, detailValue, detailCutReason, shouldCollectCutRow, isStrip, stripRowsByJob, printStrip};
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.CarInstallPositions = api;
 })(typeof window === 'undefined' ? globalThis : window);

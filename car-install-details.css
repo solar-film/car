@@ -1,0 +1,100 @@
+.car-install-details {
+    min-width: 0;
+    grid-column: 1 / -1;
+    container-type: inline-size;
+    border: 1px solid #dbe4ef;
+    border-radius: 12px;
+    background: #fff;
+    color: #1e293b;
+    text-align: left;
+}
+
+.car-install-details-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 12px;
+    min-height: 38px;
+    padding: 4px 10px;
+    border-block-end: 1px solid #dbe4ef;
+    border-radius: 11px 11px 0 0;
+    background: #eff6ff;
+    color: #0f172a;
+}
+
+.car-install-details-heading h4 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.car-install-details-heading svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    color: #2563eb;
+}
+
+.car-install-details-action {
+    min-height: 28px;
+    padding: 3px 9px;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    background: #fff;
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.car-install-details-action:hover { background: #dbeafe; }
+.car-install-details-action:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+
+.car-install-details-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 14px;
+    margin: 0;
+    padding: 4px 10px;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.car-install-details-row {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    align-items: start;
+    gap: 4px 8px;
+    padding: 5px 0;
+    border-block-end: 1px solid #eef2f6;
+    overflow-wrap: anywhere;
+}
+
+.car-install-details-row dt { color: #475569; }
+.car-install-details-row dd { min-width: 0; margin: 0; }
+.car-install-details-row--note, .car-install-details-empty { grid-column: 1 / -1; }
+.car-install-details-row--note { white-space: pre-wrap; }
+.car-install-details-row dd .car-install-details-action { display: block; margin-block-start: 4px; }
+.car-install-details-reference { display: block; color: #64748b; font-size: 12px; }
+
+.car-install-details-empty {
+    margin: 8px 10px;
+    padding: 7px 9px;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 13px;
+}
+
+@container (min-width: 600px) {
+    .car-install-details-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .car-install-details-row--note { grid-template-columns: minmax(0, calc(20% - 4px)) minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+    .car-install-details-action { min-height: 44px; }
+}
