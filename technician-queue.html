@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>คิวช่างวันนี้และพรุ่งนี้</title>
+    <title>คิวช่าง 3 วัน</title>
     <link rel="icon" type="image/svg+xml" href="images/favicon-technician.svg">
     <link rel="manifest" href="app.webmanifest?v=20261002-2">
     <link rel="apple-touch-icon" href="images/car-crm-app-192.png?v=20261002-2">
@@ -15,11 +15,7 @@
     <style>
         body {
             font-family: 'Prompt', sans-serif;
-            background:
-                radial-gradient(circle at 12% 0%, rgba(59, 130, 246, 0.24), transparent 28rem),
-                radial-gradient(circle at 88% 8%, rgba(14, 165, 233, 0.18), transparent 24rem),
-                linear-gradient(180deg, #0f172a 0%, #172554 52%, #0f172a 100%);
-            background-attachment: fixed;
+            background: linear-gradient(180deg, #e6f0fb 0%, #f3f8fd 240px, #f5f8fc 100%);
         }
         
         /* ซ่อน Scrollbar แต่ยังเลื่อนได้ สำหรับส่วนรายการ */
@@ -64,22 +60,215 @@
         .team-check-dropdown[open] .team-check-menu {
             display: block;
         }
+
+        /* ส่วนหัวกระชับ (13.11.26) */
+        .tq-head .car-page-heading { gap: 10px; }
+        .tq-head .car-page-heading-icon { width: 36px; height: 36px; border-radius: 12px; }
+        .tq-head .car-page-heading-icon svg { width: 18px; height: 18px; }
+        .tq-head .car-page-heading-title { font-size: 18px; line-height: 1.3; }
+        .tq-head .car-page-heading-subtitle { font-size: 12px; margin-top: 0; }
+
+        /* ช่างแต่ละบาน (เจ้าของสั่ง 13.11.26): ใช้บนมือถือเป็นหลัก · เขียนเป็น CSS ของหน้าเอง เพราะเว็บ ERP ใช้ Tailwind ที่คอมไพล์ไว้ล่วงหน้า
+           และธีม ERP (typography.css) บังคับตัวอักษรเนื้อหา 14px ทั้งเว็บ จึงผูกขนาดตัวอักษรกับ #installerSheet / #ins-picker + !important
+           ให้ใหญ่เฉพาะในหน้าต่างนี้ (ปุ่มใหญ่ อ่านง่ายบนมือถือ) ส่วนอื่นของเว็บยังเป็น 14px */
+        h2.tq-today-title { color: #fff !important; }   /* ธีมเว็บ ERP ทับสีหัวข้อเป็นสีเข้ม (เจ้าของสั่ง 13.11.26: ต้องเป็นสีขาว) */
+        .queue-card[data-job-id] { cursor: pointer; }
+        .queue-card[data-job-id]:focus-visible { outline: 3px solid rgba(37, 99, 235, .4); outline-offset: 2px; }
+        .ins-card-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; padding: 8px 10px; border-radius: 12px; background: #e3effc; border: 1px solid #b6d4f3; font-size: 12px !important; color: #334155; }   /* มีช่างแล้ว: พื้นฟ้าอ่อนเด่นขึ้น (เจ้าของสั่ง 13.11.26) */
+        .ins-card-sum b { font-weight: 800 !important; color: #0f172a; }
+        .ins-card-sum .ins-card-item { padding: 3px 10px; border-radius: 9px; background: #fff; border: 1px solid #93c5fd; box-shadow: 0 1px 2px rgb(30 64 175 / 10%); }
+        .ins-card-empty { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 7px 10px; border-radius: 10px; border: 1px dashed #93c5fd; background: #eff6ff; font-size: 12px !important; font-weight: 700 !important; color: #1d4ed8; }
+        .ins-sheet, .ins-picker { position: fixed; inset: 0; display: none; align-items: flex-end; justify-content: center; background: rgba(2, 6, 23, .6); }
+        .ins-sheet { z-index: 10000; }   /* เหนือป้ายแจ้ง "ข้อมูลจากฐานข้อมูลใหม่" ของเว็บ ERP (z-index 9999) */
+        .ins-picker { z-index: 10001; background: rgba(2, 6, 23, .45); }
+        .ins-sheet.is-open, .ins-picker.is-open { display: flex; }
+        .ins-panel, .ins-pick-panel { display: flex; flex-direction: column; width: 100%; max-width: 480px; max-height: 94vh; overflow: hidden; background: #fff; border-radius: 24px 24px 0 0; box-shadow: 0 -12px 40px rgba(15, 23, 42, .25); }
+        @media (min-width: 640px) {
+            .ins-sheet, .ins-picker { align-items: center; padding: 16px; }
+            .ins-panel, .ins-pick-panel { border-radius: 24px; }
+        }
+        .ins-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 16px 10px; border-bottom: 1px solid #e2e8f0; }
+        .ins-title { color: #0f172a; line-height: 1.3; }
+        .ins-sub { margin-top: 2px; color: #64748b; line-height: 1.4; }
+        .ins-x { display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 12px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; line-height: 1; }
+        .ins-body { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px; -webkit-overflow-scrolling: touch; }
+        .ins-car { display: block; width: 124px; height: auto; margin: 0 auto; }
+        .ins-glass { cursor: pointer; }
+        .ins-glass polygon { stroke-width: 1.2; }
+        .ins-g-empty { fill: #f1f5f9; stroke: #64748b; stroke-dasharray: 3 2; }
+        .ins-g-off { fill: #f8fafc; stroke: #cbd5e1; stroke-dasharray: 2 2; }
+        .ins-sum { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 8px 0 2px; }
+        .ins-sum span { padding: 4px 10px; border-radius: 999px; border: 1px solid; }
+        .ins-sum .ins-sum-empty { border-style: dashed; border-color: #94a3b8; color: #475569; font-weight: 700 !important; background: #fff; }
+        .ins-hint { margin: 4px 0 10px; text-align: center; color: #64748b; }
+        .ins-row { display: flex; align-items: stretch; gap: 6px; margin-bottom: 8px; }
+        .ins-row-main { display: flex; flex: 1; min-width: 0; align-items: center; justify-content: space-between; gap: 10px; min-height: 56px; padding: 8px 14px; border-radius: 14px; border: 1.5px solid #cbd5e1; background: #fff; text-align: left; }
+        .ins-row-main.is-empty { border-style: dashed; border-color: #94a3b8; }
+        .ins-row-text { display: flex; min-width: 0; flex-direction: column; }
+        .ins-pane { color: #1e293b; line-height: 1.3; }
+        .ins-film { overflow: hidden; margin-top: 1px; color: #64748b; white-space: nowrap; text-overflow: ellipsis; }
+        .ins-who { flex-shrink: 0; max-width: 55%; text-align: right; line-height: 1.25; }
+        .ins-who-empty { flex-shrink: 0; color: #2563eb; white-space: nowrap; }
+        .ins-del { flex-shrink: 0; width: 46px; border-radius: 14px; border: 1px solid #e2e8f0; background: #fff; color: #94a3b8; }
+        .ins-add { width: 100%; min-height: 50px; margin-top: 2px; border-radius: 14px; border: 1.5px dashed #93c5fd; background: #eff6ff; color: #1d4ed8; }
+        .ins-addform { margin-top: 2px; padding: 12px; border-radius: 14px; border: 1.5px solid #93c5fd; background: #eff6ff; }
+        .ins-addform label { display: block; margin-bottom: 6px; color: #1e3a8a; }
+        .ins-addline { display: flex; gap: 8px; }
+        .ins-addline input { flex: 1; min-width: 0; min-height: 48px; padding: 0 12px; border-radius: 12px; border: 1.5px solid #cbd5e1; background: #fff; color: #0f172a; }
+        .ins-addline input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .2); }
+        .ins-addline .ins-btn { min-width: 76px; }
+        .ins-sugg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .ins-sugg button { min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid #cbd5e1; background: #fff; color: #334155; }
+        .ins-linkbtn { margin-top: 8px; min-height: 40px; padding: 0 6px; border: 0; background: none; color: #64748b; }
+        .ins-foot { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid #e2e8f0; background: #f8fafc; }
+        .ins-foot-btns { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+        .ins-btn { min-height: 50px; border-radius: 14px; border: 1px solid #cbd5e1; background: #fff; color: #334155; }
+        .ins-btn-primary { border-color: #2563eb; background: #2563eb; color: #fff; font-weight: 800 !important; }
+        .ins-btn:disabled { cursor: not-allowed; opacity: .55; }
+        .ins-msg { display: none; margin-bottom: 8px; padding: 8px 12px; border-radius: 12px; text-align: center; background: #f1f5f9; color: #475569; }
+        .ins-msg.is-shown { display: block; }
+        .ins-msg.is-ok { background: #ecfdf5; color: #047857; }
+        .ins-msg.is-error { background: #fef2f2; color: #dc2626; }
+        .ins-msg.is-warn { background: #fffbeb; color: #92400e; }
+        /* ขนาด/ความหนาตัวอักษรในหน้าต่างช่างแต่ละบาน (ชนะ typography.css ของ ERP เฉพาะในหน้าต่างนี้) */
+        :is(#installerSheet, #ins-picker) .ins-title { font-size: 17px !important; font-weight: 800 !important; }
+        :is(#installerSheet, #ins-picker) .ins-sub { font-size: 13px !important; }
+        :is(#installerSheet, #ins-picker) .ins-x { font-size: 24px !important; }
+        :is(#installerSheet, #ins-picker) .ins-sum span { font-size: 13px !important; font-weight: 800 !important; }
+        :is(#installerSheet, #ins-picker) .ins-hint { font-size: 12px !important; }
+        :is(#installerSheet, #ins-picker) .ins-pane { font-size: 15px !important; font-weight: 700 !important; }
+        :is(#installerSheet, #ins-picker) .ins-film { font-size: 12px !important; }
+        :is(#installerSheet, #ins-picker) .ins-dmg { font-size: 12.5px !important; font-weight: 700 !important; }
+        .ins-dmg { margin-top: 2px; color: #b45309; line-height: 1.3; }
+        .ins-card-sum .ins-card-dmg { background: #fffaf0; border-color: #f3c98b; }
+        :is(#installerSheet, #ins-picker) .ins-who { font-size: 17px !important; font-weight: 800 !important; }
+        :is(#installerSheet, #ins-picker) .ins-who-empty { font-size: 14px !important; font-weight: 700 !important; }
+        :is(#installerSheet, #ins-picker) .ins-del { font-size: 22px !important; }
+        :is(#installerSheet, #ins-picker) .ins-add { font-size: 15px !important; font-weight: 800 !important; }
+        :is(#installerSheet, #ins-picker) .ins-addform label { font-size: 13px !important; font-weight: 700 !important; }
+        :is(#installerSheet, #ins-picker) .ins-addline input { font-size: 16px !important; }
+        :is(#installerSheet, #ins-picker) .ins-sugg button { font-size: 14px !important; font-weight: 600 !important; }
+        :is(#installerSheet, #ins-picker) .ins-linkbtn { font-size: 14px !important; font-weight: 600 !important; }
+        :is(#installerSheet, #ins-picker) .ins-btn { font-size: 16px !important; font-weight: 700 !important; }
+        :is(#installerSheet, #ins-picker) .ins-msg { font-size: 14px !important; font-weight: 700 !important; }
+        :is(#installerSheet, #ins-picker) .ins-name { font-size: 17px !important; font-weight: 800 !important; }
+        :is(#installerSheet, #ins-picker) .ins-name[aria-pressed="true"]::after { font-size: 12px !important; }
+        :is(#installerSheet, #ins-picker) .ins-fill { font-size: 15px !important; font-weight: 600 !important; }
+        :is(#installerSheet, #ins-picker) :is(.ins-who, .ins-fill) span { font-size: inherit !important; font-weight: inherit !important; }
+        .ins-pick-panel { padding: 16px 14px calc(14px + env(safe-area-inset-bottom)); }
+        .ins-pick-panel .ins-head { padding: 0 0 12px; border: 0; }
+        .ins-names { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; overflow: auto; }
+        .ins-name { position: relative; min-height: 54px; padding: 4px; border-radius: 14px; border: 1.5px solid #cbd5e1; background: #fff; color: #0f172a; }
+        .ins-name[aria-pressed="true"] { border-color: #2563eb; background: #2563eb; color: #fff; }
+        .ins-name[aria-pressed="true"]::after { content: "✓"; position: absolute; top: 4px; right: 8px; }
+        .ins-fill { display: flex; align-items: center; gap: 10px; min-height: 48px; margin-top: 10px; color: #334155; }
+        .ins-fill input { width: 22px; height: 22px; accent-color: #2563eb; }
+        .ins-fill[hidden] { display: none; }
+        .ins-pick-panel .ins-foot-btns { margin-top: 10px; }
+        .ins-btn:focus-visible, .ins-name:focus-visible, .ins-row-main:focus-visible, .ins-add:focus-visible, .ins-x:focus-visible, .ins-del:focus-visible { outline: 3px solid rgba(37, 99, 235, .4); outline-offset: 2px; }
+        /* สีประจำช่างในงานนี้ (ตามลำดับที่ปรากฏ) */
+        .ins-c0 { background: #eff6ff; border-color: #2563eb !important; color: #1d4ed8; } .ins-t0 { color: #1d4ed8; } .ins-g-c0 { fill: #93c5fd; stroke: #1d4ed8; }
+        .ins-c1 { background: #f5f3ff; border-color: #7c3aed !important; color: #6d28d9; } .ins-t1 { color: #6d28d9; } .ins-g-c1 { fill: #c4b5fd; stroke: #6d28d9; }
+        .ins-c2 { background: #ecfdf5; border-color: #059669 !important; color: #047857; } .ins-t2 { color: #047857; } .ins-g-c2 { fill: #6ee7b7; stroke: #047857; }
+        .ins-c3 { background: #fff7ed; border-color: #ea580c !important; color: #c2410c; } .ins-t3 { color: #c2410c; } .ins-g-c3 { fill: #fdba74; stroke: #c2410c; }
+        .ins-c4 { background: #fdf2f8; border-color: #db2777 !important; color: #be185d; } .ins-t4 { color: #be185d; } .ins-g-c4 { fill: #f9a8d4; stroke: #be185d; }
+        .ins-c5 { background: #f0fdfa; border-color: #0d9488 !important; color: #0f766e; } .ins-t5 { color: #0f766e; } .ins-g-c5 { fill: #5eead4; stroke: #0f766e; }
+
+        /* คิวช่าง 3 วัน (เจ้าของสั่ง 26.11.26 "ออกแบบใหม่ให้สวยกระชับ เข้าใจง่าย สำหรับช่าง และเห็นงานเพิ่มเป็น 3 วัน ช่างเน้นใช้งานผ่านมือถือ")
+           ธีม CAR เดียวกับ ERP: พื้นฟ้าอ่อน น้ำเงิน #0067b8 · มือถือ: แท็บ วันนี้/พรุ่งนี้/มะรืนนี้ ติดบนจอ แสดงทีละวัน · จอคอม ≥1024px: 3 คอลัมน์
+           ขนาดตัวอักษรผูกกับ #queueContent + !important เพราะธีม ERP (typography.css) บังคับเนื้อหา 14px ทั้งเว็บ */
+        .tq-head { padding: 10px 12px; border: 1px solid #d6e4f3; border-radius: 16px; background: #fff; box-shadow: 0 6px 18px rgb(0 88 168 / 8%); }
+        .tq-refresh { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 12px; background: #0067b8; color: #fff; font-weight: 600; cursor: pointer; }
+        .tq-refresh:hover { background: #005a9e; }
+        .tq-refresh:focus-visible, .tq-tab:focus-visible, .tq-cut-btn:focus-visible { outline: 3px solid rgb(0 103 184 / 35%); outline-offset: 2px; }
+        .tq-ic { width: 18px; height: 18px; flex: none; }
+        .tq-tabs { position: sticky; top: 0; z-index: 30; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 -2px 6px; padding: 8px 2px; background: linear-gradient(#f3f8fd 82%, rgb(243 248 253 / 0)); }
+        .tq-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 62px; padding: 6px 4px; border: 1px solid #d6e4f3; border-radius: 14px; background: #fff; color: #243a5e; cursor: pointer; }
+        .tq-tab-top { display: flex; align-items: center; gap: 6px; }
+        .tq-tab[aria-selected="true"] { border-color: #0067b8; background: #0067b8; color: #fff; box-shadow: 0 6px 14px rgb(0 103 184 / 25%); }
+        .tq-tab-count { min-width: 24px; padding: 0 7px; border-radius: 999px; background: #eff6fc; color: #0067b8; text-align: center; }
+        .tq-tab[aria-selected="true"] .tq-tab-count { background: rgb(255 255 255 / 22%); color: #fff; }
+        .tq-day { display: none; }
+        .tq-day.is-active { display: block; }
+        .tq-day-head { display: none; }
+        .tq-list { display: flex; flex-direction: column; gap: 10px; }
+        .tq-card { position: relative; padding: 12px 12px 10px 14px; border: 1px solid #d6e4f3; border-left: 5px solid #0067b8; border-radius: 14px; background: #fff; box-shadow: 0 2px 8px rgb(0 88 168 / 6%); }
+        .tq-card.tq-st-done { border-left-color: #16a34a; background: #f5fcf7; }
+        .tq-card.tq-st-work { border-left-color: #ea580c; background: #fff8f1; }
+        .tq-card-top { display: flex; align-items: center; gap: 8px; }
+        .tq-time { color: #0f2f57; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+        .tq-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; margin-left: auto; }
+        .tq-badge { padding: 2px 9px; border: 1px solid; border-radius: 999px; line-height: 1.4; white-space: nowrap; }
+        .tq-b-done { border-color: #bbf7d0; background: #dcfce7; color: #15803d; }
+        .tq-b-work { border-color: #fed7aa; background: #ffedd5; color: #c2410c; }
+        .tq-b-new { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+        .tq-b-plain { border-color: #e2e8f0; background: #f8fafc; color: #475569; }
+        .tq-b-claim { border-color: #fecdd3; background: #fff1f2; color: #be123c; }
+        .tq-b-fix { border-color: #fde68a; background: #fffbeb; color: #b45309; }
+        .tq-name { margin: 8px 0 4px; color: #0f172a !important; line-height: 1.3; }
+        .tq-line { display: flex; align-items: flex-start; gap: 8px; margin-top: 4px; color: #1e293b; line-height: 1.4; }
+        .tq-line .tq-ic { margin-top: 2px; color: #64748b; }
+        .tq-line b { color: #0f172a; }
+        .tq-plate { color: #475569; }
+        .tq-ptype { margin-left: 4px; padding: 0 6px; border-radius: 6px; background: #f1f5f9; color: #475569; }
+        .tq-ptype.is-red { background: #fef2f2; color: #b91c1c; }
+        .tq-install { display: inline-block; margin-left: 4px; padding: 0 9px; border-radius: 8px; background: #eff6fc; color: #0067b8; }
+        .tq-note { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; padding: 7px 10px; border: 1px solid #fde68a; border-radius: 10px; background: #fffbeb; color: #92400e; line-height: 1.4; }
+        .tq-note .tq-ic { width: 16px; height: 16px; margin-top: 2px; }
+        .tq-cut-btn { width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid #b9d3ee; border-radius: 12px; background: #fff; color: #0067b8; cursor: pointer; }
+        .tq-cut-btn:hover { background: #eff6fc; }
+        .tq-meta { margin-top: 8px; color: #64748b; line-height: 1.4; overflow-wrap: anywhere; }
+        .tq-empty { padding: 28px 12px; border: 1px dashed #c7d7ea; border-radius: 14px; background: #fff; color: #64748b; text-align: center; }
+        @media (min-width: 1024px) {
+            .tq-tabs { display: none; }
+            .tq-days { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+            .tq-day, .tq-day.is-active { display: block; overflow: hidden; border: 1px solid #d6e4f3; border-radius: 16px; background: #fff; box-shadow: 0 6px 18px rgb(0 88 168 / 7%); }
+            .tq-day-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #d6e4f3; background: #eff6fc; }
+            .tq-day.is-today .tq-day-head { border-color: #0067b8; background: #0067b8; }
+            .tq-day.is-today .tq-day-head :is(h2, span) { color: #fff !important; }
+            .tq-day-head h2 { margin: 0; color: #0f2f57 !important; }
+            .tq-day-sub { color: #475569; }
+            .tq-list { padding: 10px; background: #f8fbfe; }
+            .tq-cut-btn { width: auto; padding: 0 16px; }
+        }
+        #queueContent .tq-tab-name { font-size: 15px !important; font-weight: 700 !important; }
+        #queueContent .tq-tab-count { font-size: 13px !important; font-weight: 700 !important; }
+        #queueContent .tq-tab-date { font-size: 12px !important; }
+        #queueContent .tq-day-head h2 { font-size: 17px !important; font-weight: 700 !important; }
+        #queueContent .tq-day-sub { font-size: 13px !important; }
+        #queueContent .tq-time { font-size: 22px !important; font-weight: 800 !important; }
+        #queueContent .tq-time small { font-size: 12px !important; font-weight: 600 !important; color: #64748b; }
+        #queueContent .tq-badge { font-size: 12px !important; font-weight: 600 !important; }
+        #queueContent .tq-name { font-size: 18px !important; font-weight: 700 !important; }
+        #queueContent :is(.tq-line, .tq-line *) { font-size: 15px !important; }
+        #queueContent .tq-line b { font-weight: 600 !important; }
+        #queueContent :is(.tq-ptype, .tq-plate) { font-size: 14px !important; }
+        #queueContent .tq-install { font-size: 14px !important; font-weight: 700 !important; }
+        #queueContent :is(.tq-note, .tq-note *) { font-size: 14px !important; }
+        #queueContent .tq-cut-btn { font-size: 15px !important; font-weight: 600 !important; }
+        #queueContent .tq-meta { font-size: 12px !important; }
+        #queueContent .tq-empty { font-size: 14px !important; }
+        #queueContent :is(.ins-card-sum, .ins-card-empty, .ins-card-sum *) { font-size: 13px !important; }
+        .tq-head .tq-refresh, .tq-head .tq-refresh * { font-size: 15px !important; }
+        @media (max-width: 380px) { .tq-refresh-text { display: none; } .tq-refresh { padding: 0 12px; } }
+        /* เว็บ ERP: ปุ่มรีเฟรชอยู่ขวาของชื่อหน้าในแถวเดียวกัน แม้บนมือถือ (ธีมเดิมดันลงบรรทัดใหม่) */
+        .gf-head:has(> .gf-head-actions .tq-refresh) { flex-wrap: nowrap !important; align-items: center !important; }
+        .gf-head > .gf-head-actions:has(.tq-refresh) { flex: none !important; flex-basis: auto !important; margin-inline-start: auto !important; }
         #dm-tableBody [aria-invalid="true"] {
             border-color: #be123c !important;
             box-shadow: 0 0 0 2px #fecdd3 !important;
         }
     </style>
-    <link rel="stylesheet" href="page-heading.css?v=20261002-1">
+    <link rel="stylesheet" href="page-heading.css?v=20261112-1">
     <link rel="stylesheet" href="film-cut-form.css?v=20261126-3">
     <script src="film-cut-drawer.js?v=20261126-1" defer></script>
-    <script src="car-install-positions.js?v=20261126-3"></script>
 </head>
 <body class="min-h-screen text-slate-800">
-    <main class="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col px-4 py-6 sm:px-6 xl:px-8">
-        
-        <!-- ส่วนหัวและสรุปตัวเลข -->
-        <header class="car-page-heading-surface mb-6 overflow-hidden rounded-[28px] border border-white/15 bg-white/10 p-4 shadow-2xl shadow-slate-950/20 backdrop-blur-xl sm:p-5">
-            <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+    <main class="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col px-3 py-3 sm:px-6 sm:py-5 xl:px-8">
+
+        <!-- ส่วนหัว (26.11.26): ชื่อหน้า + ช่วงวันที่ + รีเฟรช (บนเว็บ ERP ปุ่มรีเฟรชย้ายไปแถวหัวเรื่องของเว็บ) -->
+        <header class="tq-head car-page-heading-surface mb-2">
+            <div class="flex items-center justify-between gap-2">
                 <div class="car-page-heading">
     <div class="car-page-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="images/page-heading-icons.svg#wrench"/></svg></div>
     <div class="car-page-heading-copy">
@@ -91,74 +280,67 @@
                         </p>
     </div>
 </div>
-
-                <!-- กล่องสรุปตัวเลข (กระชับขึ้น) -->
-                <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end sm:gap-3">
-                    <div class="flex min-w-0 items-center justify-center gap-2 rounded-2xl border border-white/70 bg-white/95 px-2.5 py-2.5 shadow-sm sm:gap-3 sm:px-4 sm:py-3">
-                        <div class="shrink-0 rounded-xl bg-blue-100 p-2 text-blue-600"><i data-lucide="sun" class="h-5 w-5"></i></div>
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">วันนี้</p>
-                            <p id="todayCount" class="text-xl font-extrabold leading-none text-slate-900">-</p>
-                        </div>
-                    </div>
-                    <div class="flex min-w-0 items-center justify-center gap-2 rounded-2xl border border-white/70 bg-white/95 px-2.5 py-2.5 shadow-sm sm:gap-3 sm:px-4 sm:py-3">
-                        <div class="shrink-0 rounded-xl bg-sky-100 p-2 text-sky-600"><i data-lucide="sunrise" class="h-5 w-5"></i></div>
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">พรุ่งนี้</p>
-                            <p id="tomorrowCount" class="text-xl font-extrabold leading-none text-slate-900">-</p>
-                        </div>
-                    </div>
-
-                    <button type="button" onclick="fetchQueueData()" class="flex min-w-0 items-center justify-center gap-1.5 rounded-2xl border border-white/15 bg-blue-500 px-2.5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-950/20 transition-colors hover:bg-blue-400 sm:gap-2 sm:px-4 sm:py-3">
-                        <i data-lucide="refresh-cw" class="h-4 w-4 shrink-0"></i> <span class="truncate">รีเฟรช</span>
-                    </button>
-                </div>
+                <button type="button" onclick="fetchQueueData()" title="รีเฟรช" aria-label="รีเฟรช" class="tq-refresh">
+                    <i data-lucide="refresh-cw" class="tq-ic"></i><span class="tq-refresh-text">รีเฟรช</span>
+                </button>
             </div>
         </header>
 
         <!-- สถานะกำลังโหลด -->
         <section id="loadingMessage" class="flex flex-col items-center justify-center py-20">
             <i data-lucide="loader-circle" class="w-10 h-10 animate-spin text-blue-500 mb-4"></i>
-            <p class="text-blue-100 font-medium">กำลังเชื่อมต่อ Google Sheet...</p>
+            <p class="text-slate-500 font-medium">กำลังโหลดคิวช่าง...</p>
         </section>
 
         <!-- สถานะ Error -->
         <section id="errorMessage" class="hidden rounded-2xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
             <i data-lucide="shield-alert" class="w-10 h-10 text-red-500 mx-auto mb-3"></i>
             <p class="text-lg font-bold text-red-700">ไม่สามารถโหลดข้อมูลได้</p>
-            <p class="mt-1 text-sm text-red-600">โปรดตรวจสอบการแชร์ Google Sheet หรือการเชื่อมต่ออินเทอร์เน็ต</p>
+            <p class="mt-1 text-sm text-red-600">โปรดตรวจสอบการเชื่อมต่ออินเทอร์เน็ต แล้วกดรีเฟรช</p>
         </section>
 
-        <!-- พื้นที่แสดงคิว -->
-        <section id="queueContent" class="hidden grid flex-1 gap-5 lg:grid-cols-2 items-start">
-            
-            <!-- คอลัมน์วันนี้ -->
-            <div class="flex flex-col bg-white rounded-[26px] shadow-2xl shadow-blue-950/20 border-2 border-blue-300 ring-4 ring-blue-400/15 overflow-hidden">
-                <div class="bg-blue-600 border-b border-blue-500 px-5 py-3 flex justify-between items-center sticky top-0 z-20">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2.5 h-2.5 rounded-full bg-white shadow-sm"></div>
-                        <h2 class="font-extrabold text-white">วันนี้</h2>
+        <!-- คิว 3 วัน: มือถือเลือกวันจากแท็บ · จอคอมเห็นครบ 3 คอลัมน์ -->
+        <section id="queueContent" class="hidden flex-1">
+            <nav class="tq-tabs" role="tablist" aria-label="เลือกวัน">
+                <button type="button" role="tab" id="dayTab0" data-day-tab="0" aria-controls="day0" aria-selected="true" tabindex="0" class="tq-tab">
+                    <span class="tq-tab-top"><span class="tq-tab-name">วันนี้</span><span id="dayTabCount0" class="tq-tab-count">-</span></span>
+                    <span id="dayTabDate0" class="tq-tab-date">-</span>
+                </button>
+                <button type="button" role="tab" id="dayTab1" data-day-tab="1" aria-controls="day1" aria-selected="false" tabindex="-1" class="tq-tab">
+                    <span class="tq-tab-top"><span class="tq-tab-name">พรุ่งนี้</span><span id="dayTabCount1" class="tq-tab-count">-</span></span>
+                    <span id="dayTabDate1" class="tq-tab-date">-</span>
+                </button>
+                <button type="button" role="tab" id="dayTab2" data-day-tab="2" aria-controls="day2" aria-selected="false" tabindex="-1" class="tq-tab">
+                    <span class="tq-tab-top"><span class="tq-tab-name">มะรืนนี้</span><span id="dayTabCount2" class="tq-tab-count">-</span></span>
+                    <span id="dayTabDate2" class="tq-tab-date">-</span>
+                </button>
+            </nav>
+            <div class="tq-days">
+                <section id="day0" data-day="0" role="tabpanel" aria-labelledby="dayTab0" class="tq-day is-today is-active">
+                    <div class="tq-day-head">
+                        <h2>วันนี้</h2>
+                        <span class="tq-day-sub"><span id="dayDate0">-</span> · <span id="dayCount0">-</span></span>
                     </div>
-                    <span id="todayTitle" class="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white">-</span>
-                </div>
-                <div id="todayList" class="p-4 hide-scrollbar flex flex-col gap-4"></div>
-            </div>
-
-            <!-- คอลัมน์พรุ่งนี้ -->
-            <div class="flex flex-col bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden opacity-90 hover:opacity-100 transition-opacity">
-                <div class="bg-slate-50 border-b border-slate-200 px-5 py-3 flex justify-between items-center sticky top-0 z-20">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full bg-sky-400"></div>
-                        <h2 class="font-bold text-slate-800">พรุ่งนี้</h2>
+                    <div id="dayList0" class="tq-list"></div>
+                </section>
+                <section id="day1" data-day="1" role="tabpanel" aria-labelledby="dayTab1" class="tq-day">
+                    <div class="tq-day-head">
+                        <h2>พรุ่งนี้</h2>
+                        <span class="tq-day-sub"><span id="dayDate1">-</span> · <span id="dayCount1">-</span></span>
                     </div>
-                    <span id="tomorrowTitle" class="text-xs font-medium text-slate-500">-</span>
-                </div>
-                <div id="tomorrowList" class="p-4 hide-scrollbar flex flex-col gap-4"></div>
+                    <div id="dayList1" class="tq-list"></div>
+                </section>
+                <section id="day2" data-day="2" role="tabpanel" aria-labelledby="dayTab2" class="tq-day">
+                    <div class="tq-day-head">
+                        <h2>มะรืนนี้</h2>
+                        <span class="tq-day-sub"><span id="dayDate2">-</span> · <span id="dayCount2">-</span></span>
+                    </div>
+                    <div id="dayList2" class="tq-list"></div>
+                </section>
             </div>
-
         </section>
 
-        <footer class="mt-8 flex items-center justify-between border-t border-white/15 pt-4 text-xs text-blue-100/70">
+        <footer class="mt-6 flex items-center justify-between border-t border-slate-200 pt-3 text-xs text-slate-500">
             <span id="lastUpdated" class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> -</span>
         </footer>
     </main>
@@ -221,6 +403,44 @@
         </div>
     </div>
 
+    <!-- ช่างแต่ละบาน (เจ้าของสั่ง 13.11.26): แตะการ์ดคิว → รูปรถย่อ + รายการบาน → แตะบาน → รายชื่อช่าง (เลือกได้หลายคน) -->
+    <div id="installerSheet" class="ins-sheet" role="dialog" aria-modal="true" aria-labelledby="ins-title">
+        <div class="ins-panel">
+            <div class="ins-head">
+                <div style="min-width:0">
+                    <h2 id="ins-title" class="ins-title">ช่างแต่ละบาน</h2>
+                    <p id="ins-sub" class="ins-sub">-</p>
+                </div>
+                <button type="button" class="ins-x" data-ins-close aria-label="ปิด">&times;</button>
+            </div>
+            <div id="ins-body" class="ins-body"></div>
+            <div class="ins-foot">
+                <p id="ins-msg" class="ins-msg" role="status" aria-live="polite"></p>
+                <div class="ins-foot-btns">
+                    <button type="button" class="ins-btn" data-ins-close>ปิด</button>
+                    <button type="button" id="ins-save" class="ins-btn ins-btn-primary" data-ins-save>บันทึก</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="ins-picker" class="ins-picker" role="dialog" aria-modal="true" aria-labelledby="ins-pick-title">
+        <div class="ins-pick-panel">
+            <div class="ins-head">
+                <div style="min-width:0">
+                    <h3 id="ins-pick-title" class="ins-title">ใครติดบานนี้</h3>
+                    <p class="ins-sub">เลือกได้หลายคน</p>
+                </div>
+                <button type="button" class="ins-x" data-ins-pick-close aria-label="ปิดรายชื่อช่าง">&times;</button>
+            </div>
+            <div id="ins-pick-names" class="ins-names"></div>
+            <label id="ins-pick-fill-wrap" class="ins-fill" hidden><input type="checkbox" id="ins-pick-fill"> <span id="ins-pick-fill-text"></span></label>
+            <div class="ins-foot-btns">
+                <button type="button" class="ins-btn" data-ins-pick-clear>ล้าง</button>
+                <button type="button" id="ins-pick-ok" class="ins-btn ins-btn-primary" data-ins-pick-ok>ตกลง</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // เริ่มต้นการใช้งาน Icons
         lucide.createIcons();
@@ -241,6 +461,10 @@
         const FILM_SERIES_CSV_URL = sheetCsvUrl(FILM_SERIES_SHEET_NAME);
         const TEAM_CSV_URL = sheetCsvUrl(TEAM_SHEET_NAME);
         const REASON_CSV_URL = sheetCsvUrl(REASON_SHEET_NAME);
+        const INSTALLER_CSV_URL = sheetCsvUrl('Detail_Installer');
+        // คอลัมน์บานของแผ่น Detail_Installer (ตาม SCHEMA ใน Code.gs และฟอร์ม "ช่างต่อบาน" ของหน้าคิวจอง)
+        const INSTALLER_PANES = ['บานหน้า', 'บานหลัง', 'ประตูหน้า-ซ้าย', 'ประตูหน้า-ขวา', 'ประตูหลัง-ซ้าย', 'ประตูหลัง-ขวา',
+            'บานฟิก-ซ้าย', 'บานฟิก-ขวา', 'คาดหน้า', 'ซันรูฟ-ช่อง1', 'ซันรูฟ-ช่อง2', 'แครี่บอย'];
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwH0Vw5qzVO3YDsibqi_EF8KScpL5e0-wp8mYXxgqSj_3wjqH8QG5CyFOse4-Q18o3Rgg/exec';
         const WRITE_TOKEN_KEY = 'carCrmWriteToken';
 
@@ -332,9 +556,8 @@
 
         const dom = {};
         const DOM_IDS = [
-            'pageDateLabel', 'todayCount', 'tomorrowCount',
-            'loadingMessage', 'errorMessage', 'queueContent',
-            'todayTitle', 'tomorrowTitle', 'todayList', 'tomorrowList', 'lastUpdated',
+            'pageDateLabel',
+            'loadingMessage', 'errorMessage', 'queueContent', 'lastUpdated',
             'damageModal', 'damageForm', 'dm-customerStatus',
             'dm-jobId', 'dm-carModel', 'dm-customer', 'dm-plate', 'dm-installType', 'dm-brandFilm',
             'dm-tableBody', 'dm-note',
@@ -368,8 +591,12 @@
             const cls = label === 'ฝ่ายขาย' ? 'bg-rose-50 text-rose-700' : label === 'ช่าง' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600';
             return `<span class="inline-block rounded-lg px-2 py-1 text-sm font-semibold ${cls}">${escapeHtml(label)}</span>`;
         }
-        let cutReasonLabels = new Map();
         let currentDamageJobId = null;
+        let installerRows = [];          // แผ่น Detail_Installer
+        let installerLoaded = false;     // โหลดสำเร็จหรือไม่ (ไม่สำเร็จ = ห้ามบันทึก เพราะอาจสร้างแถวซ้ำ)
+        let installerJobId = null;       // งานที่เปิดหน้าเลือกช่างอยู่
+        let installerPick = {};          // บาน → ชื่อช่างที่เลือกในหน้า
+        let installerSaving = false;
 
         function cacheDom() {
             DOM_IDS.forEach(id => {
@@ -549,16 +776,12 @@
             });
             filmSeriesOptions = Array.from(filmMap.values());
 
-            teamOptions = [...new Set(teamRows.flatMap(row => {
+            // ชื่อที่ตั้งสถานะ "พัก" (หน้าต้นทุน แท็บตั้งค่า) ไม่แสดงให้เลือก
+            teamOptions = [...new Set(teamRows.filter(row => { const sk = findKey(Object.keys(row), ['สถานะ']); return !(sk && textValue(row[sk], '') === 'พัก'); }).flatMap(row => {
                 const key = findKey(Object.keys(row), ['ทีมช่าง', 'ชื่อทีม', 'ชื่อ']);
                 return key ? splitMultiValue(row[key]) : [];
             }).filter(Boolean))];
 
-            setCutReasonOptions(reasonRows);
-        }
-
-        function setCutReasonOptions(reasonRows) {
-            cutReasonLabels = new Map();
             reasonResponsible = {};
             reasonRows.forEach(row => {
                 const keys = Object.keys(row);
@@ -569,10 +792,9 @@
                 if (reason && owner) reasonResponsible[reason] = owner;
             });
             reasonOptions = [...new Set(reasonRows.map(row => {
-                const reason = CarInstallPositions.detailCutReason(row);
-                const id = CarInstallPositions.detailValue(row, ['ID']);
-                if (id && reason) cutReasonLabels.set(normalizeLookupId(id), reason);
-                return reason;
+                const keys = Object.keys(row);
+                const reasonKey = findKey(keys, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล']);
+                return reasonKey ? textValue(row[reasonKey], '') : '';
             }).filter(Boolean))];
         }
 
@@ -712,80 +934,35 @@
 
         function renderQueueList(container, rows) {
             if (!rows.length) {
-                container.innerHTML = emptyStateHtml();
+                container.innerHTML = '<p class="tq-empty">ไม่มีคิวติดตั้ง</p>';
                 return;
             }
 
-            container.innerHTML = rows.map((row, index) => {
-                const isLast = index === rows.length - 1;
+            container.innerHTML = rows.map(row => {
                 const isRedPlate = normalizeHeader(row.plateType).includes(normalizeHeader('แดง'));
-                const plateTypeText = row.plateType && row.plateType !== '-'
-                    ? `<span class="ml-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${isRedPlate ? 'border border-red-200 bg-red-50 text-red-700' : 'bg-slate-100 text-slate-500'}">${escapeHtml(row.plateType)}</span>`
-                    : '';
-                
+                const plate = row.plate && row.plate !== '-' ? ` <span class="tq-plate">${escapeHtml(row.plate)}</span>` : '';
+                const plateType = row.plateType && row.plateType !== '-' ? `<span class="tq-ptype${isRedPlate ? ' is-red' : ''}">${escapeHtml(row.plateType)}</span>` : '';
+                const install = row.installType && row.installType !== '-' ? ` <span class="tq-install">${escapeHtml(row.installType)}</span>` : '';
+                const status = textValue(row.status, '');
+                const type = textValue(row.customerType, '');
+                const meta = [row.jobId, row.sales && row.sales !== '-' ? 'เซลล์ ' + row.sales : ''].filter(Boolean).map(escapeHtml).join(' · ');
                 return `
-                <div class="relative flex gap-3">
-                    <!-- เส้น Timeline (ซ่อนในอันสุดท้าย) -->
-                    ${!isLast ? `<div class="absolute left-7 top-10 bottom-[-1rem] w-px bg-slate-200 z-0"></div>` : ''}
-
-                    <!-- ฝั่งเวลา -->
-                    <div class="flex flex-col items-center z-10 pt-1 w-14 shrink-0">
-                        <div class="text-lg font-bold text-slate-900 leading-none">${escapeHtml(row.time)}</div>
-                        <div class="text-[10px] text-slate-400 mt-1">น.</div>
+                <article class="queue-card tq-card ${queueCardTone(row.status)}" data-job-id="${escapeHtml(row.jobId)}" role="button" tabindex="0" aria-label="ระบุช่างแต่ละบาน ${escapeHtml(row.customerName)} เวลา ${escapeHtml(row.time)}">
+                    <div class="tq-card-top">
+                        <span class="tq-time">${escapeHtml(row.time)}<small> น.</small></span>
+                        <span class="tq-badges">
+                            ${status && status !== '-' ? `<span class="tq-badge ${queueStatusTone(status)}">${escapeHtml(status)}</span>` : ''}
+                            ${type && type !== '-' ? `<span class="tq-badge ${queueCustomerTone(type)}">${escapeHtml(type)}</span>` : ''}
+                        </span>
                     </div>
-
-                    <!-- การ์ดข้อมูล (ดีไซน์กระชับ) -->
-                    <div class="queue-card flex-1 rounded-2xl p-4 transition-all ${getCardClass(row.status)}" data-job-id="${escapeHtml(row.jobId)}">
-                        
-                        <!-- Header การ์ด -->
-                        <div class="flex flex-wrap justify-between items-start gap-2 border-b border-slate-50 pb-2 mb-2">
-                            <div>
-                                <h3 class="text-base font-bold text-slate-900 leading-tight">${escapeHtml(row.customerName)}</h3>
-                                <div class="flex items-center gap-2 mt-1">
-                                    <span class="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">ID: ${escapeHtml(row.jobId)}</span>
-                                    <span class="text-[10px] text-slate-400"><i data-lucide="user" class="w-3 h-3 inline pb-0.5"></i> ${escapeHtml(row.sales)}</span>
-                                </div>
-                            </div>
-                            <div class="flex flex-col items-end gap-1">
-                                <span class="px-2 py-0.5 text-[10px] font-semibold border rounded-md ${getStatusBadge(row.status)}">${escapeHtml(row.status)}</span>
-                                <span class="px-2 py-0.5 text-[10px] font-semibold border rounded-md ${getCustomerTypeBadge(row.customerType)}">${escapeHtml(row.customerType)}</span>
-                            </div>
-                        </div>
-
-                        <!-- รายละเอียดรถและงาน -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4">
-                            <div class="flex items-start gap-2">
-                                <div class="bg-slate-100 p-1.5 rounded-md text-slate-500 shrink-0 mt-0.5">
-                                    <i data-lucide="car" class="w-3.5 h-3.5"></i>
-                                </div>
-                                <div>
-                                    <p class="text-[13px] font-medium text-slate-800 leading-tight">${escapeHtml(row.carModel)}</p>
-                                    <p class="text-[11px] text-slate-500">${escapeHtml(row.plate)} ${plateTypeText}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex items-start gap-2">
-                                <div class="bg-blue-50 p-1.5 rounded-md text-blue-500 shrink-0 mt-0.5">
-                                    <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
-                                </div>
-                                <div>
-                                    <p class="text-[13px] font-medium text-slate-800 leading-tight line-clamp-1">${escapeHtml(row.film)}</p>
-                                    <p class="mt-1 inline-flex rounded-lg bg-blue-50 px-2 py-1 text-sm font-extrabold leading-none text-blue-700 sm:mt-0 sm:bg-transparent sm:px-0 sm:py-0 sm:text-[11px] sm:font-normal sm:text-slate-500">${escapeHtml(row.installType)}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- หมายเหตุ (ถ้ามี) -->
-                        ${row.note && row.note !== '-' ? `
-                        <div class="mt-3 flex items-start gap-1.5 bg-amber-50 text-amber-800 p-2 rounded-lg border border-amber-100/50">
-                            <i data-lucide="alert-circle" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i>
-                            <p class="text-[11px] font-medium">${escapeHtml(row.note)}</p>
-                        </div>
-                        ` : ''}
-                        
-                        <button type="button" data-open-cut class="mt-2 min-h-[44px] rounded-lg border border-blue-200 bg-white px-3 text-sm font-semibold text-blue-700 hover:bg-blue-50">บันทึกการตัดฟิล์ม</button>
-                    </div>
-                </div>`;
+                    <h3 class="tq-name">${escapeHtml(row.customerName)}</h3>
+                    <p class="tq-line"><i data-lucide="car" class="tq-ic"></i><span><b>${escapeHtml(row.carModel)}</b>${plate}${plateType}</span></p>
+                    <p class="tq-line"><i data-lucide="layers" class="tq-ic"></i><span>${escapeHtml(row.film)}${install}</span></p>
+                    ${row.note && row.note !== '-' ? `<p class="tq-note"><i data-lucide="alert-circle" class="tq-ic"></i><span>${escapeHtml(row.note)}</span></p>` : ''}
+                    ${installerSummaryHtml(row)}
+                        <button type="button" data-open-cut class="tq-cut-btn">บันทึกการตัดฟิล์ม</button>
+                    <p class="tq-meta">${meta}</p>
+                </article>`;
             }).join('');
             container.querySelectorAll('[data-open-cut]').forEach(button => {
                 button.addEventListener('click', () => openDamageModal(button.closest('.queue-card').dataset.jobId));
@@ -795,23 +972,59 @@
             lucide.createIcons();
         }
 
+        // สีการ์ด/ป้าย ตามสถานะงานและประเภทลูกค้า (หน้าคิวช่าง 3 วัน 26.11.26)
+        function queueCardTone(status) {
+            const value = normalizeHeader(status);
+            if (value.includes(normalizeHeader('เสร็จสิ้น'))) return 'tq-st-done';
+            if (value.includes(normalizeHeader('กำลังติดตั้ง'))) return 'tq-st-work';
+            return '';
+        }
+        function queueStatusTone(status) {
+            const value = normalizeHeader(status);
+            if (value.includes(normalizeHeader('เสร็จสิ้น'))) return 'tq-b-done';
+            if (value.includes(normalizeHeader('กำลังติดตั้ง'))) return 'tq-b-work';
+            if (value.includes(normalizeHeader('คิวใหม่'))) return 'tq-b-new';
+            return 'tq-b-plain';
+        }
+        function queueCustomerTone(customerType) {
+            const value = normalizeHeader(customerType);
+            if (value.includes(normalizeHeader('เคลม'))) return 'tq-b-claim';
+            if (value.includes(normalizeHeader('แก้')) || value.includes(normalizeHeader('งานค้าง'))) return 'tq-b-fix';
+            return 'tq-b-plain';
+        }
+
+        const QUEUE_DAYS = 3;   // วันนี้ พรุ่งนี้ มะรืนนี้ (เจ้าของสั่ง 26.11.26)
+        let activeDay = 0;
+        function setActiveDay(index, focus) {
+            activeDay = index;
+            document.querySelectorAll('[data-day-tab]').forEach(tab => {
+                const on = Number(tab.dataset.dayTab) === index;
+                tab.setAttribute('aria-selected', on ? 'true' : 'false');
+                tab.tabIndex = on ? 0 : -1;
+                if (on && focus) tab.focus();
+            });
+            document.querySelectorAll('.tq-day').forEach(day => day.classList.toggle('is-active', Number(day.dataset.day) === index));
+        }
+
         function renderQueues(rows) {
             const today = new Date();
             const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            const tomorrow = addDays(todayStart, 1);
-            
+            const days = Array.from({ length: QUEUE_DAYS }, (_, offset) => addDays(todayStart, offset));
             queueRows = rows;
-            const todayRows = rows.filter(row => row.dateKey === dateKey(todayStart));
-            const tomorrowRows = rows.filter(row => row.dateKey === dateKey(tomorrow));
 
-            dom.pageDateLabel.innerHTML = `ข้อมูลของวันที่ ${thaiDate(todayStart)} และ ${thaiDate(tomorrow)}`;
-            dom.todayTitle.innerText = thaiDate(todayStart);
-            dom.tomorrowTitle.innerText = thaiDate(tomorrow);
-            dom.todayCount.innerText = todayRows.length.toString();
-            dom.tomorrowCount.innerText = tomorrowRows.length.toString();
-
-            renderQueueList(dom.todayList, todayRows);
-            renderQueueList(dom.tomorrowList, tomorrowRows);
+            const first = days[0], last = days[days.length - 1];
+            dom.pageDateLabel.textContent = first.getMonth() === last.getMonth()
+                ? `งาน 3 วัน · ${first.getDate()}–${thaiDate(last)}`
+                : `งาน 3 วัน · ${thaiDate(first)} – ${thaiDate(last)}`;
+            days.forEach((date, index) => {
+                const dayRows = rows.filter(row => row.dateKey === dateKey(date));
+                document.getElementById('dayTabDate' + index).textContent = date.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
+                document.getElementById('dayTabCount' + index).textContent = String(dayRows.length);
+                document.getElementById('dayDate' + index).textContent = date.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+                document.getElementById('dayCount' + index).textContent = dayRows.length + ' คิว';
+                renderQueueList(document.getElementById('dayList' + index), dayRows);
+            });
+            setActiveDay(activeDay);
         }
 
         function normalizePosition(value) {
@@ -1026,10 +1239,6 @@
             const existingMap = existingDamageMap(job.jobId);
             damageHiddenRows = cutRowsNotShown(getExistingDamageRows(job.jobId), DAMAGE_POSITIONS.map(position => existingMap[normalizePosition(position)]), job.jobId, rowValue);
             const detailMap = detailFilmOptionsMap(job);
-            const detail = getDetailFilmRows(job.jobId).at(-1);
-            const reasonCode = CarInstallPositions.detailCutReason(detail);
-            const detailReason = cutReasonLabels.get(normalizeLookupId(reasonCode)) || reasonCode;
-            const brand = CarInstallPositions.detailValue(detail, ['ยี่ห้อฟิล์ม', 'แบรนด์ฟิล์ม', 'ยี่ห้อ / รุ่นฟิล์ม', 'ชื่อฟิล์ม']) || job.film;
             const teams = teamOptions.length ? teamOptions : ['วัล', 'พลอย', 'เอ', 'พลอย'];
             const reasons = reasonOptions.length ? reasonOptions : [
                 '🛠 (ช่าง) เป่าไหม้',
@@ -1041,26 +1250,21 @@
             ];
 
             dom['dm-tableBody'].innerHTML = DAMAGE_POSITIONS.map(position => {
-                const saved = existingMap[normalizePosition(position)];
-                const existing = saved || {};
+                const existing = existingMap[normalizePosition(position)] || {};
                 const id = rowValue(existing, ['MIS_ID', 'ID'], '');
                 const detailFilms = detailFilmsForPosition(position, detailMap);
                 const films = filmOptionsForPosition(job, position, detailMap);
                 const savedFilm = rowValue(existing, ['รุ่นฟิล์ม', 'ยี่ห้อฟิล์ม'], '');
-                const paneFilm = CarInstallPositions.detailValue(detail, positionAliases(position));
-                const suggestedFilm = composeFilmLabel(brand, paneFilm);
-                const film = savedFilm || suggestedFilm || detailFilms[0] || '';
+                const film = savedFilm || (detailFilms.length ? detailFilms[0] : '');
                 const legacySize = splitLegacySize(rowValue(existing, ['ขนาด'], ''));
                 const width = rowValue(existing, ['กว้าง', 'W', 'Width'], '') || legacySize.width;
                 const length = rowValue(existing, ['ยาว', 'H', 'Length'], '') || legacySize.length;
                 const quantity = rowValue(existing, ['จำนวน'], '');
                 const team = rowValue(existing, ['ทีมช่าง'], '');
-                const suggestedReason = !saved && suggestedFilm ? detailReason : '';
-                const savedReason = CarInstallPositions.detailCutReason(existing);
-                const reason = savedReason || suggestedReason;
+                const reason = rowValue(existing, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล'], '');
 
                 return `
-                    <tr data-position="${escapeHtml(position)}" data-row-id="${escapeHtml(id)}" data-prefill-reason="${escapeHtml(suggestedReason)}" class="border-b border-slate-200 last:border-b-0">
+                    <tr data-position="${escapeHtml(position)}" data-row-id="${escapeHtml(id)}" class="border-b border-slate-200 last:border-b-0">
                         <th scope="row" class="border border-slate-200 px-3 py-2 font-semibold text-slate-900">${escapeHtml(position)}</th>
                         <td class="border border-slate-200 px-2 py-2">
                             <select aria-label="${escapeHtml(position)} · รุ่นฟิล์ม" data-field="รุ่นฟิล์ม" class="damage-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
@@ -1112,15 +1316,10 @@
             if (!job) return;
 
             currentDamageJobId = job.jobId;
-            const [cutRows, filmDetails, reasonRows] = await Promise.all([
+            [damageDataRows, detailFilmRows] = await Promise.all([
                 fetchDamageDataRows(),
-                fetchOptionalRows(DETAIL_FILM_CSV_URL),
-                fetchOptionalRows(REASON_CSV_URL)
+                fetchOptionalRows(DETAIL_FILM_CSV_URL)
             ]);
-            if (currentDamageJobId !== job.jobId) return;
-            damageDataRows = cutRows;
-            detailFilmRows = filmDetails;
-            setCutReasonOptions(reasonRows);
             dom['dm-customerStatus'].textContent = customerStatusLabel(job.customerType);
             dom['dm-customerStatus'].className = `ml-2 inline-flex items-center rounded-xl px-3 py-1 text-lg font-extrabold shadow-sm ${getCustomerStatusPanelClass(job.customerType)}`;
             dom['dm-jobId'].textContent = job.jobId;
@@ -1154,7 +1353,7 @@
         function collectDamageRows() {
             const note = textValue(dom['dm-note'].value, '');
             return Array.from(dom['dm-tableBody'].querySelectorAll('tr[data-position]'))
-                .flatMap(row => {
+                .map(row => {
                     const item = {
                         MIS_ID: row.dataset.rowId || '',
                         'ตำแหน่งติดตั้ง': row.dataset.position || '',
@@ -1170,8 +1369,10 @@
                             item[input.dataset.field] = textValue(input.value, '');
                         }
                     });
-                    return CarInstallPositions.shouldCollectCutRow(item, row.dataset.prefillReason) ? [item] : [];
-                });
+                    return item;
+                })
+                .filter(item => [...CUT_ROW_FIELDS, 'ทีมช่าง'].some(field => hasCutFieldValue(item[field])) ||
+                    (item.MIS_ID && hasCutFieldValue(item['รุ่นฟิล์ม'])));
         }
 
         async function submitDamage(event) {
@@ -1252,6 +1453,548 @@
             }
         }
 
+        // ============ ช่างแต่ละบาน (เจ้าของสั่ง 13.11.26) ============
+        // แตะการ์ดคิว → หน้าต่าง (มือถือเลื่อนขึ้นจากล่าง): รูปรถย่อ (แตะกระจกได้) + รายการบานปุ่มใหญ่
+        // แตะบาน → รายชื่อช่างเด้งขึ้น เลือกได้หลายคน (เก็บในช่องบานเดิม คั่นด้วย ", ")
+        // ข้อมูลชุดเดียวกับตาราง "ข้อมูลการตัดฟิล์ม / รายการเพิ่มเติม (data)" ของฝ่ายขาย (เจ้าของสั่ง 13.11.26): อ่าน/เขียนคอลัมน์ "ทีมช่าง" ของแถวแผนติดตั้งในแผ่น data
+        // บานที่แสดง = ตำแหน่งของแถวแผนติดตั้ง (พร้อมรุ่นฟิล์ม/ขนาด) · ไม่มีแถวใช้ Detail_film / ตำแหน่งติดตั้งของคิว · บานที่เพิ่มเอง (เช่น รถตู้) = แถวใหม่ในแผ่น data
+        // แถวขอตัดเพิ่มเพราะเสียหาย (มีเหตุผล) ไม่แตะ · ข้อมูลช่างเดิมในแผ่น Detail_Installer แสดงต่อจนกว่าจะบันทึกย้ายเข้าแผ่น data
+        const INSTALLER_EXTRA_COLUMN = 'บานเพิ่มเติม';
+        const INSTALLER_EXTRA_ENABLED = !!window.CarSupabaseBridge;   // เว็บเดิม (Apps Script) ไม่มีคอลัมน์นี้ จึงไม่แสดงปุ่มเพิ่มบาน
+        const INSTALLER_MAIN_PANES = INSTALLER_PANES.slice(0, 6);     // บานหน้า บานหลัง ประตู 4 บาน
+        const INSTALLER_SHORT = { 'ประตูหน้า-ซ้าย': 'ปต.หน้าซ้าย', 'ประตูหน้า-ขวา': 'ปต.หน้าขวา', 'ประตูหลัง-ซ้าย': 'ปต.หลังซ้าย', 'ประตูหลัง-ขวา': 'ปต.หลังขวา' };
+        // รูปรถมองจากด้านบน (viewBox 98 0 120 256): กระจกแต่ละบาน + พื้นที่แตะที่กว้างกว่ากระจกข้าง (กระจกข้างบาง แตะยากบนมือถือ)
+        const INSTALLER_GLASS = {
+            'บานหน้า': '124,58 192,58 185,88 131,88',
+            'บานหลัง': '132,176 184,176 191,198 125,198',
+            'ประตูหน้า-ซ้าย': '117,92 127,94 127,128 117,128',
+            'ประตูหน้า-ขวา': '199,92 189,94 189,128 199,128',
+            'ประตูหลัง-ซ้าย': '117,132 127,132 127,156 117,153',
+            'ประตูหลัง-ขวา': '199,132 189,132 189,156 199,153',
+            'บานฟิก-ซ้าย': '117,159 127,161 127,172 118,171',
+            'บานฟิก-ขวา': '199,159 189,161 189,172 198,171',
+            'คาดหน้า': '124,58 192,58 190,66 126,66',
+            'ซันรูฟ-ช่อง1': '141,98 175,98 175,128 141,128',
+            'ซันรูฟ-ช่อง2': '141,134 175,134 175,164 141,164',
+            'แครี่บอย': '126,234 190,234 190,252 126,252'
+        };
+        const INSTALLER_GLASS_HIT = {
+            'ประตูหน้า-ซ้าย': '100,90 130,90 130,130 100,130', 'ประตูหน้า-ขวา': '186,90 216,90 216,130 186,130',
+            'ประตูหลัง-ซ้าย': '100,130 130,130 130,157 100,157', 'ประตูหลัง-ขวา': '186,130 216,130 216,157 186,157',
+            'บานฟิก-ซ้าย': '100,157 130,157 130,175 100,175', 'บานฟิก-ขวา': '186,157 216,157 216,175 186,175'
+        };
+        let installerNameOptions = [];
+        let installerExtra = [];         // บานที่เพิ่มเอง [{ name, techs: [] }]
+        let installerShown = [];         // บานมาตรฐานที่แสดงในรายการ
+        let installerAddOpen = false;
+        let installerPickerTarget = null; // { pane } หรือ { extra: ลำดับ }
+        let installerPickerSel = [];
+
+        async function loadInstallerData() {
+            try {
+                const response = await fetch(INSTALLER_CSV_URL);
+                const text = response.ok ? await response.text() : '';
+                const ok = response.ok && !text.trim().toLowerCase().startsWith('<html');
+                installerRows = ok ? await parseCsv(text) : [];
+                installerLoaded = ok;
+            } catch (error) {
+                installerRows = [];
+                installerLoaded = false;
+            }
+        }
+
+        // รายชื่อจากแผ่น "ทีมช่าง" เหมือนฟอร์มขอตัดฟิล์ม แต่ตัดค่าที่ไม่ใช่ชื่อคน (เช่น "เกิดจากฟิล์ม" ที่ใช้เป็นเหตุผลขอตัด)
+        async function loadTeamOptions() {
+            const rows = await fetchOptionalRows(TEAM_CSV_URL);
+            // ชื่อที่ตั้งสถานะ "พัก" (หน้าต้นทุน แท็บตั้งค่า) ไม่แสดงให้เลือก
+            teamOptions = [...new Set(rows.filter(row => { const sk = findKey(Object.keys(row), ['สถานะ']); return !(sk && textValue(row[sk], '') === 'พัก'); }).flatMap(row => {
+                const key = findKey(Object.keys(row), ['ทีมช่าง', 'ชื่อทีม', 'ชื่อ']);
+                return key ? splitMultiValue(row[key]) : [];
+            }).filter(Boolean))];
+            installerNameOptions = teamOptions.filter(name => !/^เกิดจาก/.test(name));
+        }
+
+        async function loadCutData() {
+            damageDataRows = await fetchDamageDataRows();   // แผ่น data (ตัดฟิล์ม) — ที่เก็บ "ทีมช่าง" ต่อบาน
+        }
+
+        async function loadDetailFilmRows() {
+            detailFilmRows = await fetchOptionalRows(DETAIL_FILM_CSV_URL);
+        }
+
+        function installerNames(value) {
+            return [...new Set(String(value || '').split(/[,，、]+/).map(name => name.trim()).filter(name => name && name !== '-'))];
+        }
+
+        function installerRowOf(jobId) {
+            const id = normalizeLookupId(jobId);
+            const rows = installerRows.filter(row => normalizeLookupId(findValue(row, ['JobID', 'Job ID'], '')) === id);
+            return rows[rows.length - 1] || null;   // แถวล่าสุดของงาน (ตามลำดับในชีต)
+        }
+
+        // อ่านคอลัมน์แบบตรงชื่อเท่านั้น (findValue จับชื่อบางส่วน อาจหยิบคอลัมน์ผิดบาน)
+        function installerCell(row, column) {
+            const key = Object.keys(row || {}).find(k => normalizeHeader(k) === normalizeHeader(column));
+            const value = key ? textValue(row[key], '') : '';
+            return value === '-' ? '' : value;
+        }
+
+        function installerNamesOf(row) {
+            const map = {};
+            INSTALLER_PANES.forEach(pane => {
+                const names = installerNames(installerCell(row, pane));
+                if (names.length) map[pane] = names;
+            });
+            return map;
+        }
+
+        function parseInstallerExtra(text) {
+            return String(text || '').split(/[;\n]+/).map(part => {
+                const at = part.indexOf(':');
+                const name = (at >= 0 ? part.slice(0, at) : part).trim();
+                return name ? { name, techs: at >= 0 ? installerNames(part.slice(at + 1)) : [] } : null;
+            }).filter(Boolean);
+        }
+
+        function formatInstallerExtra(list) {
+            return list.map(item => item.techs.length ? `${item.name}: ${item.techs.join(', ')}` : item.name).join('; ');
+        }
+
+        function cleanInstallerPaneName(value) {
+            return String(value || '').replace(/[:;,，、\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 30);
+        }
+
+        // บานที่มีฟิล์มของงาน (แถวล่าสุดใน Detail_film) → { บาน: รุ่นฟิล์ม }
+        function installerFilmOf(jobId) {
+            const rows = getDetailFilmRows(jobId);
+            const row = rows[rows.length - 1];
+            const map = {};
+            if (row) INSTALLER_PANES.forEach(pane => { const film = installerCell(row, pane); if (film) map[pane] = film; });
+            return map;
+        }
+
+        // ----- ช่างต่อบานจากแผ่น data: คอลัมน์ "ทีมช่าง" ของแถวตัดฟิล์มของงาน (ชุดเดียวกับตาราง "ข้อมูลการตัดฟิล์ม / รายการเพิ่มเติม (data)" ของฝ่ายขาย) -----
+        // แถวติดตั้งปกติ = เหตุผลว่างหรือ "🆕 ลูกค้าใหม่" (ข้อมูลจริง 5,231 จาก 5,432 แถว) → ทีมช่างของแถวเหล่านี้คือช่างที่ติดบานนั้น ตั้งได้
+        // แถวขอตัดเพิ่มเพราะเสียหาย (🛠 🎞 💰 ⚠️ …) ทีมช่าง = ผู้ทำเสีย → ไม่แตะ ส่งกลับตามเดิม
+        const cutField = (row, keys) => { const v = rowValue(row, keys, ''); return v === '-' ? '' : textValue(v, ''); };
+        const isPlannedCut = row => { const reason = cutField(row, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล']); return !reason || /ลูกค้าใหม่/.test(reason); };
+
+        // ชื่อตำแหน่งในแผ่น data → ชื่อบานมาตรฐานของรูปรถ (ไม่ตรง = บานเพิ่ม แสดงตามชื่อ เช่น "แถว 3 ซ้าย")
+        function canonicalPane(text) {
+            const raw = textValue(text, '');
+            if (!raw || raw === '-') return '';
+            const token = normalizeHeader(raw);
+            const direct = INSTALLER_PANES.find(pane => normalizeHeader(pane) === token);
+            if (direct) return direct;
+            return INSTALLER_PANES.find(pane => positionAliases(pane).some(alias => normalizeHeader(alias) === token)) || raw;
+        }
+
+        // แถวของงานนี้ที่ JobID ตรงทุกตัวอักษร (การบันทึกแผ่น data ลบ/ส่งกลับเฉพาะแถวเหล่านี้ ดู cutRowsNotShown)
+        function jobCutRows(jobId) {
+            const id = String(jobId || '').trim();
+            return damageDataRows.filter(row => String(rowValue(row, ['JobID'], '') || '').trim() === id);
+        }
+
+        function cutFilmLabel(row) {
+            const film = cutField(row, ['รุ่นฟิล์ม', 'ยี่ห้อฟิล์ม']);
+            const width = cutField(row, ['กว้าง']), length = cutField(row, ['ยาว']), qty = cutField(row, ['จำนวน']);
+            const size = width && length ? width + '×' + length + (qty && qty !== '1' ? ' (' + qty + ' แผ่น)' : '') : '';
+            return [film, size].filter(Boolean).join(' · ');
+        }
+
+        // ช่างต่อบานที่บันทึกในแผ่น data: { pick: {บานมาตรฐาน: [ชื่อ]}, extra: [{name, techs}], positions: Set, film: {ตำแหน่ง: ข้อความ} }
+        function installerAssignments(jobId) {
+            const pick = {}, positions = new Set(), film = {}, extraMap = new Map(), damage = {};
+            // แถวขอตัดเพราะเสียหาย: แสดงชื่อช่าง + เหตุผลย่อ (อ่านอย่างเดียว บันทึกส่งกลับตามเดิม)
+            jobCutRows(jobId).filter(row => !isPlannedCut(row)).forEach(row => {
+                const position = canonicalPane(cutField(row, ['ตำแหน่งติดตั้ง', 'ตำแหน่ง']));
+                const names = installerNames(cutField(row, ['ทีมช่าง']));
+                if (!position || !names.length) return;
+                const reason = cutField(row, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล']).replace(/^[^\p{L}\p{N}(]*(\([^)]*\)\s*)?/u, '').trim();
+                (damage[position] = damage[position] || []).push({ names, reason });
+            });
+            jobCutRows(jobId).filter(isPlannedCut).forEach(row => {
+                const position = canonicalPane(cutField(row, ['ตำแหน่งติดตั้ง', 'ตำแหน่ง']));
+                if (!position) return;
+                const names = installerNames(cutField(row, ['ทีมช่าง']));
+                if (INSTALLER_PANES.includes(position)) {
+                    positions.add(position);
+                    if (names.length) pick[position] = [...new Set([...(pick[position] || []), ...names])];
+                } else {
+                    const item = extraMap.get(position) || { name: position, techs: [] };
+                    item.techs = [...new Set([...item.techs, ...names])];
+                    extraMap.set(position, item);
+                }
+                const label = cutFilmLabel(row);
+                if (label) film[position] = film[position] && film[position] !== label ? film[position] + ' / ' + label : label;
+            });
+            return { pick, extra: [...extraMap.values()], positions, film, damage };
+        }
+
+        const hasAnyInstaller = a => Object.keys(a.pick).length > 0 || a.extra.some(item => item.techs.length);
+
+        // ปัจจุบัน = ข้อมูลในแผ่น data · ถ้ายังไม่มีชื่อช่างในแผ่น data แต่เคยบันทึกไว้ที่แผ่น Detail_Installer เดิม แสดงจากแผ่นเดิมก่อน (legacy)
+        // แล้วกดบันทึกครั้งเดียวจะย้ายเข้าแผ่น data
+        function installerCurrent(jobId) {
+            const data = installerAssignments(jobId);
+            if (hasAnyInstaller(data)) return { ...data, legacy: false };
+            const saved = installerRowOf(jobId);
+            const old = { pick: installerNamesOf(saved), extra: parseInstallerExtra(installerCell(saved, INSTALLER_EXTRA_COLUMN)) };
+            old.extra = old.extra.filter(item => {
+                if (canonicalPane(item.name) !== 'คาดหน้า') return true;
+                old.pick['คาดหน้า'] = [...new Set([...(old.pick['คาดหน้า'] || []), ...item.techs])];
+                return false;
+            });
+            return hasAnyInstaller(old) ? { ...data, pick: old.pick, extra: old.extra, legacy: true } : { ...data, legacy: false };
+        }
+
+        // รุ่นฟิล์ม/ขนาดใต้ชื่อบาน: จากแผ่น data ก่อน ไม่มีใช้ Detail_film
+        function installerFilmLabels(jobId) {
+            const map = { ...installerFilmOf(jobId), ...installerAssignments(jobId).film };
+            return map;
+        }
+
+        function installerPanesFor(job) {
+            const current = installerCurrent(job.jobId);
+            const panes = new Set([...current.positions, ...Object.keys(current.pick), ...Object.keys(current.damage || {}).filter(pane => INSTALLER_PANES.includes(pane))]);
+            if (!current.positions.size) {   // ยังไม่มีแถวแผนติดตั้งในแผ่น data → ใช้ฟิล์มใน Detail_film หรือตำแหน่งติดตั้งของคิว
+                Object.keys(installerFilmOf(job.jobId)).forEach(pane => panes.add(pane));
+                if (!Object.keys(installerFilmOf(job.jobId)).length) {
+                    String(job.installType || '').split(/[,，、/]+/).map(part => part.trim()).filter(part => part && part !== '-').forEach(part => {
+                        const token = normalizeHeader(part);
+                        const exact = INSTALLER_PANES.find(pane => normalizeHeader(pane) === token);
+                        if (exact) panes.add(exact);
+                        else if (/เต็มคัน|รอบคัน/.test(part)) INSTALLER_MAIN_PANES.forEach(pane => panes.add(pane));
+                        else if (/ซันรูฟ/.test(part)) panes.add('ซันรูฟ-ช่อง1');
+                        else if (/แครี่บอย/.test(part)) panes.add('แครี่บอย');
+                        else matchingDamagePositions(part).forEach(position => { if (INSTALLER_PANES.includes(position)) panes.add(position); });
+                    });
+                }
+            }
+            return panes.size ? INSTALLER_PANES.filter(pane => panes.has(pane)) : INSTALLER_MAIN_PANES.slice();
+        }
+
+        // ชื่อบานเพิ่มที่เคยใช้ในงานอื่น (ไว้แตะเลือก ไม่ต้องพิมพ์ซ้ำ)
+        function installerSuggestions(exclude) {
+            const seen = new Set(exclude.map(normalizeHeader));
+            const names = [];
+            damageDataRows.forEach(row => {
+                const position = canonicalPane(cutField(row, ['ตำแหน่งติดตั้ง', 'ตำแหน่ง']));
+                if (!position || INSTALLER_PANES.includes(position) || DAMAGE_POSITIONS.includes(position)) return;
+                if (/[,，、/]/.test(position) || position.length > 30 || seen.has(normalizeHeader(position))) return;
+                seen.add(normalizeHeader(position));
+                names.push(position);
+            });
+            return names.slice(0, 12);
+        }
+
+        function installerSummaryHtml(row) {
+            const current = installerCurrent(row.jobId);
+            const byName = {};
+            const add = (name, pane) => { (byName[name] = byName[name] || []).push(pane); };
+            Object.entries(current.pick).forEach(([pane, names]) => names.forEach(name => add(name, INSTALLER_SHORT[pane] || pane)));
+            current.extra.forEach(item => item.techs.forEach(name => add(name, item.name)));
+            const groups = Object.entries(byName);
+            const damageChips = Object.entries(current.damage || {}).map(([pane, list]) =>
+                `<span class="ins-card-item ins-card-dmg"><b>${escapeHtml([...new Set(list.flatMap(item => item.names))].join(', '))}</b> ${escapeHtml(INSTALLER_SHORT[pane] || pane)} · ตัดใหม่</span>`).join('');
+            if (!groups.length && damageChips) return `<div class="ins-card-sum"><i data-lucide="users" style="width:14px;height:14px;color:#2563eb"></i>${damageChips}</div>`;
+            if (!groups.length) return '<div class="ins-card-empty"><i data-lucide="hand" style="width:14px;height:14px"></i> แตะเพื่อระบุช่างแต่ละบาน</div>';
+            return `<div class="ins-card-sum"><i data-lucide="users" style="width:14px;height:14px;color:#2563eb"></i>${groups.map(([name, panes]) =>
+                `<span class="ins-card-item"><b>${escapeHtml(name)}</b> ${escapeHtml(panes.join(', '))}</span>`).join('')}${damageChips}</div>`;
+        }
+
+        function setInstallerMessage(text, tone) {
+            const el = document.getElementById('ins-msg');
+            el.textContent = text || '';
+            el.className = 'ins-msg' + (text ? ' is-shown' : '') + (tone ? ` is-${tone}` : '');
+        }
+
+        // สีประจำช่างในงานนี้ ตามลำดับที่ปรากฏ (บานมาตรฐานก่อน แล้วบานที่เพิ่มเอง)
+        function installerColorMap() {
+            const map = {};
+            let next = 0;
+            const add = name => { if (!(name in map)) map[name] = next++ % 6; };
+            INSTALLER_PANES.forEach(pane => (installerPick[pane] || []).forEach(add));
+            installerExtra.forEach(item => item.techs.forEach(add));
+            return map;
+        }
+
+        function installerCarSvg(colors) {
+            const glass = INSTALLER_PANES.map(pane => {
+                const names = installerPick[pane] || [];
+                const cls = names.length ? `ins-g-c${colors[names[0]]}` : installerShown.includes(pane) ? 'ins-g-empty' : 'ins-g-off';
+                const hit = INSTALLER_GLASS_HIT[pane];
+                return `<g class="ins-glass" data-pane="${escapeHtml(pane)}"><title>${escapeHtml(pane)}${names.length ? ' · ' + escapeHtml(names.join(', ')) : ''}</title>` +
+                    `<polygon class="${cls}" points="${INSTALLER_GLASS[pane]}"/>${hit ? `<polygon points="${hit}" fill="transparent" stroke="none"/>` : ''}</g>`;
+            }).join('');
+            return `<svg class="ins-car" viewBox="98 0 120 256" role="img" aria-label="รูปรถ แตะกระจกเพื่อเลือกช่าง">
+                <rect x="108" y="40" width="9" height="34" rx="3" fill="#475569"/><rect x="199" y="40" width="9" height="34" rx="3" fill="#475569"/>
+                <rect x="108" y="160" width="9" height="34" rx="3" fill="#475569"/><rect x="199" y="160" width="9" height="34" rx="3" fill="#475569"/>
+                <ellipse cx="110" cy="90" rx="6" ry="3.5" fill="#94a3b8"/><ellipse cx="206" cy="90" rx="6" ry="3.5" fill="#94a3b8"/>
+                <path d="M130,8 Q158,0 186,8 Q202,13 202,36 L202,200 Q201,222 182,225 L134,225 Q115,222 114,200 L114,36 Q114,13 130,8 Z" fill="#f8fafc" stroke="#64748b" stroke-width="1.2"/>
+                <path d="M126,24 Q158,17 190,24" fill="none" stroke="#cbd5e1"/>
+                <rect x="132" y="92" width="52" height="80" rx="7" fill="#fff" stroke="#cbd5e1"/>
+                ${glass}</svg>`;
+        }
+
+        function renderInstallerSheet(job) {
+            const colors = installerColorMap();
+            const film = installerFilmLabels(job.jobId);
+            const damage = installerAssignments(job.jobId).damage;
+            const damageLine = pane => (damage[pane] ? `<span class="ins-dmg">ตัดใหม่ ${escapeHtml(damage[pane].map(item => (item.reason ? item.reason + ': ' : '') + item.names.join(', ')).join(' / '))}</span>` : '');
+            const counts = {};
+            let empty = 0;
+            const count = names => { if (!names.length) empty += 1; names.forEach(name => { counts[name] = (counts[name] || 0) + 1; }); };
+            installerShown.forEach(pane => count(installerPick[pane] || []));
+            installerExtra.forEach(item => count(item.techs));
+            const summary = Object.entries(counts).map(([name, n]) => `<span class="ins-c${colors[name]}">${escapeHtml(name)} ${n} บาน</span>`).join('') +
+                (empty ? `<span class="ins-sum-empty">ว่าง ${empty} บาน</span>` : '');
+            const who = names => names.length
+                ? `<span class="ins-who">${names.map(name => `<span class="ins-t${colors[name]}">${escapeHtml(name)}</span>`).join(', ')}</span>`
+                : '<span class="ins-who-empty">+ เลือกช่าง</span>';
+            const rowClass = names => names.length ? `ins-c${colors[names[0]]}` : 'is-empty';
+            const rows = installerShown.map(pane => {
+                const names = installerPick[pane] || [];
+                return `<div class="ins-row"><button type="button" class="ins-row-main ${rowClass(names)}" data-pane="${escapeHtml(pane)}">
+                    <span class="ins-row-text"><span class="ins-pane">${escapeHtml(pane)}</span>${film[pane] ? `<span class="ins-film">${escapeHtml(film[pane])}</span>` : ''}${damageLine(pane)}</span>${who(names)}</button></div>`;
+            }).join('');
+            const extras = installerExtra.map((item, index) => `<div class="ins-row"><button type="button" class="ins-row-main ${rowClass(item.techs)}" data-extra="${index}">
+                <span class="ins-row-text"><span class="ins-pane">${escapeHtml(item.name)}</span><span class="ins-film">${escapeHtml(film[item.name] || 'บานที่เพิ่มเอง')}</span></span>${who(item.techs)}</button>
+                <button type="button" class="ins-del" data-extra-del="${index}" aria-label="ลบ ${escapeHtml(item.name)}">&times;</button></div>`).join('');
+            let add = '';
+            if (installerAddOpen) {
+                const suggestions = installerSuggestions(installerExtra.map(item => item.name));
+                add = `<div class="ins-addform"><label for="ins-add-name">ชื่อบานที่เพิ่ม</label>
+                    <div class="ins-addline"><input id="ins-add-name" maxlength="30" placeholder="เช่น แถว 3 ซ้าย" autocomplete="off" enterkeyhint="done">
+                    <button type="button" class="ins-btn ins-btn-primary" data-ins-add-ok>เพิ่ม</button></div>
+                    ${suggestions.length ? `<div class="ins-sugg">${suggestions.map(name => `<button type="button" data-ins-sugg="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}</div>` : ''}
+                    <button type="button" class="ins-linkbtn" data-ins-add-cancel>ยกเลิก</button></div>`;
+            } else {
+                add = '<button type="button" class="ins-add" data-ins-add>+ เพิ่มบาน</button>';
+            }
+            document.getElementById('ins-body').innerHTML = `${installerCarSvg(colors)}<div class="ins-sum">${summary}</div>
+                <p class="ins-hint">แตะที่กระจก หรือแตะแถวด้านล่าง</p>${rows}${extras}${add}`;
+        }
+
+        function currentInstallerJob() {
+            return queueRows.find(row => row.jobId === installerJobId) || null;
+        }
+
+        function openInstallerSheet(jobId) {
+            const job = queueRows.find(row => row.jobId === jobId || normalizeLookupId(row.jobId) === normalizeLookupId(jobId));
+            if (!job) return;
+            const current = installerCurrent(job.jobId);
+            installerJobId = job.jobId;
+            installerPick = JSON.parse(JSON.stringify(current.pick));
+            installerExtra = current.extra.map(item => ({ name: item.name, techs: item.techs.slice() }));
+            installerShown = installerPanesFor(job);
+            installerAddOpen = false;
+            const car = [job.carModel, job.plate].filter(v => v && v !== '-').join(' ');
+            document.getElementById('ins-sub').textContent = [job.customerName, car].filter(v => v && v !== '-').join(' · ');
+            renderInstallerSheet(job);
+            // เว็บ ERP: บัญชีที่ไม่มีสิทธิ์งานติดตั้งดูได้ แต่บันทึกไม่ได้ (Worker ตรวจสิทธิ์ซ้ำทุกครั้ง)
+            const can = document.documentElement.getAttribute('data-car-can');
+            const noRight = INSTALLER_EXTRA_ENABLED && can !== null && !(` ${can} `).includes(' install ');
+            const save = document.getElementById('ins-save');
+            save.disabled = !damageDataLoaded || noRight;
+            save.textContent = 'บันทึก';
+            if (!damageDataLoaded) setInstallerMessage(CUT_DATA_NOT_LOADED_MESSAGE, 'error');
+            else if (noRight) setInstallerMessage('บัญชีนี้ดูได้อย่างเดียว ไม่มีสิทธิ์บันทึกงานติดตั้ง', 'warn');
+            else if (current.legacy) setInstallerMessage('ดึงมาจากข้อมูลช่างเดิม กดบันทึกเพื่อย้ายเข้าตารางข้อมูลตัดฟิล์ม', 'warn');
+            else setInstallerMessage('');
+            document.getElementById('installerSheet').classList.add('is-open');
+            document.body.style.overflow = 'hidden';
+            document.getElementById('ins-body').scrollTop = 0;
+            lucide.createIcons();
+            setTimeout(() => document.querySelector('#installerSheet .ins-x')?.focus({ preventScroll: true }), 60);
+        }
+
+        function closeInstallerSheet() {
+            if (installerSaving) return;
+            closeInstallerPicker();
+            installerJobId = null;
+            document.getElementById('installerSheet').classList.remove('is-open');
+            document.body.style.overflow = '';
+        }
+
+        function installerTargetNames(target) {
+            return target.extra !== undefined ? installerExtra[target.extra].techs : (installerPick[target.pane] || []);
+        }
+
+        function installerEmptyOthers(target) {
+            const panes = installerShown.filter(pane => pane !== target.pane && !(installerPick[pane] || []).length).length;
+            const extras = installerExtra.filter((item, index) => index !== target.extra && !item.techs.length).length;
+            return panes + extras;
+        }
+
+        function openInstallerPicker(target) {
+            if (installerSaving) return;
+            installerPickerTarget = target;
+            installerPickerSel = installerTargetNames(target).slice();
+            const label = target.extra !== undefined ? installerExtra[target.extra].name : target.pane;
+            document.getElementById('ins-pick-title').textContent = `ใครติด ${label}`;
+            document.getElementById('ins-pick-fill').checked = false;
+            renderInstallerPicker();
+            document.getElementById('ins-picker').classList.add('is-open');
+            setTimeout(() => document.querySelector('#ins-pick-names .ins-name')?.focus({ preventScroll: true }), 60);
+        }
+
+        function renderInstallerPicker() {
+            const names = installerNameOptions.slice();
+            installerPickerSel.forEach(name => { if (!names.includes(name)) names.push(name); });   // ชื่อเดิมที่ไม่อยู่ในรายชื่อแล้ว
+            document.getElementById('ins-pick-names').innerHTML = names.length
+                ? names.map(name => `<button type="button" class="ins-name" data-ins-name="${escapeHtml(name)}" aria-pressed="${installerPickerSel.includes(name)}">${escapeHtml(name)}</button>`).join('')
+                : '<p class="ins-sub" style="grid-column:1/-1">ไม่มีรายชื่อช่าง (แผ่น "ทีมช่าง")</p>';
+            const others = installerEmptyOthers(installerPickerTarget);
+            const wrap = document.getElementById('ins-pick-fill-wrap');
+            wrap.hidden = !others;
+            document.getElementById('ins-pick-fill-text').textContent = `ใส่ให้บานที่ยังว่างด้วย (${others} บาน)`;
+            document.getElementById('ins-pick-ok').textContent = installerPickerSel.length ? `ตกลง (${installerPickerSel.length} คน)` : 'ตกลง';
+        }
+
+        function confirmInstallerPicker() {
+            const target = installerPickerTarget;
+            const job = currentInstallerJob();
+            if (!target || !job) return;
+            const names = installerPickerSel.slice();
+            const setNames = (pane, list) => { if (list.length) installerPick[pane] = list.slice(); else delete installerPick[pane]; };
+            if (target.extra !== undefined) installerExtra[target.extra].techs = names;
+            else setNames(target.pane, names);
+            if (names.length && document.getElementById('ins-pick-fill').checked) {
+                installerShown.forEach(pane => { if (!(installerPick[pane] || []).length) setNames(pane, names); });
+                installerExtra.forEach(item => { if (!item.techs.length) item.techs = names.slice(); });
+            }
+            closeInstallerPicker();
+            renderInstallerSheet(job);
+            setInstallerMessage('ยังไม่ได้บันทึก', 'warn');
+        }
+
+        function closeInstallerPicker() {
+            installerPickerTarget = null;
+            document.getElementById('ins-picker').classList.remove('is-open');
+        }
+
+        function addInstallerExtra(value) {
+            const job = currentInstallerJob();
+            if (!job) return;
+            const name = cleanInstallerPaneName(value);
+            if (!name) { document.getElementById('ins-add-name')?.focus(); return; }
+            const standard = INSTALLER_PANES.find(pane => normalizeHeader(pane) === normalizeHeader(name));
+            installerAddOpen = false;
+            if (standard) {   // ชื่อซ้ำบานมาตรฐาน → แสดงบานนั้นแทน ไม่สร้างบานซ้ำ
+                if (!installerShown.includes(standard)) installerShown = INSTALLER_PANES.filter(pane => installerShown.includes(pane) || pane === standard);
+                renderInstallerSheet(job);
+                openInstallerPicker({ pane: standard });
+                return;
+            }
+            let index = installerExtra.findIndex(item => normalizeHeader(item.name) === normalizeHeader(name));
+            if (index < 0) { installerExtra.push({ name, techs: [] }); index = installerExtra.length - 1; }
+            renderInstallerSheet(job);
+            setInstallerMessage('ยังไม่ได้บันทึก', 'warn');
+            openInstallerPicker({ extra: index });
+        }
+
+        async function saveInstallerSheet() {
+            if (installerSaving) return;
+            const job = currentInstallerJob();
+            if (!job) return;
+            if (!damageDataLoaded) { setInstallerMessage(CUT_DATA_NOT_LOADED_MESSAGE, 'error'); return; }
+            const save = document.getElementById('ins-save');
+            installerSaving = true;
+            save.disabled = true;
+            save.textContent = 'กำลังบันทึก...';
+            setInstallerMessage('กำลังบันทึก...', '');
+            let closeAfter = false;
+            try {
+                // การบันทึกแผ่น data แทนที่แถวของงานทั้งหมด: อ่านล่าสุดก่อน เพื่อไม่ทับสิ่งที่ฝ่ายขายเพิ่งแก้
+                damageDataRows = await fetchDamageDataRows();
+                if (!damageDataLoaded) throw new Error(CUT_DATA_NOT_LOADED_MESSAGE);
+                const joined = names => names.join(' , ');
+                const wanted = new Map();   // ตำแหน่ง → ชื่อช่างที่ต้องการ
+                INSTALLER_PANES.forEach(pane => { if (installerShown.includes(pane) || (installerPick[pane] || []).length) wanted.set(pane, installerPick[pane] || []); });
+                installerExtra.forEach(item => wanted.set(item.name, item.techs));
+                const seen = new Set();
+                const rows = jobCutRows(job.jobId).map(row => {
+                    const out = { ...cutRowForResave(row, rowValue), 'หมายเหตุ': cutField(row, ['หมายเหตุ']) };
+                    if (isPlannedCut(row)) {   // แถวขอตัดเพิ่มเพราะเสียหาย (มีเหตุผล) ส่งกลับตามเดิม
+                        const position = canonicalPane(cutField(row, ['ตำแหน่งติดตั้ง', 'ตำแหน่ง']));
+                        if (position && wanted.has(position)) { out['ทีมช่าง'] = joined(wanted.get(position)); seen.add(position); }
+                    }
+                    return out;
+                });
+                wanted.forEach((names, position) => { if (names.length && !seen.has(position)) rows.push({ 'ตำแหน่งติดตั้ง': position, 'ทีมช่าง': joined(names), 'เหตุผลขอตัดฟิล์ม': '🆕 ลูกค้าใหม่' }); });   // แถวใหม่ใช้เหตุผลเดียวกับแถวติดตั้งปกติในแผ่น data
+                const result = await postWithWriteToken({ sheetName: 'data', JobID: job.jobId, rows });
+                if (!result.success) throw new Error(result.error || 'บันทึกไม่สำเร็จ');
+                damageDataRows = await fetchDamageDataRows();
+                renderQueues(queueRows);
+                if (result.verified === false) setInstallerMessage('บันทึกแล้ว แต่ระบบยังยืนยันไม่ได้ กรุณารีเฟรชแล้วตรวจอีกครั้ง', 'warn');
+                else { setInstallerMessage('บันทึกแล้ว', 'ok'); closeAfter = true; }
+            } catch (error) {
+                // ระบบตอบกลับไม่ใช่ JSON (เช่น หมดเวลาล็อกอิน / ถูกปฏิเสธ) → ข้อความที่ช่างอ่านเข้าใจ แทนข้อความเทคนิค
+                const message = /JSON|Unexpected token/i.test(String(error.message)) ? 'ระบบไม่ตอบรับการบันทึก (อาจหมดเวลาล็อกอิน) กรุณารีเฟรชหน้าแล้วลองใหม่' : error.message;
+                setInstallerMessage(`บันทึกไม่สำเร็จ: ${message}`, 'error');
+            }
+            setTimeout(() => {
+                installerSaving = false;
+                save.disabled = !damageDataLoaded;
+                save.textContent = 'บันทึก';
+                if (closeAfter && installerJobId === job.jobId) closeInstallerSheet();   // ไม่ปิดถ้าเปิดงานอื่นไปแล้ว
+            }, closeAfter ? 700 : 0);
+        }
+
+        // ปุ่มทั้งหมดในหน้าต่างช่างแต่ละบาน (ไม่ใช้ onclick ในแท็ก เพราะเว็บ ERP ห้าม inline handler)
+        function handleInstallerClick(target) {
+            const picker = target.closest('#ins-picker');
+            if (picker) {
+                const nameButton = target.closest('[data-ins-name]');
+                if (nameButton) {
+                    const name = nameButton.dataset.insName;
+                    installerPickerSel = installerPickerSel.includes(name) ? installerPickerSel.filter(n => n !== name) : [...installerPickerSel, name];
+                    renderInstallerPicker();
+                    document.querySelector(`#ins-pick-names [data-ins-name="${CSS.escape(name)}"]`)?.focus({ preventScroll: true });
+                } else if (target.closest('[data-ins-pick-ok]')) confirmInstallerPicker();
+                else if (target.closest('[data-ins-pick-clear]')) { installerPickerSel = []; renderInstallerPicker(); }
+                else if (target.closest('[data-ins-pick-close]') || target === picker) closeInstallerPicker();
+                return true;
+            }
+            const sheet = target.closest('#installerSheet');
+            if (!sheet) return false;
+            const job = currentInstallerJob();
+            if (target === sheet || target.closest('[data-ins-close]')) { closeInstallerSheet(); return true; }
+            if (target.closest('[data-ins-save]')) { saveInstallerSheet(); return true; }
+            if (!job || installerSaving) return true;
+            const del = target.closest('[data-extra-del]');
+            if (del) {
+                installerExtra.splice(Number(del.dataset.extraDel), 1);
+                renderInstallerSheet(job);
+                setInstallerMessage('ยังไม่ได้บันทึก', 'warn');
+                return true;
+            }
+            const extra = target.closest('[data-extra]');
+            if (extra) { openInstallerPicker({ extra: Number(extra.dataset.extra) }); return true; }
+            const paneEl = target.closest('[data-pane]');
+            if (paneEl) {
+                const pane = paneEl.getAttribute('data-pane');
+                if (!installerShown.includes(pane)) {   // แตะกระจกจางบนรูปรถ = เพิ่มบานนั้นเข้ารายการ
+                    installerShown = INSTALLER_PANES.filter(p => installerShown.includes(p) || p === pane);
+                    renderInstallerSheet(job);
+                }
+                openInstallerPicker({ pane });
+                return true;
+            }
+            if (target.closest('[data-ins-add]')) {
+                installerAddOpen = true;
+                renderInstallerSheet(job);
+                setTimeout(() => document.getElementById('ins-add-name')?.focus(), 30);
+                return true;
+            }
+            if (target.closest('[data-ins-add-cancel]')) { installerAddOpen = false; renderInstallerSheet(job); return true; }
+            const suggestion = target.closest('[data-ins-sugg]');
+            if (suggestion) { addInstallerExtra(suggestion.dataset.insSugg); return true; }
+            if (target.closest('[data-ins-add-ok]')) { addInstallerExtra(document.getElementById('ins-add-name')?.value); return true; }
+            return true;
+        }
+
         async function fetchQueueData() {
             dom.loadingMessage.classList.remove('hidden');
             dom.errorMessage.classList.add('hidden');
@@ -1260,7 +2003,11 @@
             try {
                 const [bookingRes, customerRes] = await Promise.all([
                     fetch(BOOKING_CSV_URL),
-                    fetch(CUSTOMER_CSV_URL)
+                    fetch(CUSTOMER_CSV_URL),
+                    loadInstallerData(),
+                    loadTeamOptions(),
+                    loadDetailFilmRows(),
+                    loadCutData()
                 ]);
                 if (!bookingRes.ok || !customerRes.ok) throw new Error('Network Error');
 
@@ -1285,20 +2032,65 @@
             }
         }
 
+        // อัปเดตข้อมูลอัตโนมัติ (เจ้าของสั่ง 13.11.26): ฝ่ายขายคีย์ทีมช่างในตาราง data แล้วหน้านี้ต้องเห็นโดยไม่ต้องกดรีเฟรชเอง
+        // โหลดแผ่น data + ช่างเดิมใหม่เมื่อกลับมาเปิดหน้านี้ และทุก 1 นาทีขณะเปิดอยู่ · ไม่แตะข้อมูลตอนกำลังแก้ไข/บันทึก
+        let lastDataRefresh = Date.now();
+        async function refreshInstallerData() {
+            if (document.hidden || installerSaving) return;
+            const sheet = document.getElementById('installerSheet');
+            if ((sheet && sheet.classList.contains('is-open')) || (dom.damageModal && !dom.damageModal.classList.contains('hidden'))) return;
+            lastDataRefresh = Date.now();
+            try {
+                await Promise.all([loadCutData(), loadInstallerData()]);
+                if (queueRows.length) renderQueues(queueRows);
+            } catch (error) { /* โหลดไม่สำเร็จ: คงข้อมูลเดิมบนหน้า */ }
+        }
+        document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastDataRefresh > 15000) refreshInstallerData(); });
+        setInterval(() => { if (Date.now() - lastDataRefresh > 60000) refreshInstallerData(); }, 30000);
+
         window.addEventListener('load', () => {
             cacheDom();
             fetchQueueData();
         });
 
         window.addEventListener('keydown', event => {
+            const picker = document.getElementById('ins-picker');
+            const installerSheet = document.getElementById('installerSheet');
+            if (event.key === 'Escape' && picker && picker.classList.contains('is-open')) { closeInstallerPicker(); return; }
+            if (event.key === 'Escape' && installerSheet && installerSheet.classList.contains('is-open')) { closeInstallerSheet(); return; }
             if (event.key === 'Escape' && dom.damageModal && !dom.damageModal.classList.contains('hidden')) {
                 closeDamageModal();
+                return;
+            }
+            if (event.key === 'Enter' && event.target && event.target.id === 'ins-add-name') {
+                event.preventDefault();
+                addInstallerExtra(event.target.value);
+                return;
+            }
+            // แท็บวัน: ลูกศรซ้าย/ขวาเลื่อนวัน
+            const dayTab = event.target.closest ? event.target.closest('[data-day-tab]') : null;
+            if (dayTab && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+                event.preventDefault();
+                setActiveDay((Number(dayTab.dataset.dayTab) + (event.key === 'ArrowRight' ? 1 : QUEUE_DAYS - 1)) % QUEUE_DAYS, true);
+                return;
+            }
+            // การ์ดคิวเป็นปุ่ม: Enter / Space เปิดหน้าเลือกช่าง
+            const card = event.target.closest ? event.target.closest('.queue-card[data-job-id]') : null;
+            if (card && event.target === card && (event.key === 'Enter' || event.key === ' ')) {
+                event.preventDefault();
+                openInstallerSheet(card.dataset.jobId);
             }
         });
 
         document.addEventListener('click', event => {
             const activeDropdown = event.target.closest ? event.target.closest('.team-check-dropdown') : null;
             closeTeamDropdowns(activeDropdown);
+            if (!event.target.closest) return;
+            const dayTab = event.target.closest('[data-day-tab]');
+            if (dayTab) { setActiveDay(Number(dayTab.dataset.dayTab)); return; }
+            if (handleInstallerClick(event.target)) return;
+            const card = event.target.closest('.queue-card[data-job-id]');
+            if (card && !event.target.closest('a, button, input, select, textarea, details')) openInstallerSheet(card.dataset.jobId);
         });
     </script>
 </body>
