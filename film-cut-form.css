@@ -1,12 +1,73 @@
-.film-cut-modal {
-    padding: 12px;
+/* แผงตัดฟิล์มสไลด์จากขวา (เจ้าของสั่ง 26.11.26) แบบเดียวกับแผงข้อมูลการติดตั้ง / DESIGN-CAR-COST-REPORT.md ข้อ 4
+   คลาสซ้ำ (.film-cut-modal.film-cut-modal) ให้ชนะคลาส Tailwind ที่หน้าเดิมใส่ไว้ (items-center, p-4, bg-slate-950/70, backdrop-blur) */
+.film-cut-modal.film-cut-modal {
+    opacity: 1;
+    transition: opacity .32s ease, display .32s allow-discrete;
+    padding: 0;
+    justify-content: flex-end;
+    align-items: stretch;
+    background: rgb(15 23 42 / 40%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 
-.film-cut-panel {
-    max-height: calc(100dvh - 24px);
-    border: 1px solid #dbe5f0;
-    border-radius: 20px;
+.film-cut-modal > .film-cut-panel {
+    position: relative;
+    width: var(--fc-width, min(72vw, 1080px));
+    max-width: min(1400px, calc(100% - 40px));
+    height: 100%;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 20px 0 0 20px;
+    box-shadow: -16px 0 60px #0f172a30;
     color: #0f172a;
+}
+
+.film-cut-modal.film-cut-modal:is(.hidden, [hidden]) { opacity: 0; }
+.film-cut-modal > .film-cut-panel { transition: transform .32s cubic-bezier(.22, 1, .36, 1); }
+.film-cut-modal:is(.hidden, [hidden]) > .film-cut-panel { transform: translateX(105%); }
+@starting-style {
+    .film-cut-modal.film-cut-modal:not(.hidden, [hidden]) { opacity: 0; }
+    .film-cut-modal:not(.hidden, [hidden]) > .film-cut-panel { transform: translateX(105%); }
+}
+html:has(.film-cut-modal:not(.hidden, [hidden])) { overflow: hidden; }
+
+/* แถบลากขอบซ้ายปรับความกว้าง (สร้างโดย film-cut-drawer.js) */
+.film-cut-resize {
+    position: absolute;
+    inset: 10px auto 10px 0;
+    z-index: 3;
+    width: 12px;
+    cursor: ew-resize;
+    touch-action: none;
+}
+.film-cut-resize::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 4px;
+    width: 4px;
+    height: 44px;
+    transform: translateY(-50%);
+    border-radius: 4px;
+    background: #cbd5e1;
+}
+.film-cut-resize:is(:hover, :focus-visible)::after { background: #2563eb; }
+.film-cut-resize:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+
+@media (max-width: 1023px) {
+    .film-cut-modal > .film-cut-panel { width: 90%; max-width: 90%; }
+    .film-cut-resize { display: none; }
+}
+
+@media (max-width: 640px) {
+    .film-cut-modal > .film-cut-panel { width: 100%; max-width: 100%; border-radius: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .film-cut-modal.film-cut-modal,
+    .film-cut-modal > .film-cut-panel { transition: none; }
 }
 
 .film-cut-header {
@@ -244,8 +305,6 @@
 }
 
 @media (max-width: 767px) {
-    .film-cut-modal { padding: 4px; }
-    .film-cut-panel { max-height: calc(100dvh - 8px); border-radius: 12px; }
     .film-cut-header { padding: 7px 50px 7px 9px; }
     .film-cut-close { top: 5px; right: 5px; width: 44px; height: 44px; }
     .film-cut-body { padding-inline: 7px; }
