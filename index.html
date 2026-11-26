@@ -586,6 +586,7 @@
     <script src="booking-form-layout.js?v=20261027-pending-1" defer></script>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
     <link rel="stylesheet" href="film-cut-form.css?v=20261126-1">
+    <script src="car-install-positions.js?v=20261126-1"></script>
 </head>
 <body class="text-slate-800 auth-locked">
     <div id="loginScreen" class="fixed inset-0 z-[9999] min-h-screen items-center justify-center bg-slate-950 px-4">
@@ -1086,6 +1087,7 @@
                     <div><label class="block text-xs font-semibold text-slate-600 mb-1">ประตูหลัง-ขวา</label><input type="text" name="ประตูหลัง-ขวา" class="gs-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" placeholder=""></div>
                     <div><label class="block text-xs font-semibold text-slate-600 mb-1">บานฟิก-ซ้าย</label><input type="text" name="บานฟิก-ซ้าย" class="gs-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" placeholder=""></div>
                     <div><label class="block text-xs font-semibold text-slate-600 mb-1">บานฟิก-ขวา</label><input type="text" name="บานฟิก-ขวา" class="gs-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" placeholder=""></div>
+                    <div><label class="block text-xs font-semibold text-slate-600 mb-1">คาดหน้า</label><input type="text" name="คาดหน้า" class="gs-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" placeholder=""></div>
                     <div><label class="block text-xs font-semibold text-slate-600 mb-1">ซันรูฟ-ช่อง1</label><input type="text" name="ซันรูฟ-ช่อง1" class="gs-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" placeholder=""></div>
                     <div><label class="block text-xs font-semibold text-slate-600 mb-1">ซันรูฟ-ช่อง2</label><input type="text" name="ซันรูฟ-ช่อง2" class="gs-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" placeholder=""></div>
                     <div><label class="block text-xs font-semibold text-slate-600 mb-1">แครี่บอย</label><input type="text" name="แครี่บอย" class="gs-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" placeholder=""></div>
@@ -1403,6 +1405,7 @@
                     <div><label class="block text-xs font-semibold text-slate-600 mb-1">ประตูหลัง-ขวา</label><select name="ประตูหลัง-ขวา" class="ins-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"><option value="">-- เลือกช่าง --</option></select></div>
                     <div><label class="block text-xs font-semibold text-slate-600 mb-1">บานฟิก-ซ้าย</label><select name="บานฟิก-ซ้าย" class="ins-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"><option value="">-- เลือกช่าง --</option></select></div>
                     <div><label class="block text-xs font-semibold text-slate-600 mb-1">บานฟิก-ขวา</label><select name="บานฟิก-ขวา" class="ins-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"><option value="">-- เลือกช่าง --</option></select></div>
+                    <div><label class="block text-xs font-semibold text-slate-600 mb-1">คาดหน้า</label><select name="คาดหน้า" class="ins-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"><option value="">-- เลือกช่าง --</option></select></div>
                     <div><label class="block text-xs font-semibold text-slate-600 mb-1">ซันรูฟ-ช่อง1</label><select name="ซันรูฟ-ช่อง1" class="ins-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"><option value="">-- เลือกช่าง --</option></select></div>
                     <div><label class="block text-xs font-semibold text-slate-600 mb-1">ซันรูฟ-ช่อง2</label><select name="ซันรูฟ-ช่อง2" class="ins-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"><option value="">-- เลือกช่าง --</option></select></div>
                     <div class="col-span-2"><label class="block text-xs font-semibold text-slate-600 mb-1">แครี่บอย</label><select name="แครี่บอย" class="ins-input w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"><option value="">-- เลือกช่าง --</option></select></div>
@@ -1717,6 +1720,12 @@
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">บานฟิก-ขวา</label>
                         <select name="บานฟิก-ขวา" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+                            <option value="">-- ไม่ระบุ --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">คาดหน้า</label>
+                        <select name="คาดหน้า" class="df-film-select w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
                             <option value="">-- ไม่ระบุ --</option>
                         </select>
                     </div>
@@ -4114,7 +4123,7 @@
                 if (hasFilmDetails) {
                     const excludedKeys = ['Detail_ID', 'ขอตัดฟิล์ม', 'การติดตั้ง', 'ประเภทการติดตั้ง', 'ตำแหน่งติดตั้ง', 'ยี่ห้อฟิล์ม'];
                     const skipTime = ['วันที่ลงรายการ', 'วันลงรายการ', 'timestamp', 'createdat', 'updatedat'];
-                    const detailHtml = Object.entries(job.filmDetails).map(([key, value]) => {
+                    const detailHtml = CarInstallPositions.beforeRoof(Object.entries(job.filmDetails), ([key]) => key).map(([key, value]) => {
                         if (!key) return '';
                         const kn = key.replace(/:/g,'').trim();
                         if (excludedKeys.some(e => kn.includes(e))) return '';
@@ -4143,7 +4152,7 @@
                 if (!row) {
                     el.innerHTML = `<div class="col-span-3 text-slate-400 italic text-center py-2">- ไม่พบข้อมูลขนาดกระจกในชีต ขนาดกระจก -</div>`; return;
                 }
-                el.innerHTML = Object.entries(row)
+                el.innerHTML = CarInstallPositions.beforeRoof(Object.entries(row), ([key]) => key)
                     .filter(([k, v]) => !skipKeys.includes(k.replace(/\s/g,'').toLowerCase()) && v && v.trim() && v.trim() !== '-')
                     .map(([k, v]) => `<div><span class="font-medium text-slate-500">${escapeHtml(k)}:</span> <span class="text-slate-800">${escapeHtml(v)}</span></div>`)
                     .join('') || `<div class="col-span-3 text-slate-400 italic text-center py-2">- ไม่มีข้อมูล -</div>`;
@@ -4161,7 +4170,7 @@
                     el.innerHTML = `<div class="text-slate-400 italic text-center py-2">- ไม่พบข้อมูลช่างติดตั้งในชีต Detail_Installer -</div>`; return;
                 }
                 el.innerHTML = rows.map((row, i) => {
-                    const items = Object.entries(row)
+                    const items = CarInstallPositions.beforeRoof(Object.entries(row), ([key]) => key)
                         .filter(([k, v]) => !skipKeys2.includes(k.replace(/\s/g,'').toLowerCase()) && v && v.trim() && v.trim() !== '-')
                         .map(([k, v]) => `<div><span class="font-medium text-slate-500">${escapeHtml(k)}:</span> <span class="text-slate-800">${escapeHtml(v)}</span></div>`)
                         .join('');
@@ -4195,13 +4204,13 @@
                 const normalizedRows = cutDataMap[normalizeLookupId(job.id)] || [];
                 // ใช้ Set กัน duplicate (รวมแถวจาก 2 key ที่ชี้ไปแถวเดียวกัน)
                 const seenIds = new Set();
-                const rows = [...directRows, ...normalizedRows].filter(r => {
+                const rows = CarInstallPositions.beforeRoof([...directRows, ...normalizedRows].filter(r => {
                     const id = getAnyField(r, ['MIS_ID'], '') ||
                                JSON.stringify(r); // fallback ถ้าไม่มี MIS_ID
                     if (seenIds.has(id)) return false;
                     seenIds.add(id);
                     return true;
-                });
+                }), row => getAnyField(row, ['ตำแหน่งติดตั้ง', 'ตำแหน่ง'], ''));
 
                 // เปลี่ยน label ปุ่มตามว่ามีข้อมูลหรือยัง
                 const btnDataCut = document.getElementById('btn-dataCut');
@@ -4940,11 +4949,11 @@
             bkFetchDropdownColumn('film_Brand', 'ยี่ห้อฟิล์ม', 'bk-filmBrand', '-- เลือกยี่ห้อฟิล์ม --');
             bkFetchPromotions();
             installPosOptions = [
-                'เต็มคัน', 'ซันรูฟ', 'บานหน้า', 'บานหลัง',
+                'เต็มคัน', 'บานหน้า', 'บานหลัง',
                 'ประตูหน้า-ซ้าย', 'ประตูหน้า-ขวา',
                 'ประตูหลัง-ซ้าย', 'ประตูหลัง-ขวา',
                 'บานฝา-ซ้าย', 'บานฝา-ขวา',
-                'แครี่บอย', 'คาดหน้า'
+                'แครี่บอย', 'คาดหน้า', 'ซันรูฟ'
             ];
             renderInstallPosList(installPosOptions);
         }
@@ -4979,7 +4988,7 @@
         function updateInstallPosLabel() {
             const hidden = document.getElementById('bk-installPos');
             const label = document.getElementById('bk-installPosLabel');
-            const arr = Array.from(installPosSelected);
+            const arr = CarInstallPositions.beforeRoof([...installPosSelected]);
             hidden.value = arr.join(', ');
             if (arr.length === 0) {
                 label.className = 'text-slate-400 flex flex-wrap gap-1 items-center flex-1 min-w-0';
@@ -5519,12 +5528,15 @@
             setText('p2-carModel', job.carModel); setText('p2-plate', job.plate);
             setText('p2-custType', job.customerType); setText('p2-warranty', job.warranty || "ร้าน");
             setText('p2-salesName', (job.sales && job.sales !== "-") ? job.sales : "");
-            const standardPositions = ['บานหน้า','บานหลัง','ประตู-หน้าซ้าย','ประตู-หน้าขวา','ประตู-หลังซ้าย','ประตู-หลังขวา','บานฟิก','ซันรูฟ','แครี่บอย'];
+            const standardPositions = ['บานหน้า','บานหลัง','ประตู-หน้าซ้าย','ประตู-หน้าขวา','ประตู-หลังซ้าย','ประตู-หลังขวา','บานฟิก','คาดหน้า','ซันรูฟ','แครี่บอย'];
             const tb1 = dom['p-table1'], tb2 = dom['p-table2'];
             const normalize = s => s.replace(/[\s\-]/g,'').toLowerCase();
             let searchString = ((job.installType||"")+" "+(job.carModel||"")+" "+(job.note||"")).toLowerCase();
             let isSunroofOnly = searchString.includes('ซันรูฟ') && !searchString.includes('หน้า') && !searchString.includes('รอบคัน') && !searchString.includes('เต็มคัน') && !searchString.includes('ครึ่งคัน');
             const tableRows = standardPositions.map(pos => {
+                if (CarInstallPositions.isStrip(pos)) {
+                    return CarInstallPositions.printStrip(getCutRowsForPosition(job.id, pos), job.filmDetails, escapeHtml, reason => cutDataReady ? reasonMap[reason] : 'โหลดข้อมูลตัดฟิล์มไม่สำเร็จ');
+                }
                 let combinedFilm = '', normPos = normalize(pos), matchedKey = null;
                 if (job.filmDetails) {
                     matchedKey = Object.keys(job.filmDetails).find(k => { const normK=normalize(k); return normK===normPos||normK.includes(normPos)||normPos.includes(normK); });

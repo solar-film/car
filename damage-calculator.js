@@ -8,7 +8,7 @@ const DamageCalculator = (function() {
         const INSTALLER_ASSIGNMENT_COLUMNS = [
             'บานหน้า', 'บานหลัง', 'ประตูหน้า-ซ้าย', 'ประตูหน้า-ขวา',
             'ประตูหลัง-ซ้าย', 'ประตูหลัง-ขวา', 'บานฟิก-ซ้าย', 'บานฟิก-ขวา',
-            'ซันรูฟ-ช่อง1', 'ซันรูฟ-ช่อง2', 'ซันรูฟ-ช่อง3'
+            'คาดหน้า', 'ซันรูฟ-ช่อง1', 'ซันรูฟ-ช่อง2', 'ซันรูฟ-ช่อง3'
         ].map(normalizeFieldName);
 
         const GLASS_KEY_COLUMN = 'ประเภทรถยนต์';
@@ -17,7 +17,7 @@ const DamageCalculator = (function() {
         const DAMAGE_POSITION_NAMES = [
             'บานหน้า', 'บานหลัง', 'ประตู-หน้าซ้าย', 'ประตู-หน้าขวา',
             'ประตู-หลังซ้าย', 'ประตู-หลังขวา', 'บานฟิก-ซ้าย', 'บานฟิก-ขวา',
-            'บานฟิก-ซ้าย(1)', 'บานฟิก-ขวา(1)', 'บานฟิก', 'ซันรูฟ'
+            'บานฟิก-ซ้าย(1)', 'บานฟิก-ขวา(1)', 'บานฟิก', 'คาดหน้า', 'ซันรูฟ'
         ];
 
         function textValue(value, fallback = '') {
@@ -729,7 +729,7 @@ const DamageCalculator = (function() {
                 const installersForJob = installerGroups[normalizeLookupId(jobId)] || findRowsByRecordId(installerRows, jobId);
                 const installerNames = getInstallerNames(installersForJob || [], installerNameMap);
 
-                return details.map(detail => {
+                const items = details.map(detail => {
                     const dateText = findField(booking, ['วันที่ติดตั้ง', 'วันที่']);
                     const date = parseDamageDate(dateText);
                     const reasonId = detail ? findField(detail, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล']) : '';
@@ -761,6 +761,7 @@ const DamageCalculator = (function() {
                     item.searchText = Object.values(item).join(' ').toLowerCase();
                     return item;
                 });
+                return CarInstallPositions.beforeRoof(items, item => item.position);
             }).filter(item => item.jobId && String(item.reasonText).includes('(ช่าง)'));
         }
 

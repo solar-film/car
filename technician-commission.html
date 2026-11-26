@@ -10,7 +10,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="damage-calculator.js"></script>
+    <script src="car-install-positions.js?v=20261126-1"></script>
+    <script src="damage-calculator.js?v=20261126-strip"></script>
     <style>
         body {
             font-family: 'Prompt', sans-serif;
@@ -472,7 +473,7 @@
         let allSummaryRows = [];
         let appHasStarted = false;
 
-        const POSITION_COLUMNS = ['บานหน้า', 'บานหลัง', 'ประตูหน้าซ้าย', 'ประตูหน้าขวา', 'ประตูหลังซ้าย', 'ประตูหลังขวา', 'ซันรูฟ', 'ทั้งคัน'];
+        const POSITION_COLUMNS = ['บานหน้า', 'บานหลัง', 'ประตูหน้าซ้าย', 'ประตูหน้าขวา', 'ประตูหลังซ้าย', 'ประตูหลังขวา', 'คาดหน้า', 'ซันรูฟ', 'ทั้งคัน'];
         const COMMISSION_SECTIONS = [
             {
                 key: 'fullSunroof',
@@ -829,6 +830,7 @@
                 }
 
                 const row = summary[summaryKey];
+                if (posValue.includes('คาดหน้า')) row['คาดหน้า'] += 1;
 
                 if (isFull && isSunroof) {
                     row['ทั้งคัน'] += 1;

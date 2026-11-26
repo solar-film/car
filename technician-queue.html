@@ -745,9 +745,13 @@
                         </div>
                         ` : ''}
                         
+                        <button type="button" data-open-cut class="mt-2 min-h-[44px] rounded-lg border border-blue-200 bg-white px-3 text-sm font-semibold text-blue-700 hover:bg-blue-50">บันทึกการตัดฟิล์ม</button>
                     </div>
                 </div>`;
             }).join('');
+            container.querySelectorAll('[data-open-cut]').forEach(button => {
+                button.addEventListener('click', () => openDamageModal(button.closest('.queue-card').dataset.jobId));
+            });
 
             // เรนเดอร์ Icons ใหม่หลังจากสร้าง HTML
             lucide.createIcons();

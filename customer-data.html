@@ -468,6 +468,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 }
 </style>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
+    <script src="car-install-positions.js?v=20261126-1"></script>
 </head>
 
 <body class="customer-database-page text-slate-800 min-h-screen flex flex-col">
@@ -1987,11 +1988,11 @@ document.addEventListener('DOMContentLoaded',()=>{
         function fetchInstallPosOptions() {
             // ใช้ list ตายตัวตามที่กำหนด
             installPosOptions = [
-                'เต็มคัน', 'ซันรูฟ', 'บานหน้า', 'บานหลัง',
+                'เต็มคัน', 'บานหน้า', 'บานหลัง',
                 'ประตูหน้า-ซ้าย', 'ประตูหน้า-ขวา',
                 'ประตูหลัง-ซ้าย', 'ประตูหลัง-ขวา',
                 'บานฝา-ซ้าย', 'บานฝา-ขวา',
-                'แครี่บอย', 'คาดหน้า'
+                'แครี่บอย', 'คาดหน้า', 'ซันรูฟ'
             ];
             renderInstallPosList(installPosOptions);
         }
@@ -2034,7 +2035,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         function updateInstallPosLabel() {
             const hidden = document.getElementById('bk-installPos');
             const label = document.getElementById('bk-installPosLabel');
-            const selected = Array.from(installPosSelected);
+            const selected = CarInstallPositions.beforeRoof([...installPosSelected]);
             hidden.value = selected.join(', ');
             if (selected.length === 0) {
                 label.className = 'text-slate-400 flex flex-wrap gap-1 items-center flex-1 min-w-0';

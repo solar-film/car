@@ -347,7 +347,7 @@
         let summaryRows = [];
         let appHasStarted = false;
 
-        const POSITION_COLUMNS = ['บานหน้า', 'บานหลัง', 'ประตูหน้าซ้าย', 'ประตูหน้าขวา', 'ประตูหลังซ้าย', 'ประตูหลังขวา', 'ซันรูฟ', 'ทั้งคัน', 'เต็มคัน+ซันรูฟ'];
+        const POSITION_COLUMNS = ['บานหน้า', 'บานหลัง', 'ประตูหน้าซ้าย', 'ประตูหน้าขวา', 'ประตูหลังซ้าย', 'ประตูหลังขวา', 'คาดหน้า', 'ซันรูฟ', 'ทั้งคัน', 'เต็มคัน+ซันรูฟ'];
         const collapsedMonths = new Set();
 
         function cacheDom() {
@@ -531,6 +531,7 @@
                         'ประตูหน้าขวา': 0,
                         'ประตูหลังซ้าย': 0,
                         'ประตูหลังขวา': 0,
+                        'คาดหน้า': 0,
                         'ซันรูฟ': 0,
                         'ทั้งคัน': 0,
                         'เต็มคัน+ซันรูฟ': 0
@@ -541,6 +542,7 @@
                 const isFull = posValue.includes('เต็มคัน') || posValue.includes('รอบคัน') || posValue.includes('ทั้งคัน') || posValue.includes('full') || posValue.includes('whole');
                 const isSunroof = posValue.includes('ซันรูฟ') || posValue.includes('sunroof');
 
+                if (posValue.includes('คาดหน้า')) summary[summaryKey]['คาดหน้า'] += 1;
                 if (isFull && isSunroof) {
                     // ติดทั้งคัน + ซันรูฟ
                     summary[summaryKey]['เต็มคัน+ซันรูฟ'] += 1;

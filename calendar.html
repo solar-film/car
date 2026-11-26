@@ -143,6 +143,7 @@
     <script src="crm-auth.js?v=20261002-1" defer></script>
     <script src="sidebar.js" defer></script>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
+    <script src="car-install-positions.js?v=20261126-1"></script>
 </head>
 <body class="text-slate-800 auth-locked">
     <div id="loginScreen" class="fixed inset-0 z-[9999] min-h-screen items-center justify-center bg-slate-950 px-4">
@@ -658,9 +659,11 @@
         const CUSTOMER_SHEET_NAME = 'Customer'; // เพิ่มชีตข้อมูลลูกค้า
         const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
         const DETAIL_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${DETAIL_SHEET_NAME}`;
+        const FRONT_STRIP_DATA_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=data`;
         const REASON_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${REASON_SHEET_NAME}`; // ลิงก์ดึงข้อมูลเหตุผล
         const CUSTOMER_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${CUSTOMER_SHEET_NAME}`; // ลิงก์ดึงข้อมูลลูกค้า
 
+        let frontStripRows = new Map();
         let allData = []; // ตัวแปรเก็บข้อมูลทั้งหมดจาก Sheet
         let reasonMap = {}; // ตัวแปรเก็บพจนานุกรมแปลรหัสเหตุผล
         let currentViewJobId = null; // ตัวแปรเก็บ ID งานที่เปิดดูอยู่ปัจจุบัน เพื่อใช้สั่งพิมพ์
@@ -891,6 +894,17 @@
 
             try {
                 // โหลดข้อมูล 4 ชีตพร้อมกันเพื่อความรวดเร็ว
+                const stripRequest = fetch(FRONT_STRIP_DATA_URL)
+                    .then(response => {
+                        if (!response.ok) throw new Error('โหลดข้อมูลตัดฟิล์มไม่สำเร็จ');
+                        return response.text();
+                    })
+                    .then(text => {
+                        if (/^\s*</.test(text)) throw new Error('เปิดข้อมูลตัดฟิล์มไม่ได้');
+                        return parseCsv(text);
+                    })
+                    .then(CarInstallPositions.stripRowsByJob)
+                    .catch(error => { console.warn(error); return null; });
                 const responses = await Promise.all([
                     fetch(CSV_URL),
                     fetch(DETAIL_CSV_URL),
@@ -917,6 +931,8 @@
                     parseCsv(reasonCsvText),
                     parseCsv(customerCsvText)
                 ]);
+
+                frontStripRows = await stripRequest;
 
                 // 0. สร้างพจนานุกรมแปลรหัส "เหตุผลขอตัดฟิล์ม"
                 reasonMap = {};
@@ -1303,7 +1319,7 @@
             if (job.filmDetails && Object.keys(job.filmDetails).length > 0) {
                 // คำที่ต้องการลบ (ไม่ต้องแสดงใน popup)
                 const excludedKeys = ['Detail_ID:', 'ขอตัดฟิล์ม:', 'การติดตั้ง:', 'ประเภทการติดตั้ง:', 'ตำแหน่งติดตั้ง:', 'ยี่ห้อฟิล์ม:'];
-                const detailHtml = Object.entries(job.filmDetails).map(([key, value]) => {
+                const detailHtml = CarInstallPositions.beforeRoof(Object.entries(job.filmDetails), ([key]) => key).map(([key, value]) => {
                     // ข้ามถ้าไม่มีชื่อหัวข้อคอลัมน์
                     if(!key) return ''; 
                     
@@ -1465,7 +1481,7 @@
 
             // 6. ระบบจับคู่ตารางฟิล์ม (Smart AI Mapping)
             // อัปเดต 'บานแค็บ' ให้เป็น 'บานฟิก' ตามตารางใหม่
-            const standardPositions = ['บานหน้า', 'บานหลัง', 'ประตู-หน้าซ้าย', 'ประตู-หน้าขวา', 'ประตู-หลังซ้าย', 'ประตู-หลังขวา', 'บานฟิก', 'ซันรูฟ'];
+            const standardPositions = ['บานหน้า', 'บานหลัง', 'ประตู-หน้าซ้าย', 'ประตู-หน้าขวา', 'ประตู-หลังซ้าย', 'ประตู-หลังขวา', 'บานฟิก', 'คาดหน้า', 'ซันรูฟ'];
             const tb1 = dom['p-table1'];
             const tb2 = dom['p-table2'];
 
@@ -1482,6 +1498,11 @@
                                 !searchString.includes('ครึ่งคัน');
 
             const tableRows = standardPositions.map(pos => {
+                if (CarInstallPositions.isStrip(pos)) {
+                    const rows = frontStripRows?.get(String(job.id).trim()) || [];
+                    return CarInstallPositions.printStrip(rows, job.filmDetails, escapeHtml,
+                        reason => frontStripRows ? reasonMap[reason] : 'โหลดข้อมูลตัดฟิล์มไม่สำเร็จ', false);
+                }
                 let filmBrand = '';
                 let filmCode = '';
                 let normPos = normalize(pos);
