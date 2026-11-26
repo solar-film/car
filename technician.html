@@ -106,6 +106,7 @@
     </style>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
     <link rel="stylesheet" href="film-cut-form.css?v=20261126-1">
+    <script src="car-install-positions.js?v=20261126-3"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
     <div id="appContainer" class="flex min-h-screen">
@@ -425,6 +426,7 @@
         let filmSeriesOptions = [];
         let teamOptions = [];
         let reasonOptions = [];
+        let cutReasonLabels = new Map();
         let currentDamageJobId = null;
 
         function cacheDom() {
@@ -610,10 +612,12 @@
                 return key ? splitMultiValue(row[key]) : [];
             }).filter(Boolean))];
 
+            cutReasonLabels = new Map();
             reasonOptions = [...new Set(reasonRows.map(row => {
-                const keys = Object.keys(row);
-                const reasonKey = findKey(keys, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล']);
-                return reasonKey ? textValue(row[reasonKey], '') : '';
+                const reason = CarInstallPositions.detailCutReason(row);
+                const id = CarInstallPositions.detailValue(row, ['ID']);
+                if (id && reason) cutReasonLabels.set(normalizeLookupId(id), reason);
+                return reason;
             }).filter(Boolean))];
         }
 
@@ -1299,6 +1303,10 @@
             const existingMap = existingDamageMap(job.jobId);
             damageHiddenRows = cutRowsNotShown(getExistingDamageRows(job.jobId), DAMAGE_POSITIONS.map(position => existingMap[normalizePosition(position)]), job.jobId, rowValue);
             const detailMap = detailFilmOptionsMap(job);
+            const detail = getDetailFilmRows(job.jobId).at(-1);
+            const reasonCode = CarInstallPositions.detailCutReason(detail);
+            const detailReason = cutReasonLabels.get(normalizeLookupId(reasonCode)) || reasonCode;
+            const brand = CarInstallPositions.detailValue(detail, ['ยี่ห้อฟิล์ม', 'แบรนด์ฟิล์ม', 'ยี่ห้อ / รุ่นฟิล์ม', 'ชื่อฟิล์ม']) || job.film;
             const teams = teamOptions.length ? teamOptions : ['วัล', 'พลอย', 'เอ', 'พลอย'];
             const reasons = reasonOptions.length ? reasonOptions : [
                 '🛠 (ช่าง) เป่าไหม้',
@@ -1310,21 +1318,26 @@
             ];
 
             dom['dm-tableBody'].innerHTML = DAMAGE_POSITIONS.map(position => {
-                const existing = existingMap[normalizePosition(position)] || {};
+                const saved = existingMap[normalizePosition(position)];
+                const existing = saved || {};
                 const id = rowValue(existing, ['MIS_ID', 'ID'], '');
                 const detailFilms = detailFilmsForPosition(position, detailMap);
                 const films = filmOptionsForPosition(job, position, detailMap);
                 const savedFilm = rowValue(existing, ['รุ่นฟิล์ม', 'ยี่ห้อฟิล์ม'], '');
-                const film = savedFilm || (detailFilms.length ? detailFilms[0] : '');
+                const paneFilm = CarInstallPositions.detailValue(detail, positionAliases(position));
+                const suggestedFilm = composeFilmLabel(brand, paneFilm);
+                const film = savedFilm || suggestedFilm || detailFilms[0] || '';
                 const legacySize = splitLegacySize(rowValue(existing, ['ขนาด'], ''));
                 const width = rowValue(existing, ['กว้าง', 'W', 'Width'], '') || legacySize.width;
                 const length = rowValue(existing, ['ยาว', 'H', 'Length'], '') || legacySize.length;
                 const quantity = rowValue(existing, ['จำนวน'], '');
                 const team = rowValue(existing, ['ทีมช่าง'], '');
-                const reason = rowValue(existing, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล'], '');
+                const suggestedReason = !saved && suggestedFilm ? detailReason : '';
+                const savedReason = CarInstallPositions.detailCutReason(existing);
+                const reason = savedReason || suggestedReason;
 
                 return `
-                    <tr data-position="${escapeHtml(position)}" data-row-id="${escapeHtml(id)}" class="border-b border-slate-200 last:border-b-0">
+                    <tr data-position="${escapeHtml(position)}" data-row-id="${escapeHtml(id)}" data-prefill-reason="${escapeHtml(suggestedReason)}" class="border-b border-slate-200 last:border-b-0">
                         <th scope="row" class="border border-slate-200 px-3 py-2 font-semibold text-slate-900">${escapeHtml(position)}</th>
                         <td class="border border-slate-200 px-2 py-2">
                             <select aria-label="${escapeHtml(position)} · รุ่นฟิล์ม" data-field="รุ่นฟิล์ม" class="damage-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
@@ -1407,7 +1420,7 @@
         function collectDamageRows() {
             const note = textValue(dom['dm-note'].value, '');
             return Array.from(dom['dm-tableBody'].querySelectorAll('tr[data-position]'))
-                .map(row => {
+                .flatMap(row => {
                     const item = {
                         MIS_ID: row.dataset.rowId || '',
                         'ตำแหน่งติดตั้ง': row.dataset.position || '',
@@ -1423,15 +1436,7 @@
                             item[input.dataset.field] = textValue(input.value, '');
                         }
                     });
-                    return item;
-                })
-                .filter(item => {
-                    // แถวที่เคยบันทึกไว้แล้ว (มี MIS_ID) → เก็บไว้เสมอ เพื่อให้แก้ไข/อัปเดตได้
-                    if (item.MIS_ID) return true;
-                    // แถวใหม่: รุ่นฟิล์มถูกเติมอัตโนมัติ จึงไม่นับเป็นการกรอกจริง
-                    // ต้องมีข้อมูลตัดจริงอย่างน้อย 1 อย่าง (กว้าง/ยาว/จำนวน/ทีมช่าง/เหตุผล)
-                    return ['กว้าง', 'ยาว', 'จำนวน', 'ทีมช่าง', 'เหตุผลขอตัดฟิล์ม']
-                        .some(field => item[field] && item[field] !== '-');
+                    return CarInstallPositions.shouldCollectCutRow(item, row.dataset.prefillReason) ? [item] : [];
                 });
         }
 

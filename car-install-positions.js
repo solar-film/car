@@ -14,6 +14,27 @@
             ...items.slice(roof).filter(item => !isStrip(position(item)))];
     }
 
+    function detailValue(detail, labels) {
+        const names = labels.map(key);
+        const field = Object.keys(detail || {}).find(name => names.includes(key(name.trim().replace(/[:：]+$/, ''))));
+        return cutValue(detail?.[field]);
+    }
+
+    function cutValue(value) {
+        const text = String(value ?? '').trim();
+        return text === '-' ? '' : text;
+    }
+
+    function detailCutReason(detail) {
+        return detailValue(detail, ['เหตุผลขอตัดฟิล์ม', 'เหตุผลตัดฟิล์ม', 'เหตุผล']);
+    }
+
+    function shouldCollectCutRow(row, suggestedReason) {
+        const reason = cutValue(row['เหตุผลขอตัดฟิล์ม']);
+        return Boolean(row.MIS_ID || (reason && reason !== suggestedReason) ||
+            ['กว้าง', 'ยาว', 'จำนวน', 'ทีมช่าง'].some(field => cutValue(row[field])));
+    }
+
     function stripRowsByJob(rows) {
         const jobs = new Map();
         for (const row of rows) {
@@ -46,7 +67,7 @@
         return {receipt, cutting};
     }
 
-    const api = {beforeRoof, isStrip, stripRowsByJob, printStrip};
+    const api = {beforeRoof, detailValue, detailCutReason, shouldCollectCutRow, isStrip, stripRowsByJob, printStrip};
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.CarInstallPositions = api;
 })(typeof window === 'undefined' ? globalThis : window);

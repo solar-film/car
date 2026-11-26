@@ -700,7 +700,7 @@
             border-top: 1px solid #e2e8f0;
             background: #fff;
         }
-        .df-actions { display: flex; justify-content: flex-end; gap: 8px; }
+        .df-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
         #detailFilmModal .df-button {
             min-height: 40px;
             padding: 6px 16px;
@@ -761,7 +761,8 @@
             .df-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; }
             .df-card, .df-summary { padding-inline: 10px; }
             .df-positions { column-gap: 8px; }
-            .df-actions > button { flex: 1; }
+            .df-actions > button { flex: 1 0 auto; }
+            #df-save-cut { flex-basis: 100%; }
             #detailFilmModal .df-control { min-height: 44px; font-size: 16px; }
             #detailFilmModal :is(.df-close, .df-button) { min-height: 44px; }
             #detailFilmModal .df-close { width: 44px; }
@@ -783,7 +784,7 @@
     <script src="booking-form-layout.js?v=20261027-pending-1" defer></script>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
     <link rel="stylesheet" href="film-cut-form.css?v=20261126-1">
-    <script src="car-install-positions.js?v=20261126-1"></script>
+    <script src="car-install-positions.js?v=20261126-3"></script>
 </head>
 <body class="text-slate-800 auth-locked">
     <div id="loginScreen" class="fixed inset-0 z-[9999] min-h-screen items-center justify-center bg-slate-950 px-4">
@@ -1936,7 +1937,8 @@
                 <p id="df-success" class="df-message" role="status" hidden></p>
                 <div class="df-actions">
                     <button type="button" id="df-cancel" class="df-button" onclick="closeDetailFilmModal()">ยกเลิก</button>
-                    <button type="submit" id="df-submitBtn" class="df-button df-primary">บันทึกข้อมูล</button>
+                    <button type="submit" id="df-submitBtn" class="df-button">บันทึกข้อมูล</button>
+                    <button type="submit" id="df-save-cut" class="df-button df-primary">บันทึกและไปตัดฟิล์ม</button>
                 </div>
             </footer>
         </form>
@@ -4726,9 +4728,11 @@
             dtHiddenRows = cutRowsNotShown(jobCutRows, DAMAGE_POSITIONS.map(pos => existingMap[dtNormalizePos(pos)]), job.id, dtReadCutField);
             const films = dtFilmOptions(job);
             const reasons = reasonOptions.map(r => r.text || r.id);
+            const detailReason = translateCutFilmReason(CarInstallPositions.detailCutReason(job.filmDetails));
 
             document.getElementById('dt-tableBody').innerHTML = DAMAGE_POSITIONS.map(pos => {
-                const existing = existingMap[dtNormalizePos(pos)] || {};
+                const saved = existingMap[dtNormalizePos(pos)];
+                const existing = saved || {};
                 // ลำดับความสำคัญ: 1) data sheet เดิม → 2) Detail_film สำหรับตำแหน่งนี้ → 3) ว่าง
                 const savedFilm = getAnyField(existing, ['รุ่นฟิล์ม', 'ยี่ห้อฟิล์ม'], '');
                 const detailFilm = dtFilmForPosition(job, pos);
@@ -4741,11 +4745,12 @@
                 const team = getAnyField(existing, ['ทีมช่าง'], '');
                 const reasonRaw = getAnyField(existing, ['เหตุผลขอตัดฟิล์ม', 'เหตุผล'], '');
                 // ใช้ text ของเหตุผลแทน id (เพราะ select เก็บ text)
-                const reasonText = reasonMap[reasonRaw] || reasonRaw;
+                const suggestedReason = !saved && detailFilm ? detailReason : '';
+                const reasonText = reasonMap[reasonRaw] || reasonRaw || suggestedReason;
                 const reasonsForRow = hasCutFieldValue(reasonText) && !reasons.includes(reasonText) ? [reasonText, ...reasons] : reasons;
                 const misId = getAnyField(existing, ['MIS_ID'], '');
 
-                return `<tr data-position="${escapeHtml(pos)}" data-row-id="${escapeHtml(misId)}" class="border-b border-slate-200 last:border-b-0">
+                return `<tr data-position="${escapeHtml(pos)}" data-row-id="${escapeHtml(misId)}" data-prefill-reason="${escapeHtml(suggestedReason)}" class="border-b border-slate-200 last:border-b-0">
                     <th scope="row" class="border border-slate-200 font-semibold text-slate-900">${escapeHtml(pos)}</th>
                     <td class="border border-slate-200">
                         <select aria-label="${escapeHtml(pos)} · รุ่นฟิล์ม" data-field="รุ่นฟิล์ม" class="dt-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
@@ -4799,7 +4804,7 @@
 
         function dtCollectRows() {
             const tbody = document.getElementById('dt-tableBody');
-            return Array.from(tbody.querySelectorAll('tr[data-position]')).map(tr => {
+            return Array.from(tbody.querySelectorAll('tr[data-position]')).flatMap(tr => {
                 const item = {
                     'ตำแหน่งติดตั้ง': tr.dataset.position || '',
                     'MIS_ID': tr.dataset.rowId || ''
@@ -4808,15 +4813,7 @@
                     const field = input.getAttribute('data-field');
                     if (field) item[field] = (input.value || '').trim();
                 });
-                return item;
-            }).filter(item => {
-                // แถวที่เคยบันทึกไว้แล้ว (มี MIS_ID) → เก็บไว้เสมอ เพื่อให้แก้ไข/อัปเดตได้
-                if (item['MIS_ID']) return true;
-                // แถวใหม่: รุ่นฟิล์มถูกเติมอัตโนมัติจาก Detail_film จึงไม่นับเป็นการกรอกจริง
-                // ต้องมีข้อมูลตัดจริงอย่างน้อย 1 อย่างถึงจะบันทึก (กว้าง/ยาว/จำนวน/ทีมช่าง/เหตุผล)
-                // ป้องกันการส่งแถวเปล่าจำนวนมากไปเขียนชีต → แก้ปัญหาบันทึกช้า
-                return ['กว้าง', 'ยาว', 'จำนวน', 'ทีมช่าง', 'เหตุผลขอตัดฟิล์ม']
-                    .some(f => item[f] && item[f] !== '-');
+                return CarInstallPositions.shouldCollectCutRow(item, tr.dataset.prefillReason) ? [item] : [];
             });
         }
 
@@ -6489,18 +6486,31 @@
             errEl.hidden = true; okEl.hidden = true;
             if (!SCRIPT_URL) { errEl.textContent = 'ยังไม่ได้ตั้งค่า SCRIPT_URL'; errEl.hidden = false; return; }
             const form = new FormData(e.target);
+            const openCut = e.submitter?.id === 'df-save-cut';
+            const cutPositions = DAMAGE_POSITIONS.filter(position => hasCutFieldValue(form.get(position)));
+            if (openCut && !cutPositions.length) {
+                errEl.textContent = 'เลือกรุ่นฟิล์มอย่างน้อย 1 บานที่มีในหน้าตัดฟิล์ม';
+                errEl.hidden = false;
+                e.target.querySelector('.df-film-select')?.focus();
+                return;
+            }
+            const job = allData.find(j => j.id === currentViewJobId);
+            if (!job) {
+                errEl.textContent = 'ไม่พบคิวงานนี้ กรุณาเปิดคิวอีกครั้ง';
+                errEl.hidden = false;
+                return;
+            }
             setDetailFilmSaving(true);
             btn.textContent = 'กำลังบันทึก…';
-            const job = allData.find(j => j.id === currentViewJobId);
             const payload = {
                 sheetName: 'Detail_film',
-                JobID: job?.id || '',
-                'ขอตัดฟิล์ม': job?.customerType || '',
+                JobID: job.id,
+                'ขอตัดฟิล์ม': job.customerType || '',
                 'ยี่ห้อฟิล์ม': document.getElementById('df-brand').value,
             };
             // ถ้ามีข้อมูล Detail_film เดิมอยู่แล้ว → เป็นการ "แก้ไข" ไม่ใช่เพิ่มใหม่
             // ส่ง Detail_ID + action เพื่อให้ฝั่งเซิร์ฟเวอร์ทับแถวเดิม แทนที่จะเพิ่มแถวใหม่
-            const existingDetailId = job && job.filmDetails
+            const existingDetailId = job.filmDetails
                 ? findRowValue(job.filmDetails, ['Detail_ID', 'DetailID'])
                 : '';
             if (existingDetailId) {
@@ -6517,8 +6527,26 @@
                     btn.textContent = 'บันทึกแล้ว';
                     setTimeout(async () => {
                         document.getElementById('detailFilmModal').close();
+                        if (openCut && bookingLoadPromise) await bookingLoadPromise;
                         await fetchGoogleSheetData();
-                        if (currentViewJobId) openJobModal(currentViewJobId);
+                        if (currentViewJobId !== job.id) return;
+                        await openJobModal(job.id);
+                        if (!openCut || currentViewJobId !== job.id) return;
+                        const detail = allData.find(item => item.id === job.id)?.filmDetails;
+                        const reason = translateCutFilmReason(form.get('เหตุผลขอตัดฟิล์ม'));
+                        const confirmed = reason && translateCutFilmReason(CarInstallPositions.detailCutReason(detail)) === reason &&
+                            cutPositions.every(position => CarInstallPositions.detailValue(detail, [position]) === form.get(position).trim());
+                        if (confirmed) {
+                            openDataCutModal();
+                            document.querySelector('#dt-tableBody tr[data-prefill-reason]:not([data-prefill-reason=""]) [data-field="กว้าง"]')?.focus();
+                        } else {
+                            const notice = document.createElement('div');
+                            notice.className = 'booking-lead-toast';
+                            notice.setAttribute('role', 'status');
+                            notice.textContent = 'บันทึกแล้ว แต่ยังโหลดข้อมูลที่บันทึกกลับมาไม่ได้ รีเฟรชก่อนเปิดหน้าตัดฟิล์ม';
+                            document.body.append(notice);
+                            setTimeout(() => notice.remove(), 6000);
+                        }
                     }, 1200);
                 } else throw new Error(data.error||'เกิดข้อผิดพลาด');
             } catch(err) {
