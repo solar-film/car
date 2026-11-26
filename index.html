@@ -433,7 +433,6 @@
             -webkit-appearance: none; margin: 0;
         }
         #dt-tableBody input[type=number] { -moz-appearance: textfield; appearance: textfield; }
-        #dt-tableBody td { padding: 4px 6px !important; }
         .dt-team-dropdown summary::-webkit-details-marker { display: none; }
         .dt-team-dropdown[open] .dt-team-menu { display: block; }
             /* Compact film choices; avoid inheriting text-field sizing. */
@@ -586,6 +585,7 @@
     <link rel="stylesheet" href="booking-form-layout.css?v=20261027-type-row-1">
     <script src="booking-form-layout.js?v=20261027-pending-1" defer></script>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
+    <link rel="stylesheet" href="film-cut-form.css?v=20261126-1">
 </head>
 <body class="text-slate-800 auth-locked">
     <div id="loginScreen" class="fixed inset-0 z-[9999] min-h-screen items-center justify-center bg-slate-950 px-4">
@@ -1106,55 +1106,57 @@
     <!-- ============================================================ -->
     <!-- Data Cut Modal (กรอกข้อมูลการตัดฟิล์ม / data sheet) — port from technician.html -->
     <!-- ============================================================ -->
-    <div id="dataCutModal" class="fixed inset-0 z-[105] hidden items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-        <div class="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+    <div id="dataCutModal" role="dialog" aria-modal="true" aria-labelledby="dt-heading" class="film-cut-modal fixed inset-0 z-[105] hidden items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+        <div class="film-cut-panel flex w-full max-w-6xl flex-col overflow-hidden bg-white shadow-2xl">
             <form id="dataCutForm" class="flex min-h-0 flex-1 flex-col" onsubmit="submitDataCut(event)">
                 <!-- หัว modal -->
-                <div class="relative bg-gradient-to-r from-rose-50 via-pink-50 to-rose-50 border-b border-slate-200 px-5 py-3">
-                    <button type="button" onclick="closeDataCutModal()" class="absolute top-3 right-3 rounded-lg bg-white/80 p-1.5 text-slate-400 shadow-sm ring-1 ring-slate-200 transition hover:bg-white hover:text-slate-700">
+                <div class="film-cut-header relative border-b border-slate-200">
+                    <button type="button" onclick="closeDataCutModal()" aria-label="ปิดฟอร์มตัดฟิล์ม" class="film-cut-close absolute rounded-lg bg-white/80 p-1.5 text-slate-400 shadow-sm ring-1 ring-slate-200 transition hover:bg-white hover:text-slate-700">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
-                    <div class="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px] pr-10">
+                    <h2 id="dt-heading" class="film-cut-title">บันทึกการตัดฟิล์ม</h2>
+                    <div class="film-cut-meta flex flex-wrap items-center">
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">JobID:</span><span id="dt-jobId" class="font-bold text-rose-700"></span></div>
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">รุ่นรถ:</span><span id="dt-carModel" class="font-semibold text-slate-800"></span></div>
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">ทะเบียน:</span><span id="dt-plate" class="font-semibold text-slate-800"></span></div>
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">ลูกค้า:</span><span id="dt-customer" class="font-semibold text-slate-800"></span></div>
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">ฟิล์ม:</span><span id="dt-brandFilm" class="font-semibold text-indigo-700"></span></div>
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">ตำแหน่ง:</span><span id="dt-installType" class="font-semibold text-slate-800"></span></div>
-                        <div class="ml-auto flex items-center gap-1.5"><span class="text-slate-500">สถานะ:</span><span id="dt-customerStatus" class="inline-flex items-center rounded-lg px-2.5 py-0.5 text-sm font-bold shadow-sm">-</span></div>
+                        <div class="flex items-center gap-1.5"><span class="text-slate-500">สถานะ:</span><span id="dt-customerStatus" class="inline-flex items-center rounded-lg px-2.5 py-0.5 text-sm font-bold shadow-sm">-</span></div>
                     </div>
                 </div>
 
-                <div class="min-h-0 flex-1 overflow-auto px-6 py-4">
-                    <div class="overflow-visible rounded-xl border border-slate-300">
-                        <table class="min-w-full border-collapse text-left text-sm">
-                            <thead class="hidden md:table-header-group bg-gradient-to-r from-rose-100 to-pink-100 text-slate-800 text-xs uppercase tracking-wide">
+                <div class="film-cut-body min-h-0 flex-1">
+                    <p class="film-cut-hint">เลื่อนตารางซ้าย–ขวาเพื่อดูทุกช่อง</p>
+                    <div class="film-cut-table-scroll" role="region" aria-label="ตารางตัดฟิล์ม" tabindex="0">
+                        <table class="film-cut-table text-left">
+                            <thead>
                                 <tr>
-                                    <th class="w-[14%] border border-slate-300 px-2 py-2 font-bold">ตำแหน่งติดตั้ง</th>
-                                    <th class="w-[24%] border border-slate-300 px-2 py-2 font-bold">รุ่นฟิล์ม</th>
-                                    <th class="w-[7%] border border-slate-300 px-2 py-2 font-bold">กว้าง</th>
-                                    <th class="w-[7%] border border-slate-300 px-2 py-2 font-bold">ยาว</th>
-                                    <th class="w-[7%] border border-slate-300 px-2 py-2 font-bold">จำนวน</th>
-                                    <th class="w-[18%] border border-slate-300 px-2 py-2 font-bold">ทีมช่าง</th>
-                                    <th class="w-[23%] border border-slate-300 px-2 py-2 font-bold">เหตุผลขอตัดฟิล์ม</th>
+                                    <th scope="col">ตำแหน่งติดตั้ง</th>
+                                    <th scope="col">รุ่นฟิล์ม</th>
+                                    <th scope="col">กว้าง</th>
+                                    <th scope="col">ยาว</th>
+                                    <th scope="col">จำนวน</th>
+                                    <th scope="col">ทีมช่าง</th>
+                                    <th scope="col">เหตุผลขอตัดฟิล์ม</th>
                                 </tr>
                             </thead>
                             <tbody id="dt-tableBody" class="bg-white"></tbody>
                         </table>
                     </div>
 
-                    <div class="mt-4">
-                        <label class="mb-1.5 block text-sm font-bold text-slate-900">หมายเหตุ :</label>
-                        <textarea id="dt-note" rows="2" class="w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-4 focus:ring-rose-100" placeholder="หมายเหตุรวมของรายการนี้"></textarea>
+                    <div class="film-cut-note">
+                        <label for="dt-note" class="font-semibold text-slate-900">หมายเหตุ</label>
+                        <textarea id="dt-note" rows="1" class="w-full rounded-lg border border-slate-300 focus:border-rose-400 focus:outline-none focus:ring-4 focus:ring-rose-100" placeholder="หมายเหตุรวมของรายการนี้"></textarea>
                     </div>
                 </div>
 
-                <div class="border-t border-slate-200 bg-slate-50 px-6 py-4">
+                <div class="film-cut-footer border-t border-slate-200 bg-slate-50">
                     <p id="dt-error" role="alert" class="mb-3 hidden rounded-xl bg-rose-50 px-3 py-2 text-center text-sm font-semibold text-rose-700"></p>
                     <p id="dt-success" class="mb-3 hidden rounded-xl bg-emerald-50 px-3 py-2 text-center text-sm font-semibold text-emerald-600"></p>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="film-cut-actions">
                         <button type="button" onclick="closeDataCutModal()" class="rounded-xl border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50">ยกเลิก</button>
-                        <button type="submit" id="dt-submitBtn" class="rounded-xl bg-slate-900 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-slate-200 transition hover:bg-slate-800">บันทึก</button>
+                        <button type="submit" id="dt-submitBtn" class="rounded-lg text-sm font-bold text-white transition disabled:opacity-60">บันทึก</button>
                     </div>
                 </div>
             </form>
@@ -4334,6 +4336,7 @@
             'ประตูหน้า-ซ้าย', 'ประตูหน้า-ขวา',
             'ประตูหลัง-ซ้าย', 'ประตูหลัง-ขวา',
             'บานฟิก-ซ้าย', 'บานฟิก-ขวา',
+            'คาดหน้า',
             'ซันรูฟ-ช่อง1', 'ซันรูฟ-ช่อง2', 'ซันรูฟ-ช่อง3',
             'แครี่บอย-ซ้าย', 'แครี่บอย-ขวา', 'แครี่บอย-หลัง'
         ];
@@ -4409,7 +4412,7 @@
             }).join('') || '<div class="px-2 py-2 text-sm text-slate-400">ไม่มีรายชื่อช่าง</div>';
             const value = selectedValues.join(' , ');
             return `<details class="dt-team-dropdown relative" ontoggle="dtCloseOtherTeams(this)">
-                <summary class="flex min-h-[36px] cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm">
+                <summary aria-label="ทีมช่าง" class="flex min-h-[36px] cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm">
                     <span class="dt-team-label truncate">${escapeHtml(value)}</span>
                     <svg class="w-4 h-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </summary>
@@ -4564,24 +4567,24 @@
                 const misId = getAnyField(existing, ['MIS_ID'], '');
 
                 return `<tr data-position="${escapeHtml(pos)}" data-row-id="${escapeHtml(misId)}" class="border-b border-slate-200 last:border-b-0">
-                    <td class="border border-slate-200 font-semibold text-slate-900">${escapeHtml(pos)}</td>
+                    <th scope="row" class="border border-slate-200 font-semibold text-slate-900">${escapeHtml(pos)}</th>
                     <td class="border border-slate-200">
-                        <select data-field="รุ่นฟิล์ม" class="dt-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
+                        <select aria-label="${escapeHtml(pos)} · รุ่นฟิล์ม" data-field="รุ่นฟิล์ม" class="dt-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
                             ${dtOptionHtml(filmsForRow, film)}
                         </select>
                     </td>
                     <td class="border border-slate-200">
-                        <input data-field="กว้าง" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(width)}" class="dt-cell w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-center focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
+                        <input aria-label="${escapeHtml(pos)} · กว้าง" data-field="กว้าง" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(width)}" class="dt-cell w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-center focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
                     </td>
                     <td class="border border-slate-200">
-                        <input data-field="ยาว" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(length)}" class="dt-cell w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-center focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
+                        <input aria-label="${escapeHtml(pos)} · ยาว" data-field="ยาว" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(length)}" class="dt-cell w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-center focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
                     </td>
                     <td class="border border-slate-200">
-                        <input data-field="จำนวน" type="number" min="1" step="1" value="${escapeHtml(quantity)}" class="dt-cell w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-center focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
+                        <input aria-label="${escapeHtml(pos)} · จำนวน" data-field="จำนวน" type="number" min="1" step="1" value="${escapeHtml(quantity)}" class="dt-cell w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-center focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
                     </td>
                     <td class="border border-slate-200">${dtTeamDropdown(team)}</td>
                     <td class="border border-slate-200">
-                        <select data-field="เหตุผลขอตัดฟิล์ม" class="dt-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
+                        <select aria-label="${escapeHtml(pos)} · เหตุผลขอตัดฟิล์ม" data-field="เหตุผลขอตัดฟิล์ม" class="dt-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100">
                             ${dtOptionHtml(reasonsForRow, reasonText)}
                         </select>
                     </td>

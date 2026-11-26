@@ -99,15 +99,13 @@
         }
 
         /* ทำตารางให้กระชับ — ลด padding ของเซลล์ในตาราง damage modal */
-        #dm-tableBody td { padding: 4px 6px !important; }
-        #dm-tableBody .damage-cell { padding-top: 6px !important; padding-bottom: 6px !important; }
-        #dm-tableBody .team-check-dropdown summary { min-height: 36px !important; }
         #dm-tableBody [aria-invalid="true"] {
             border-color: #be123c !important;
             box-shadow: 0 0 0 2px #fecdd3 !important;
         }
     </style>
     <link rel="stylesheet" href="page-heading.css?v=20261002-1">
+    <link rel="stylesheet" href="film-cut-form.css?v=20261126-1">
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
     <div id="appContainer" class="flex min-h-screen">
@@ -240,56 +238,58 @@
     </div>
 
     <!-- Modal: บันทึก/แก้ไขข้อมูลความเสียหาย -->
-    <div id="damageModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-        <div class="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+    <div id="damageModal" role="dialog" aria-modal="true" aria-labelledby="dm-heading" class="film-cut-modal fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+        <div class="film-cut-panel flex w-full max-w-6xl flex-col overflow-hidden bg-white shadow-2xl">
 
             <form id="damageForm" class="flex min-h-0 flex-1 flex-col" onsubmit="submitDamage(event)">
                 <!-- หัว modal: gradient + compact info chips -->
-                <div class="relative bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 border-b border-slate-200 px-5 py-3">
-                    <button type="button" onclick="closeDamageModal()" class="absolute top-3 right-3 rounded-lg bg-white/80 p-1.5 text-slate-400 shadow-sm ring-1 ring-slate-200 transition hover:bg-white hover:text-slate-700">
+                <div class="film-cut-header relative border-b border-slate-200">
+                    <button type="button" onclick="closeDamageModal()" aria-label="ปิดฟอร์มตัดฟิล์ม" class="film-cut-close absolute rounded-lg bg-white/80 p-1.5 text-slate-400 shadow-sm ring-1 ring-slate-200 transition hover:bg-white hover:text-slate-700">
                         <i data-lucide="x" class="h-4 w-4"></i>
                     </button>
-                    <div class="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px] pr-10">
+                    <h2 id="dm-heading" class="film-cut-title">บันทึกการตัดฟิล์ม</h2>
+                    <div class="film-cut-meta flex flex-wrap items-center">
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">JobID:</span><span id="dm-jobId" class="font-bold text-blue-700"></span></div>
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">รุ่นรถ:</span><span id="dm-carModel" class="font-semibold text-slate-800"></span></div>
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">ทะเบียน:</span><span id="dm-plate" class="font-semibold text-slate-800"></span></div>
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">ลูกค้า:</span><span id="dm-customer" class="font-semibold text-slate-800"></span></div>
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">ฟิล์ม:</span><span id="dm-brandFilm" class="font-semibold text-indigo-700"></span></div>
                         <div class="flex items-center gap-1.5"><span class="text-slate-500">ตำแหน่ง:</span><span id="dm-installType" class="font-semibold text-slate-800"></span></div>
-                        <div class="ml-auto flex items-center gap-1.5"><span class="text-slate-500">สถานะ:</span><span id="dm-customerStatus" class="inline-flex items-center rounded-lg px-2.5 py-0.5 text-sm font-bold shadow-sm">-</span></div>
+                        <div class="flex items-center gap-1.5"><span class="text-slate-500">สถานะ:</span><span id="dm-customerStatus" class="inline-flex items-center rounded-lg px-2.5 py-0.5 text-sm font-bold shadow-sm">-</span></div>
                     </div>
                 </div>
 
-                <div class="min-h-0 flex-1 overflow-auto px-6 py-4">
-                    <div class="overflow-visible rounded-xl border border-slate-300">
-                        <table class="min-w-full border-collapse text-left text-sm">
-                            <thead class="hidden md:table-header-group bg-gradient-to-r from-sky-100 to-blue-100 text-slate-800 text-xs uppercase tracking-wide">
+                <div class="film-cut-body min-h-0 flex-1">
+                    <p class="film-cut-hint">เลื่อนตารางซ้าย–ขวาเพื่อดูทุกช่อง</p>
+                    <div class="film-cut-table-scroll" role="region" aria-label="ตารางตัดฟิล์ม" tabindex="0">
+                        <table class="film-cut-table text-left">
+                            <thead>
                                 <tr>
-                                    <th class="w-[14%] border border-slate-300 px-2 py-2 align-middle font-bold">ตำแหน่งติดตั้ง</th>
-                                    <th class="w-[24%] border border-slate-300 px-2 py-2 align-middle font-bold">รุ่นฟิล์ม</th>
-                                    <th class="w-[7%] border border-slate-300 px-2 py-2 align-middle font-bold">กว้าง</th>
-                                    <th class="w-[7%] border border-slate-300 px-2 py-2 align-middle font-bold">ยาว</th>
-                                    <th class="w-[7%] border border-slate-300 px-2 py-2 align-middle font-bold">จำนวน</th>
-                                    <th class="w-[18%] border border-slate-300 px-2 py-2 align-middle font-bold">ทีมช่าง</th>
-                                    <th class="w-[23%] border border-slate-300 px-2 py-2 align-middle font-bold">เหตุผลขอตัดฟิล์ม</th>
+                                    <th scope="col">ตำแหน่งติดตั้ง</th>
+                                    <th scope="col">รุ่นฟิล์ม</th>
+                                    <th scope="col">กว้าง</th>
+                                    <th scope="col">ยาว</th>
+                                    <th scope="col">จำนวน</th>
+                                    <th scope="col">ทีมช่าง</th>
+                                    <th scope="col">เหตุผลขอตัดฟิล์ม</th>
                                 </tr>
                             </thead>
                             <tbody id="dm-tableBody" class="bg-white"></tbody>
                         </table>
                     </div>
 
-                    <div class="mt-4">
-                        <label class="mb-1.5 block text-sm font-bold text-slate-900">หมายเหตุ :</label>
-                        <textarea id="dm-note" rows="2" class="w-full resize-none rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:border-sky-400 focus:outline-none focus:ring-4 focus:ring-sky-100" placeholder="หมายเหตุรวมของรายการนี้"></textarea>
+                    <div class="film-cut-note">
+                        <label for="dm-note" class="font-semibold text-slate-900">หมายเหตุ</label>
+                        <textarea id="dm-note" rows="1" class="w-full rounded-lg border border-slate-300 focus:border-sky-400 focus:outline-none focus:ring-4 focus:ring-sky-100" placeholder="หมายเหตุรวมของรายการนี้"></textarea>
                     </div>
                 </div>
 
-                <div class="border-t border-slate-200 bg-slate-50 px-6 py-4">
+                <div class="film-cut-footer border-t border-slate-200 bg-slate-50">
                     <p id="dm-error" role="alert" class="mb-3 hidden rounded-xl bg-rose-50 px-3 py-2 text-center text-sm font-semibold text-rose-700"></p>
                     <p id="dm-success" class="mb-3 hidden rounded-xl bg-emerald-50 px-3 py-2 text-center text-sm font-semibold text-emerald-600"></p>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="film-cut-actions">
                         <button type="button" onclick="closeDamageModal()" class="rounded-xl border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50">ยกเลิก</button>
-                        <button type="submit" id="dm-submitBtn" class="rounded-xl bg-slate-900 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-slate-200 transition hover:bg-slate-800">บันทึก</button>
+                        <button type="submit" id="dm-submitBtn" class="rounded-lg text-sm font-bold text-white transition disabled:opacity-60">บันทึก</button>
                     </div>
                 </div>
             </form>
@@ -382,6 +382,7 @@
             'ประตูหน้า-ซ้าย', 'ประตูหน้า-ขวา',
             'ประตูหลัง-ซ้าย', 'ประตูหลัง-ขวา',
             'บานฟิก-ซ้าย', 'บานฟิก-ขวา',
+            'คาดหน้า',
             'ซันรูฟ-ช่อง1', 'ซันรูฟ-ช่อง2', 'ซันรูฟ-ช่อง3',
             'แครี่บอย-ซ้าย', 'แครี่บอย-ขวา', 'แครี่บอย-หลัง'
         ];
@@ -396,6 +397,7 @@
             'ประตูหลัง-ขวา': ['ประตูหลัง-ขวา', 'ประตูหลังขวา', 'ประตู-หลังขวา', 'ประตู-หลัง-ขวา'],
             'บานฟิก-ซ้าย': ['บานฟิก-ซ้าย', 'บานฟิกซ้าย', 'ฟิกซ้าย', 'หูช้างซ้าย'],
             'บานฟิก-ขวา': ['บานฟิก-ขวา', 'บานฟิกขวา', 'ฟิกขวา', 'หูช้างขวา'],
+            'คาดหน้า': ['คาดหน้า'],
             'ซันรูฟ-ช่อง1': ['ซันรูฟ-ช่อง1', 'ซันรูฟช่อง1', 'ซันรูฟ1', 'sunroof1'],
             'ซันรูฟ-ช่อง2': ['ซันรูฟ-ช่อง2', 'ซันรูฟช่อง2', 'ซันรูฟ2', 'sunroof2'],
             'ซันรูฟ-ช่อง3': ['ซันรูฟ-ช่อง3', 'ซันรูฟช่อง3', 'ซันรูฟ3', 'sunroof3'],
@@ -559,7 +561,7 @@
             }).join('');
             return `
                 <details class="team-check-dropdown relative" ontoggle="handleTeamDropdownToggle(this)">
-                    <summary class="flex min-h-[40px] cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                    <summary aria-label="ทีมช่าง" class="flex min-h-[40px] cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
                         <span class="team-label truncate">${escapeHtml(label)}</span>
                         <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400"></i>
                     </summary>
@@ -1323,26 +1325,26 @@
 
                 return `
                     <tr data-position="${escapeHtml(position)}" data-row-id="${escapeHtml(id)}" class="border-b border-slate-200 last:border-b-0">
-                        <td class="border border-slate-200 px-3 py-2 font-semibold text-slate-900">${escapeHtml(position)}</td>
+                        <th scope="row" class="border border-slate-200 px-3 py-2 font-semibold text-slate-900">${escapeHtml(position)}</th>
                         <td class="border border-slate-200 px-2 py-2">
-                            <select data-field="รุ่นฟิล์ม" class="damage-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                            <select aria-label="${escapeHtml(position)} · รุ่นฟิล์ม" data-field="รุ่นฟิล์ม" class="damage-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
                                 ${optionHtml(films, film)}
                             </select>
                         </td>
                         <td class="border border-slate-200 px-2 py-2">
-                            <input data-field="กว้าง" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(width)}" class="damage-cell w-full rounded-lg border border-slate-300 px-2 py-2 text-sm text-center focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                            <input aria-label="${escapeHtml(position)} · กว้าง" data-field="กว้าง" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(width)}" class="damage-cell w-full rounded-lg border border-slate-300 px-2 py-2 text-sm text-center focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
                         </td>
                         <td class="border border-slate-200 px-2 py-2">
-                            <input data-field="ยาว" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(length)}" class="damage-cell w-full rounded-lg border border-slate-300 px-2 py-2 text-sm text-center focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                            <input aria-label="${escapeHtml(position)} · ยาว" data-field="ยาว" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHtml(length)}" class="damage-cell w-full rounded-lg border border-slate-300 px-2 py-2 text-sm text-center focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
                         </td>
                         <td class="border border-slate-200 px-2 py-2">
-                            <input data-field="จำนวน" type="number" min="1" step="1" value="${escapeHtml(quantity)}" class="damage-cell w-full rounded-lg border border-slate-300 px-2 py-2 text-sm text-center focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                            <input aria-label="${escapeHtml(position)} · จำนวน" data-field="จำนวน" type="number" min="1" step="1" value="${escapeHtml(quantity)}" class="damage-cell w-full rounded-lg border border-slate-300 px-2 py-2 text-sm text-center focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
                         </td>
                         <td class="border border-slate-200 px-2 py-2">
                             ${teamCheckboxDropdown(teams, team)}
                         </td>
                         <td class="border border-slate-200 px-2 py-2">
-                            <select data-field="เหตุผลขอตัดฟิล์ม" class="damage-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
+                            <select aria-label="${escapeHtml(position)} · เหตุผลขอตัดฟิล์ม" data-field="เหตุผลขอตัดฟิล์ม" class="damage-cell w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100">
                                 ${optionHtml(reasons, reason)}
                             </select>
                         </td>
