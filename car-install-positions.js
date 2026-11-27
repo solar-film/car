@@ -52,6 +52,39 @@
         return detailValue(detail, ['เหตุผลขอตัดฟิล์ม', 'เหตุผลตัดฟิล์ม', 'เหตุผล']);
     }
 
+    const cutReasonField = 'เหตุผลขอตัดฟิล์ม';
+    const installerDefaultReason = '🆕 ลูกค้าใหม่';
+    const cutSizeFields = ['กว้าง', 'ยาว', 'จำนวน'];
+
+    function bindCutRows(tableBody, detailReason = '') {
+        for (const row of tableBody.querySelectorAll('tr[data-position]')) {
+            const control = field => row.querySelector(`[data-field="${field}"]`);
+            const select = control(cutReasonField);
+            const initialReason = cutValue(select.value);
+            // Saved installer assignments do not record where the reason came from.
+            const savedAssignment = row.dataset.rowId && cutValue(control('ทีมช่าง')?.value)
+                && cutSizeFields.every(field => !cutValue(control(field)?.value))
+                && (initialReason === installerDefaultReason || initialReason === cutValue(detailReason));
+            if (initialReason && (initialReason === cutValue(row.dataset.prefillReason) || savedAssignment)) {
+                row.dataset.automaticCutReason = initialReason;
+            }
+
+            function markReasonEdited() {
+                if (cutValue(select.value) === initialReason) return;
+                delete row.dataset.automaticCutReason;
+                delete row.dataset.prefillReason;
+            }
+            select.addEventListener('input', markReasonEdited);
+            select.addEventListener('change', markReasonEdited);
+        }
+    }
+
+    function canSaveTeamOnly(item, formRow) {
+        const reason = cutValue(item[cutReasonField]);
+        return Boolean(cutValue(item['ทีมช่าง']) && reason && reason === formRow?.dataset.automaticCutReason
+            && cutSizeFields.every(field => !cutValue(item[field])));
+    }
+
     function shouldCollectCutRow(row, suggestedReason) {
         const reason = cutValue(row['เหตุผลขอตัดฟิล์ม']);
         return Boolean(row.MIS_ID || (reason && reason !== suggestedReason) ||
@@ -90,7 +123,7 @@
         return {receipt, cutting};
     }
 
-    const api = {beforeRoof, detailSummary, detailValue, detailCutReason, shouldCollectCutRow, isStrip, stripRowsByJob, printStrip};
+    const api = {beforeRoof, detailSummary, detailValue, detailCutReason, bindCutRows, canSaveTeamOnly, shouldCollectCutRow, isStrip, stripRowsByJob, printStrip};
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.CarInstallPositions = api;
 })(typeof window === 'undefined' ? globalThis : window);

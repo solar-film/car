@@ -786,7 +786,7 @@
     <link rel="stylesheet" href="film-cut-form.css?v=20261126-4">
     <script src="film-cut-drawer.js?v=20261126-2" defer></script>
     <link rel="stylesheet" href="car-install-details.css?v=20261126-1">
-    <script src="car-install-positions.js?v=20261126-4"></script>
+    <script src="car-install-positions.js?v=20261127-cut-rows-1"></script>
 </head>
 <body class="text-slate-800 auth-locked">
     <div id="loginScreen" class="fixed inset-0 z-[9999] min-h-screen items-center justify-center bg-slate-950 px-4">
@@ -4638,9 +4638,11 @@
 
         function validateCutRows(rows, tableBody, errorEl) {
             tableBody.querySelectorAll('[aria-invalid=true]').forEach(field => field.removeAttribute('aria-invalid'));
+            const formRows = new Map(Array.from(tableBody.querySelectorAll('tr[data-position]'), row => [row.dataset.position, row]));
             const incomplete = rows.find(row => {
                 const filled = CUT_ROW_FIELDS.filter(field => hasCutFieldValue(row[field])).length;
-                return filled > 0 && filled < CUT_ROW_FIELDS.length;
+                return filled > 0 && filled < CUT_ROW_FIELDS.length
+                    && !CarInstallPositions.canSaveTeamOnly(row, formRows.get(row['ตำแหน่งติดตั้ง']));
             });
             if (!incomplete) return true;
 
@@ -4649,8 +4651,7 @@
             errorEl.textContent = `ตำแหน่ง ${position} กรุณากรอกหรือเลือก ${missing.join(' / ')}`;
             errorEl.classList.remove('hidden');
 
-            const formRow = Array.from(tableBody.querySelectorAll('tr[data-position]'))
-                .find(row => row.dataset.position === position);
+            const formRow = formRows.get(position);
             const missingControls = missing.map(field => formRow?.querySelector(`[data-field="${field}"]`)).filter(Boolean);
             missingControls.forEach(field => {
                 field.setAttribute('aria-invalid', 'true');
@@ -4743,6 +4744,7 @@
                     </td>
                 </tr>`;
             }).join('');
+            CarInstallPositions.bindCutRows(document.getElementById('dt-tableBody'), detailReason);
 
             // Note from existing data
             const firstExisting = Object.values(existingMap).find(r => getAnyField(r, ['หมายเหตุ'], ''));

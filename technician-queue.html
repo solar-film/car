@@ -262,6 +262,7 @@
     <link rel="stylesheet" href="page-heading.css?v=20261112-1">
     <link rel="stylesheet" href="film-cut-form.css?v=20261126-4">
     <script src="film-cut-drawer.js?v=20261126-2" defer></script>
+    <script src="car-install-positions.js?v=20261127-cut-rows-1"></script>
 </head>
 <body class="min-h-screen text-slate-800">
     <main class="mx-auto flex min-h-screen w-full max-w-[1920px] flex-col px-3 py-3 sm:px-6 sm:py-5 xl:px-8">
@@ -1208,9 +1209,11 @@
 
         function validateCutRows(rows, tableBody, errorEl) {
             tableBody.querySelectorAll('[aria-invalid=true]').forEach(field => field.removeAttribute('aria-invalid'));
+            const formRows = new Map(Array.from(tableBody.querySelectorAll('tr[data-position]'), row => [row.dataset.position, row]));
             const incomplete = rows.find(row => {
                 const filled = CUT_ROW_FIELDS.filter(field => hasCutFieldValue(row[field])).length;
-                return filled > 0 && filled < CUT_ROW_FIELDS.length;
+                return filled > 0 && filled < CUT_ROW_FIELDS.length
+                    && !CarInstallPositions.canSaveTeamOnly(row, formRows.get(row['ตำแหน่งติดตั้ง']));
             });
             if (!incomplete) return true;
 
@@ -1219,8 +1222,7 @@
             errorEl.textContent = `ตำแหน่ง ${position} กรุณากรอกหรือเลือก ${missing.join(' / ')}`;
             errorEl.classList.remove('hidden');
 
-            const formRow = Array.from(tableBody.querySelectorAll('tr[data-position]'))
-                .find(row => row.dataset.position === position);
+            const formRow = formRows.get(position);
             const missingControls = missing.map(field => formRow?.querySelector(`[data-field="${field}"]`)).filter(Boolean);
             missingControls.forEach(field => {
                 field.setAttribute('aria-invalid', 'true');
@@ -1292,6 +1294,7 @@
                     </tr>
                 `;
             }).join('');
+            CarInstallPositions.bindCutRows(dom['dm-tableBody']);
             dom['dm-tableBody'].onchange = event => {
                 const select = event.target.closest('select[data-field="เหตุผลขอตัดฟิล์ม"]');
                 const cell = select && select.closest('tr')?.querySelector('[data-responsible]');
@@ -1389,7 +1392,7 @@
             const rows = collectDamageRows();
             if (!validateCutRows(rows, dom['dm-tableBody'], dom['dm-error'])) return;
 
-            const missingFilm = rows.find(row => hasCutFieldValue(row['เหตุผลขอตัดฟิล์ม']) && !hasCutFieldValue(row['รุ่นฟิล์ม']));
+            const missingFilm = rows.find(row => hasCutFieldValue(row['กว้าง']) && !hasCutFieldValue(row['รุ่นฟิล์ม']));
             if (missingFilm) {
                 dom['dm-error'].textContent = `กรุณาเลือกรุ่นฟิล์มของตำแหน่ง ${missingFilm['ตำแหน่งติดตั้ง']}`;
                 dom['dm-error'].classList.remove('hidden');
