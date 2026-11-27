@@ -180,7 +180,7 @@
         .tq-head { padding: 10px 12px; border: 1px solid #d6e4f3; border-radius: 16px; background: #fff; box-shadow: 0 6px 18px rgb(0 88 168 / 8%); }
         .tq-refresh { display: inline-flex; flex: none; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 12px; background: #0067b8; color: #fff; font-weight: 600; cursor: pointer; }
         .tq-refresh:hover { background: #005a9e; }
-        .tq-refresh:focus-visible, .tq-tab:focus-visible, .tq-cut-btn:focus-visible { outline: 3px solid rgb(0 103 184 / 35%); outline-offset: 2px; }
+        .tq-refresh:focus-visible, .tq-tab:focus-visible { outline: 3px solid rgb(0 103 184 / 35%); outline-offset: 2px; }
         .tq-ic { width: 18px; height: 18px; flex: none; }
         .tq-tabs { position: sticky; top: 0; z-index: 30; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 -2px 6px; padding: 8px 2px; background: linear-gradient(#f3f8fd 82%, rgb(243 248 253 / 0)); }
         .tq-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 62px; padding: 6px 4px; border: 1px solid #d6e4f3; border-radius: 14px; background: #fff; color: #243a5e; cursor: pointer; }
@@ -215,8 +215,6 @@
         .tq-install { display: inline-block; margin-left: 4px; padding: 0 9px; border-radius: 8px; background: #eff6fc; color: #0067b8; }
         .tq-note { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; padding: 7px 10px; border: 1px solid #fde68a; border-radius: 10px; background: #fffbeb; color: #92400e; line-height: 1.4; }
         .tq-note .tq-ic { width: 16px; height: 16px; margin-top: 2px; }
-        .tq-cut-btn { width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid #b9d3ee; border-radius: 12px; background: #fff; color: #0067b8; cursor: pointer; }
-        .tq-cut-btn:hover { background: #eff6fc; }
         .tq-meta { margin-top: 8px; color: #64748b; line-height: 1.4; overflow-wrap: anywhere; }
         .tq-empty { padding: 28px 12px; border: 1px dashed #c7d7ea; border-radius: 14px; background: #fff; color: #64748b; text-align: center; }
         @media (min-width: 1024px) {
@@ -229,7 +227,6 @@
             .tq-day-head h2 { margin: 0; color: #0f2f57 !important; }
             .tq-day-sub { color: #475569; }
             .tq-list { padding: 10px; background: #f8fbfe; }
-            .tq-cut-btn { width: auto; padding: 0 16px; }
         }
         #queueContent .tq-tab-name { font-size: 15px !important; font-weight: 700 !important; }
         #queueContent .tq-tab-count { font-size: 13px !important; font-weight: 700 !important; }
@@ -245,7 +242,6 @@
         #queueContent :is(.tq-ptype, .tq-plate) { font-size: 14px !important; }
         #queueContent .tq-install { font-size: 14px !important; font-weight: 700 !important; }
         #queueContent :is(.tq-note, .tq-note *) { font-size: 14px !important; }
-        #queueContent .tq-cut-btn { font-size: 15px !important; font-weight: 600 !important; }
         #queueContent .tq-meta { font-size: 12px !important; }
         #queueContent .tq-empty { font-size: 14px !important; }
         #queueContent :is(.ins-card-sum, .ins-card-empty, .ins-card-sum *) { font-size: 13px !important; }
@@ -961,14 +957,9 @@
                     <p class="tq-line"><i data-lucide="layers" class="tq-ic"></i><span>${escapeHtml(row.film)}${install}</span></p>
                     ${row.note && row.note !== '-' ? `<p class="tq-note"><i data-lucide="alert-circle" class="tq-ic"></i><span>${escapeHtml(row.note)}</span></p>` : ''}
                     ${installerSummaryHtml(row)}
-                        <button type="button" data-open-cut class="tq-cut-btn">บันทึกการตัดฟิล์ม</button>
                     <p class="tq-meta">${meta}</p>
                 </article>`;
             }).join('');
-            container.querySelectorAll('[data-open-cut]').forEach(button => {
-                button.addEventListener('click', () => openDamageModal(button.closest('.queue-card').dataset.jobId));
-            });
-
             // เรนเดอร์ Icons ใหม่หลังจากสร้าง HTML
             lucide.createIcons();
         }
